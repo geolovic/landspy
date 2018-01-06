@@ -14,6 +14,7 @@
 
 import gdal
 import numpy as np
+from scipy import ndimage
 import matplotlib.pyplot as plt
 
 
@@ -298,7 +299,12 @@ class Grid():
         
     def set_nodata(self, value):
         """
-        TODO Escribir documentacion
+        Changes values to nodata,  if Grid nodata is defined (whether is not None). 
+        
+        Parameters:
+        ===========
+        value : *number*, *list of values*, *array of values*
+          Value or values that will change to NoData
         """
         if not self._nodata:
             return
@@ -314,11 +320,26 @@ class Grid():
         else:
             inds = np.where(self._array == value)
             self._array[inds] = self._nodata
-        
     
-    def fill(self, output=""):
-        #TODO Crear funcion
-        pass
+    def plot(self, ax=None):
+        """
+        Plots the grid in a new Axes or in a existing one
+        
+        Parameters:
+        ===========
+        ax : *matplotlib.Axe*
+          If is not defined, the function will use plt.imshow()
+        """
+        arr = self._array.astype("float")
+        arr = np.copy(arr)
+        if self._nodata:
+            nodata = float(self._nodata)
+            ids = np.where(arr==nodata)
+            arr[ids] = np.nan
+        if ax:
+            ax.imshow(arr)
+        else:
+            plt.imshow(arr)
     
     def save(self, path):
         """
@@ -342,4 +363,70 @@ class Grid():
             raster.GetRasterBand(1).SetNoDataValue(self._nodata)
         
         raster.GetRasterBand(1).WriteArray(self._array)
+
+class DEM(Grid):
+    
+    def fill_sinks(self, four_way=False):
+        """
+        Fill sinks method adapted from  fill depressions/sinks in floating point array
         
+        Parameters:
+        ----------
+        input_array : [ndarray] Input array to be filled
+        four_way : [bool] Searchs the 4 (True) or 8 (False) adjacent cells
+        
+        Returns:
+        ----------
+        [ndarray] Filled array
+    
+        This algorithm has been adapted (with minor modifications) from the 
+        Charles Morton slow fill algorithm (with ndimage and python 3 was not slow
+        at all). 
+        
+        References
+        ----------
+        .. [3] Soile, P., Vogt, J., and Colombo, R., 2003. Carving and Adaptive
+            Drainage Enforcement of Grid Digital Elevation Models.
+            Water Resources Research, 39(12), 1366
+        .. [4] Soille, P., 1999. Morphological Image Analysis: Principles and
+            Applications, Springer-Verlag, pp. 173-174
+    
+        """
+    
+        # Set h_max to a value larger than the array maximum to ensure
+        #   that the while loop will terminate
+        h_max = self._array.max() + 100
+    
+        # Build mask of cells with data not on the edge of the image
+        # Use 3x3 square Structuring element
+        inside_mask = ndimage.morphology.binary_erosion(
+            np.isfinite(self._array),
+            structure=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool))
+    
+        # Initialize output array as max value test_array except edges
+        output_array = np.copy(self._array)
+        output_array[inside_mask] = h_max
+    
+        # Array for storing previous iteration
+        output_old_array = np.copy(self._array)
+        output_old_array[:] = 0
+    
+        # Cross structuring element
+        if four_way:
+            el = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]).astype(np.bool)
+        else:
+            el = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool)
+    
+        # Iterate until marker array doesn't change
+        while not np.array_equal(output_old_array, output_array):
+            output_old_array = np.copy(output_array)
+            output_array = np.maximum(
+                self._array,
+                ndimage.grey_erosion(output_array, size=(3, 3), footprint=el))
+
+        filled_dem = DEM()
+        filled_dem.copy_layout(self)
+        filled_dem.set_data(output_array)
+        return filled_dem
+
+                   
