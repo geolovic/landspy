@@ -240,19 +240,81 @@ class Grid():
         
     def ind_2_cell(self, ind):
         """
-        TODO Escribir documentacion
-        TODO Crear test
-        TODO Añadir funcionalidad para listas y numeros (no arrays)
+        Get row col indexes from cells ids (cells are indexed from left-to-right)
+        
+        Parameters:
+        ===========
+        ind : *number*, *list of values*, *array of values*
+            Cell index
+            
+        Return:
+        =======
+        (row, col) : Tuple with row and column indexes (or list/array of values depending on the input type)
         """
-        return np.unravel_index(ind, self._array.shape)
+        is_list = False                
+        if type(ind) == list:
+            is_list = True
+        
+        row, col = np.unravel_index(ind, self._array.shape) 
+        if is_list:
+            return (row.tolist(), col.tolist())
+        else:
+            return (row, col)
     
     def cell_2_ind(self, row, col):
         """
-        TODO Escribir documentacion
-        TODO Crear test
-        TODO Añadir funcionalidad para listas y numeros (no arrays)
+        Get cell ids from row and column indexes (cells are indexed from left-to-right)
+        
+        Parameters:
+        ===========
+        row : *number*, *list of values*, *array of values*
+            Value (or list of values) with row indexes
+        col : *number*, *list of values*, *array of values*
+            Value (or list of values) with column indexes
+            
+        Return:
+        =======
+        ind : Index of the cell at (row, col) (or list/array of ids depending on the input type)
         """
-        return np.ravel_multi_index((row, col), self._array.shape, mode='clip')
+        is_list = False                
+        if type(row) == list:
+            is_list = True
+        
+        ind = np.ravel_multi_index((row, col), self._array.shape)
+        if is_list:
+            return ind.tolist()
+        else:
+            return ind
+    
+    def set_nodata_value(self, value):
+        """
+        Sets the nodata value for the Grid
+        """
+        self._nodata = value
+        if self._tipo <= 5 and self._nodata:
+            self._nodata = int(self._nodata)
+        elif self._tipo > 5 and self._nodata:
+            self._nodata = float(self._nodata)
+        
+    def set_nodata(self, value):
+        """
+        TODO Escribir documentacion
+        """
+        if not self._nodata:
+            return
+        is_number = False
+        if type(value) == int or type(value) == float:
+            is_number = True
+        
+        if not is_number:
+            inds = np.array([])
+            for num in value:
+                idx = np.where(self._array == num)
+                self._array[idx] = self._nodata        
+        else:
+            inds = np.where(self._array == value)
+            self._array[inds] = self._nodata
+        
     
     def fill(self, output=""):
         #TODO Crear funcion
