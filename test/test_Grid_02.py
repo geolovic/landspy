@@ -16,92 +16,137 @@ from topopy import Grid
 
 MY_GRID = "data/small25.tif"
 
-class GridCopySaveTests(unittest.TestCase):
+class GridValueTests(unittest.TestCase):
     
     def setUp(self):        
-        # Create a Grid object
+        # Load test data
+        self.ids = np.load("data/MY_GRID_100rnd_id.npy")
+        self.rows = np.load("data/MY_GRID_100rnd_row.npy")
+        self.cols = np.load("data/MY_GRID_100rnd_col.npy")
+        self.xi = np.load("data/MY_GRID_100rnd_X.npy")
+        self.yi = np.load("data/MY_GRID_100rnd_Y.npy")
+        self.zi = np.load("data/MY_GRID_100rnd_Z.npy")
+        
+        # Change nodata by nans
+        self.zi = self.zi.astype("float")
+        self.zi[np.where(self.zi == -9999)] = np.nan
+        
+        # Create a DEM
         self.dem = Grid(MY_GRID)
-        
-    def test_copy_layout(self):
-        dem2 = Grid()
-        dem2.copy_layout(self.dem)
-        expected = (self.dem._size, self.dem._geot, self.dem._cellsize, 
-                    self.dem._proj, self.dem._nodata)
-        
-        computed = (dem2._size, dem2._geot, dem2._cellsize, 
-            dem2._proj, dem2._nodata)
-        
+
+    def test_get_value_01(self):
+        # Taking row, col in a nan position (88)
+        ind = 88
+        row, col = self.rows[ind], self.cols[ind]
+        computed = self.dem.get_value(row, col)
+        self.assertEqual(np.isnan(computed), True)
+
+    def test_get_value_02(self):
+        # Taking row, col in other position (with value)
+        ind = 25
+        row, col = self.rows[ind], self.cols[ind]
+        expected = self.zi[ind]
+        computed = self.dem.get_value(row, col)
         self.assertEqual(computed, expected)
         
-    def test_set_data_00(self):
-        dem = Grid()
-        data = np.arange(9).reshape((3, 3))
-        dem.set_data(data)
+    def test_get_value_03(self):
+        # Taking row, col outside array
+        row, col = 199, 133
+        self.assertRaises(IndexError, self.dem.get_value, row, col)
+    
+    def test_get_value_04(self):
+        # Taking row, col as numpy arrays
+        expected = self.zi
+        computed = self.dem.get_value(self.rows, self.cols)
+        self.assertEqual(np.nansum(computed),np.nansum(expected))
         
-        expected = ((0., 1., 0., 0., 0., -1.), 4)
-        computed = (dem.get_geotransform(), dem.get_value(1, 1))
+    def test_get_value_05(self):
+        # Taking row, col as lists
+        expected = (np.nansum(self.zi.tolist()), list)
+        res =  self.dem.get_value(self.rows.tolist(), self.cols.tolist())
+        computed = (np.nansum(res), type(res))
         self.assertEqual(computed, expected)
-        
-    def test_set_data_01(self):
-        dem = Grid()
-        dem.copy_layout(self.dem)
-        # try with an array with different size
-        dem.set_data(np.arange(9).reshape((3, 3)))
-        
-        expected = np.empty((0,0))
-        computed = dem._array
-        comparison = (computed == expected).all()
+
+    def test_xy_2_cell_01(self):
+        xi = self.xi
+        yi = self.yi
+        rows = self.rows
+        cols = self.cols
+        expected = (rows, cols)
+        computed = self.dem.xy_2_cell(xi, yi)
+        comparison = (computed[0] == expected[0]).all() and (computed[1] == expected[1]).all()
         self.assertEqual(comparison, True)
         
-    def test_set_data_02(self):
-        dem = Grid()
-        dem.copy_layout(self.dem)
-        # try with an array with different size
-        ncol, nrow = self.dem.get_size()
-        fix_arr = np.empty((nrow, ncol), dtype="float")
-        fix_arr.fill(25.)
-        dem.set_data(fix_arr)
-        computed = dem.get_value(100, 100)
-        expected = 25.
+    def test_xy_2_cell_02(self):
+        ind = np.random.randint(0, 100)
+        x = self.xi[ind]
+        y = self.yi[ind]
+        row = self.rows[ind]
+        col = self.cols[ind]
+        expected = (row, col)
+        computed = self.dem.xy_2_cell(x, y)
         self.assertEqual(computed, expected)
         
-    def test_set_value_read_array(self):
-        # First create a copy of the grid
-        dem = Grid()
-        dem.copy_layout(self.dem)
-        dem.set_data(self.dem.read_array())
-        
-        row_ids = np.random.randint(0, dem.get_size()[1], 25)
-        col_ids = np.random.randint(0, dem.get_size()[0], 25)
-        
-        computed = []
-        expected = []
-        
-        for n in range(25):
-            value = np.random.randint(888, 999)
-            dem.set_value(row_ids[n], col_ids[n], value) 
-            expected.append(value)
-            computed.append(dem.get_value(row_ids[n], col_ids[n]))
-            
+    def test_xy_2_cell_03(self):
+        xi = self.xi.tolist()
+        yi = self.yi.tolist()
+        rows = self.rows.tolist()
+        cols = self.cols.tolist()
+        expected = (rows, cols)
+        computed = self.dem.xy_2_cell(xi, yi)
         self.assertEqual(computed, expected)
         
-    def test_save(self):
-        # First create a copy of the grid
-        dem = Grid()
-        dem.copy_layout(self.dem)
-        dem.set_data(self.dem.read_array())
-        
-        # Save it
-        dem.save("data/dummy_grid.tif")
-        
-        # Open it
-        dem = Grid("data/dummy_grid.tif")
-        
-        # Take a value
-        expected = self.dem.get_value(25, 25)
-        computed = dem.get_value(25, 25)
-        
+    def test_ind_2_cell_01(self):
+        idx = np.random.randint(0, 100)
+        ind = self.ids[idx]
+        row = self.rows[idx]
+        col = self.cols[idx]
+        expected = (row, col)
+        computed = self.dem.ind_2_cell(ind)
         self.assertEqual(computed, expected)
         
+    def test_ind_2_cell_02(self):
+        ind = self.ids.tolist()
+        row = self.rows.tolist()
+        col = self.cols.tolist()
+        expected = (row, col)
+        computed = self.dem.ind_2_cell(ind)
+        self.assertEqual(computed, expected)
+        
+    def test_ind_2_cell_03(self):
+        ind = self.ids
+        row = self.rows
+        col = self.cols
+        expected = (row, col)
+        computed = self.dem.ind_2_cell(ind)
+        comparison = (computed[0] == expected[0]).all() and (computed[1] == expected[1]).all()
+        self.assertEqual(comparison, True)
+        
+    def test_cell_2_ind_01(self):
+        idx = np.random.randint(0, 100)
+        ind = self.ids[idx]
+        row = self.rows[idx]
+        col = self.cols[idx]
+        expected = ind
+        computed = self.dem.cell_2_ind(row, col)
+        self.assertEqual(computed, expected)
+        
+    def test_cell_2_ind_02(self):
+        ind = self.ids.tolist()
+        row = self.rows.tolist()
+        col = self.cols.tolist()
+        expected = ind
+        computed = self.dem.cell_2_ind(row, col)
+        self.assertEqual(computed, expected)
+        
+    def test_cell_2_ind_03(self):
+        ind = self.ids
+        row = self.rows
+        col = self.cols
+        expected = ind
+        computed = self.dem.cell_2_ind(row, col)
+        comparison = (computed == expected).all()
+        self.assertEqual(comparison, True)
+
 if __name__ == "__main__":
     unittest.main()

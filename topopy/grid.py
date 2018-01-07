@@ -17,14 +17,11 @@ import numpy as np
 from scipy import ndimage
 import matplotlib.pyplot as plt
 
-
 NTYPES = {'int8': 3, 'int16': 3, 'int32': 5, 'int64': 5, 'uint8': 1, 'uint16': 2,
           'uint32': 4, 'uint64': 4, 'float16': 6, 'float32': 6, 'float64': 7}
-GTYPES = {1: 'uint8', 2: 'uint16', 3: 'int16', 4: 'uint32', 5: 'int32', 6: 'float32', 
-          7: 'float64'}
 
 class Grid():
-    
+        
     def __init__(self, path="", band=1):
         """
         Class to manipulate rasters
@@ -46,17 +43,25 @@ class Grid():
             self._proj = raster.GetProjection()
             self._nodata = banda.GetNoDataValue()
             self._array = banda.ReadAsArray()
-            self._tipo = NTYPES[str(self._array.dtype)]
-            if self._tipo <= 5 and self._nodata:
-                self._nodata = int(self._nodata)
+            self._tipo = str(self._array.dtype)
+            self._put_nans()
         else:
-            self._size = (0, 0)
             self._geot = (0., 1., 0., 0., 0., -1.)
             self._cellsize = self._geot[1]
             self._proj = ""
             self._nodata = None
-            self._array = np.empty((0,0))
-            self._tipo = NTYPES[str(self._array.dtype)]
+            self._array = np.array([[0]], dtype="float")
+            self._tipo = str(self._array.dtype)
+            self._size = self._array.shape
+            
+    def _put_nans(self):
+        """
+        Changes nodata values by nans
+        """
+        self._array = self._array.astype("float")
+        if self._nodata:
+            inds = np.where(self._array == self._nodata)
+            self._array[inds] = np.nan
     
     def copy_layout(self, grid):
         """
@@ -73,10 +78,10 @@ class Grid():
         self._proj = grid.get_projection()
         self._nodata = grid.get_nodata()
         
-    def set_data(self, array):
+    def set_array(self, array):
         """
         Set data array for a Grid Object. 
-        If Grid is an empty Grid [get_size() = (0, 0)], data are set and its size recalculated
+        If Grid is an empty Grid [get_size() = (1, 1)], data are set and its size recalculated
         If Grid is not an empty Grid, the input array should match with Grid Size
         
         Parameters:
@@ -84,23 +89,38 @@ class Grid():
         array : *numpy array* 
           Numpy array with the data
         """
-        if self._size == (0, 0):
-            # Si hemos creado un grid vacio, le podemos especificar el array
+        # Si hemos creado un grid vacio, le podemos especificar el array
+        if self._size == (1, 1):          
             self._array = np.copy(array)
-            self._tipo = NTYPES[str(self._array.dtype)]
+            self._tipo = str(self._array.dtype)
             self._size = (array.shape[1], array.shape[0])
-            
-        elif array.shape == (self._size[1], self._size[0]):
-            # Solo se podra cambiar el array interno si las dimensiones coinciden
+            self._put_nans()       
+        # Solo se podra cambiar el array interno si las dimensiones coinciden    
+        elif array.shape == (self._size[1], self._size[0]):    
             self._array = np.copy(array)
-            self._tipo = NTYPES[str(self._array.dtype)]
-            if self._tipo <= 5 and self._nodata:
-                self._nodata = int(self._nodata)
-            elif self._tipo > 5 and self._nodata:
-                self._nodata = float(self._nodata)
+            self._tipo = str(self._array.dtype)
+            self._put_nans()
         else:
-            return
+            return 0
         
+    def read_array(self, nans=True):
+        """
+        Return the internal array of the Grid
+        
+        Parameters:
+        ==========
+        nans : *bool*
+          If True, the array is read with nan values. If False, the array is read in its original 
+          type and with nodata values instead of nans
+        """
+        if nans:
+            return self._array
+        else:
+            copyarr = np.copy(self._array)
+            if self._nodata:
+                copyarr[np.where(np.isnan(copyarr))] = self._nodata
+            return copyarr.astype(self._tipo)  
+    
     def set_value(self, row, col, value):
         """
         Set the value for a cell of the grid at (row, col)
@@ -166,13 +186,7 @@ class Grid():
         * Tx = Rotation in X axis
         * Ty = Rotation in Y axis
         """
-        return self._geot
-    
-    def read_array(self):
-        """
-        Return the internal array of the Grid
-        """
-        return self._array
+        return self._geot            
 
     def xy_2_cell(self, x, y):
         """
@@ -287,17 +301,14 @@ class Grid():
         else:
             return ind
     
-    def set_nodata_value(self, value):
+    def set_nodata(self, value):
         """
         Sets the nodata value for the Grid
         """
-        self._nodata = value
-        if self._tipo <= 5 and self._nodata:
-            self._nodata = int(self._nodata)
-        elif self._tipo > 5 and self._nodata:
-            self._nodata = float(self._nodata)
+        self._nodata = float(value)
+        self._put_nans()
         
-    def set_nodata(self, value):
+    def values_2_nodata(self, value):
         """
         Changes values to nodata,  if Grid nodata is defined (whether is not None). 
         
@@ -308,6 +319,7 @@ class Grid():
         """
         if not self._nodata:
             return
+        
         is_number = False
         if type(value) == int or type(value) == float:
             is_number = True
@@ -320,7 +332,9 @@ class Grid():
         else:
             inds = np.where(self._array == value)
             self._array[inds] = self._nodata
-    
+        
+        self._put_nans()
+        
     def plot(self, ax=None):
         """
         Plots the grid in a new Axes or in a existing one
@@ -350,19 +364,29 @@ class Grid():
         path : *str* 
           Path where new raster will be saved
         """
-        if str(self._array.dtype) not in NTYPES.keys():
-            return
+        # Check if the type of the internal array is compatible with gdal
+        if str(self._tipo) not in NTYPES.keys():
+            return 0
         else:
-            tipo = NTYPES[str(self._array.dtype)]
+            tipo = NTYPES[str(self._tipo)]
 
+        # Put back nodata values and change type
+        copyarr = np.copy(self._array)
+        if self._nodata:
+            copyarr[np.where(np.isnan(copyarr))] = self._nodata        
+        copyarr = copyarr.astype(self._tipo)
+        
+        # Prepare driver to write raster
         driver = gdal.GetDriverByName("GTiff")
         raster = driver.Create(path, self._size[0], self._size[1], 1, tipo)
+        if not raster:
+            return
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
         if self._nodata:
             raster.GetRasterBand(1).SetNoDataValue(self._nodata)
         
-        raster.GetRasterBand(1).WriteArray(self._array)
+        raster.GetRasterBand(1).WriteArray(copyarr)
 
 class DEM(Grid):
     
@@ -426,7 +450,7 @@ class DEM(Grid):
 
         filled_dem = DEM()
         filled_dem.copy_layout(self)
-        filled_dem.set_data(output_array)
+        filled_dem.set_array(output_array)
         return filled_dem
 
                    

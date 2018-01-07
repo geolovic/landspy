@@ -22,13 +22,13 @@ class DEMTests(unittest.TestCase):
         # Create a DEM object
         self.dem = DEM(MY_GRID)  
 
-    def test_fill01(self):
+    def test_fill_01(self):
         arr = np.array([[49, 36, 29, 29],
                         [32, 19, 17, 20],
                         [19, 18, 31, 39],
                         [19, 29, 42, 51]])
         dem = DEM()
-        dem.set_data(arr)
+        dem.set_array(arr)
         fill = dem.fill_sinks()
         computed = fill.read_array().tolist()
         arr = np.array([[49, 36, 29, 29],
@@ -41,13 +41,13 @@ class DEMTests(unittest.TestCase):
     
 
         
-    def test_fill02(self):
+    def test_fill_02(self):
         arr = np.array([[49, 36, 29, 29],
                         [32, 17, 12, 20],
                         [19, 17, 17, 39],
                         [19, 29, 42, 51]])
         dem = DEM()
-        dem.set_data(arr)
+        dem.set_array(arr)
         fill = dem.fill_sinks()
         computed = fill.read_array().tolist()
         arr = np.array([[49, 36, 29, 29],
