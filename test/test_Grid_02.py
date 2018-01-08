@@ -20,12 +20,12 @@ class GridValueTests(unittest.TestCase):
     
     def setUp(self):        
         # Load test data
-        self.ids = np.load("data/MY_GRID_100rnd_id.npy")
-        self.rows = np.load("data/MY_GRID_100rnd_row.npy")
-        self.cols = np.load("data/MY_GRID_100rnd_col.npy")
-        self.xi = np.load("data/MY_GRID_100rnd_X.npy")
-        self.yi = np.load("data/MY_GRID_100rnd_Y.npy")
-        self.zi = np.load("data/MY_GRID_100rnd_Z.npy")
+        self.ids = np.load("data/small25_100rnd_id.npy")
+        self.rows = np.load("data/small25_100rnd_row.npy")
+        self.cols = np.load("data/small25_100rnd_col.npy")
+        self.xi = np.load("data/small25_100rnd_X.npy")
+        self.yi = np.load("data/small25_100rnd_Y.npy")
+        self.zi = np.load("data/small25_100rnd_Z.npy")
         
         # Change nodata by nans
         self.zi = self.zi.astype("float")

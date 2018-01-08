@@ -390,6 +390,83 @@ class Grid():
 
 class DEM(Grid):
     
+    def identify_flats(self):
+        """
+        This functions returns two binary Grid objects (values 0, 1) with flats and sills. 
+        Flats are defined  as cells without downward neighboring cells. Sills are cells where 
+        flat regions spill over into lower terrain. It the DEM has nodata, they will be maintained
+        in output grids.
+        
+        Returns:
+        ----------
+        [flats, dills] : Grid objects
+        
+        References:
+        -----------
+        This algoritm is adapted from identifyflats.m by Wolfgang Schwanghart 
+        (version of 17. August, 2017) included in TopoToolbox matlab codes.
+        
+        Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions 
+        for topographic analysis. Environ. Model. Softw. 25, 770–781. 
+        https://doi.org/10.1016/j.envsoft.2009.12.002
+        
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+        MATLAB-based software for topographic analysis and modeling in Earth 
+        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+
+        """
+
+        z_arr = self._array
+        
+        # Handle nodata (nan values)
+        nans = False
+        if np.isnan(z_arr.max()):
+            nans = True
+            nans_ids = np.where(np.isnan(z_arr))
+            z_arr[nans_ids] = -9999.
+        
+        footprint = np.ones((3, 3), dtype="int")
+        
+        # Identify flats throught a image binary erosion
+        # Flats will be True where cells don't have lower neighbors
+        flats = ndimage.morphology.grey_erosion(z_arr, footprint=footprint) == z_arr
+        
+        # Remove flats from the borders
+        flats[:,0] = False
+        flats[:,-1] = False
+        flats[0,:] = False
+        flats[-1,:] = False
+        
+        # Remove flats for nodata values and cells bordering them
+        if nans:
+            flats[nans_ids] = False
+            auxmat = np.zeros(flats.shape, dtype="bool")
+            auxmat[nans_ids] = True
+            nodata_bord = ndimage.morphology.grey_dilation(auxmat, footprint=footprint)
+            flats[nodata_bord] = False
+        
+        # Identify sills
+        sills = np.empty(z_arr.shape)
+        sills.fill(-9999.)
+        sills[flats] = z_arr[flats]
+        aux_dil = ndimage.morphology.grey_dilation(sills, footprint=footprint)
+        sills = np.logical_and(aux_dil == z_arr, np.logical_not(flats))
+        if nans:
+            sills[nans_ids] = False
+        
+        # Prepare outputs (as Grid objects)
+        res = []
+        for arr in [flats, sills]:
+            grid = Grid()
+            grid.copy_layout(self)
+            grid.set_array(arr)
+            if nans:
+                grid._array[nans_ids] = np.nan
+            res.append(grid)
+        
+        return res
+
+    
     def fill_sinks(self, four_way=False):
         """
         Fill sinks method adapted from  fill depressions/sinks in floating point array
@@ -409,30 +486,35 @@ class DEM(Grid):
         
         References
         ----------
-        .. [3] Soile, P., Vogt, J., and Colombo, R., 2003. Carving and Adaptive
-            Drainage Enforcement of Grid Digital Elevation Models.
-            Water Resources Research, 39(12), 1366
-        .. [4] Soille, P., 1999. Morphological Image Analysis: Principles and
-            Applications, Springer-Verlag, pp. 173-174
+        Soile, P., Vogt, J., and Colombo, R., 2003. Carving and Adaptive
+        Drainage Enforcement of Grid Digital Elevation Models.
+        Water Resources Research, 39(12), 1366
+        
+        Soille, P., 1999. Morphological Image Analysis: Principles and
+        Applications, Springer-Verlag, pp. 173-174
     
         """
-    
+        # Change nan values to a high value (will not have)
+        copyarr = np.copy(self._array)
+        nan_inds = np.where(np.isnan(copyarr))
+        copyarr[nan_inds] = -9999.
+        
         # Set h_max to a value larger than the array maximum to ensure
         #   that the while loop will terminate
-        h_max = self._array.max() + 100
+        h_max = copyarr.max() + 100
     
         # Build mask of cells with data not on the edge of the image
         # Use 3x3 square Structuring element
         inside_mask = ndimage.morphology.binary_erosion(
-            np.isfinite(self._array),
+            np.isfinite(copyarr),
             structure=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool))
     
         # Initialize output array as max value test_array except edges
-        output_array = np.copy(self._array)
+        output_array = np.copy(copyarr)
         output_array[inside_mask] = h_max
     
         # Array for storing previous iteration
-        output_old_array = np.copy(self._array)
+        output_old_array = np.copy(copyarr)
         output_old_array[:] = 0
     
         # Cross structuring element
@@ -445,9 +527,13 @@ class DEM(Grid):
         while not np.array_equal(output_old_array, output_array):
             output_old_array = np.copy(output_array)
             output_array = np.maximum(
-                self._array,
+                copyarr,
                 ndimage.grey_erosion(output_array, size=(3, 3), footprint=el))
 
+        # Put back nodata values and change type
+        output_array[nan_inds] = self._nodata
+        output_array = output_array.astype(self._tipo)
+        # Create output filled DEM
         filled_dem = DEM()
         filled_dem.copy_layout(self)
         filled_dem.set_array(output_array)

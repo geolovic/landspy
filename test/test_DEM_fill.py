@@ -16,7 +16,7 @@ from topopy import DEM
 
 MY_GRID = "data/small25.tif"
 
-class DEMTests(unittest.TestCase):
+class DEMFillTest(unittest.TestCase):
     
     def setUp(self):               
         # Create a DEM object
@@ -59,7 +59,33 @@ class DEMTests(unittest.TestCase):
     
         self.assertEqual(computed, expected)
     
-
+    def test_fill_03(self):
+        arr = np.array([[49, 36, 29, 29],
+                        [32, 17, 12, 20],
+                        [19, 17, 19, 39],
+                        [19, 29, 42, -99]])
+        dem = DEM()
+        dem.set_nodata(-99)
+        dem.set_array(arr)
+        fill = dem.fill_sinks()
+        computed = fill.read_array(False).tolist()
+        arr = np.array([[49, 36, 29, 29],
+                        [32, 19, 19, 20],
+                        [19, 19, 19, 39],
+                        [19, 29, 42, -99]])
+        
+        expected = arr.tolist()
+    
+        self.assertEqual(computed, expected)
+        
+    def test_fill_04(self):
+        
+        dem = DEM(MY_GRID)
+        fill = dem.fill_sinks()
+        fill.save("data/dummy_fill.tif")
+        expected = (dem.get_size(), dem._tipo, dem.get_nodata())
+        computed = (fill.get_size(), fill._tipo, fill.get_nodata())
+        self.assertEqual(computed, expected)
 
 if __name__ == "__main__":
     unittest.main()
