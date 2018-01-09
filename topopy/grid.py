@@ -121,6 +121,24 @@ class Grid():
                 copyarr[np.where(np.isnan(copyarr))] = self._nodata
             return copyarr.astype(self._tipo)  
     
+    def max(self):
+        """
+        Return the maximun value of the Grid
+        """
+        return np.nanmax(self._array)
+    
+    def min(self):
+        """
+        Return the minimun value of the Grid
+        """
+        return np.nanmin(self._array)
+    
+    def mean(self):
+        """
+        Return the mean value of the Grid
+        """
+        return np.nanmean(self._array)
+    
     def set_value(self, row, col, value):
         """
         Set the value for a cell of the grid at (row, col)
@@ -167,6 +185,12 @@ class Grid():
         are not defined in the grid.
         """
         return self._nodata
+    
+    def get_nodata_pos(self):
+        """
+        Return the position of the NoData values as a tuple of two arrays (rows, columns)
+        """
+        return np.where(np.isnan(self._array))
 
     def get_cellsize(self):
         """
