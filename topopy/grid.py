@@ -121,6 +121,13 @@ class Grid():
                 copyarr[np.where(np.isnan(copyarr))] = self._nodata
             return copyarr.astype(self._tipo)  
     
+    def find(self):
+        """
+        Find the non-zero elements in the array. Return a tuple of arrays with
+        row and col positios.
+        """
+        return np.where(self._array > 0)
+    
     def max(self):
         """
         Return the maximun value of the Grid
@@ -414,7 +421,7 @@ class Grid():
 
 class DEM(Grid):
     
-    def identify_flats(self):
+    def identify_flats(self, nodata=True):
         """
         This functions returns two binary Grid objects (values 0, 1) with flats and sills. 
         Flats are defined  as cells without downward neighboring cells. Sills are cells where 
@@ -484,7 +491,7 @@ class DEM(Grid):
             grid = Grid()
             grid.copy_layout(self)
             grid.set_array(arr)
-            if nans:
+            if nodata and nans:
                 grid._array[nans_ids] = np.nan
             res.append(grid)
         

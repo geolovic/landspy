@@ -44,11 +44,33 @@ class DEMFlatTest(unittest.TestCase):
         # Compute dem flats and sills
         # Flats and sills from Grid class will have nodata values
         # (Matlab do not have)
-        flats, sills = dem.identify_flats()
+        flats, sills = dem.identify_flats(nodata=True)
         flat_arr = flats.read_array()
         sill_arr = sills.read_array()
         flat_arr[np.where(np.isnan(flat_arr))] = 0
         sill_arr[np.where(np.isnan(sill_arr))] = 0
+        
+        flats = flat_arr.astype("int8")
+        sills = sill_arr.astype("int8")
+        
+        computed = (np.array_equal(m_flats, flats),
+                    np.array_equal(m_sills, sills))
+        self.assertEqual(computed, (True, True))
+           
+    def test_identify_flats_02(self):               
+        # Create a DEM object (DEM Tunez with NoData)
+        dem = DEM("data/tunez2.tif")
+        
+        # Load matlab-derivated flats and sills
+        m_flats = np.load("data/tunez2_mlab_flats.npy")
+        m_sills = np.load("data/tunez2_mlab_sills.npy")
+        
+        # Compute dem flats and sills
+        # Flats and sills from Grid class will have nodata values
+        # (Matlab do not have)
+        flats, sills = dem.identify_flats(nodata=False)
+        flat_arr = flats.read_array()
+        sill_arr = sills.read_array()
         
         flats = flat_arr.astype("int8")
         sills = sill_arr.astype("int8")
