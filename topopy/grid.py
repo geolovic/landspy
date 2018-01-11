@@ -490,9 +490,15 @@ class DEM(Grid):
         for arr in [flats, sills]:
             grid = Grid()
             grid.copy_layout(self)
-            grid.set_array(arr)
-            if nodata and nans:
-                grid._array[nans_ids] = np.nan
+            grid.set_nodata(-99)
+            grid.set_array(arr.astype("int8"))
+            
+            if nans:
+                grid._array[nans_ids] =  np.nan
+            
+            if not nodata:
+                grid._array[nans_ids] =  0
+            
             res.append(grid)
         
         return res
