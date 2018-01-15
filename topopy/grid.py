@@ -495,9 +495,8 @@ class DEM(Grid):
             
             if nans:
                 grid._array[nans_ids] =  np.nan
-            
-            if not nodata:
-                grid._array[nans_ids] =  0
+                if not nodata:
+                    grid._array[nans_ids] =  0
             
             res.append(grid)
         
