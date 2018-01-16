@@ -12,7 +12,7 @@ import sys
 import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../")
-from topopy.p_distance import distance, cost
+from topopy.ext.pdistance import distance, cost
 
 class DistanceTest(unittest.TestCase):
     
@@ -72,7 +72,7 @@ class DistanceTest(unittest.TestCase):
 
 
 class CostTest(unittest.TestCase):
-    
+
     def test_cost_00(self):
         in_arr = np.array([[1, 0, 0, 0], 
                            [0, 0, 0, 0],
@@ -92,7 +92,7 @@ class CostTest(unittest.TestCase):
         dist = cost(in_arr, cost_surf)    
         diff = dist - rs_arr
         self.assertTrue(np.all(diff < 0.001))
-
+    
     def test_cost_01(self):
         in_arr = np.array([[0, 0, 0, 0, 0], 
                            [0, 0, 1, 0, 0],

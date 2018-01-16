@@ -12,7 +12,7 @@ import sys
 import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../")
-from topopy.c_distance import distance, cost
+from topopy.ext.distance import distance, cost
 
 
 class DistanceTest(unittest.TestCase):

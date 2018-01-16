@@ -12,7 +12,7 @@
 # Version: 1.0
 # January 15, 2018
 #
-# Last modified January 15, 2018
+# Last modified January 16, 2018
 
 import numpy as np
 cimport numpy as np
@@ -25,15 +25,20 @@ ROWADD[:] = [-1, 0, 1, 0, -1, -1, 1, 1]
 COLADD[:] = [0, 1, 0, -1, -1, 1, 1, -1]
 
 def distance(in_arr):
+    """
+    This function calculate distances for for an input array
+    
+    Parameters:
+    ===========
+    in_arr : numpy.ndarray
+      Input array with seed locations (values different from zero)
+    """
     valid_arr = in_arr.astype(np.int)
     res = _distance(valid_arr)
     return res
     
 def _distance(np.ndarray[np.int_t, ndim=2] in_arr):
-    """
-    This function receives a numpy int array and calculate distances for those
-    values different from zero
-    """
+
     cdef int nrow, ncol
     cdef int row, col, nb_row, nb_col
     cdef size_t n
@@ -94,6 +99,18 @@ def _distance(np.ndarray[np.int_t, ndim=2] in_arr):
     return np.asarray(dist_arr)
 
 def cost(in_arr, cost_arr):
+    """
+    This function calculate cost-distance for for an input array using
+    a cost surface (or friction) array
+    
+    Parameters:
+    ===========
+    in_arr : numpy.ndarray
+      Input array with seed locations (values different from zero)
+      
+    cost_arr : numpy.ndarray
+      Array with cost values (frictions)
+    """
     valid_in_arr = in_arr.astype(np.int)
     valid_cost_arr = cost_arr.astype(np.float)
     res = _cost(valid_in_arr, valid_cost_arr)
@@ -156,10 +173,10 @@ def _cost(np.ndarray[np.int_t, ndim=2] in_arr, np.ndarray[np.float_t, ndim=2] co
                     # Check if distance is larger that would be (whether cell processed before)
                     dist_arr[nb_row, nb_col] = mydist + dist_add 
 
-    # Put again zero values in seed locations
+    # Put again zero values for seed locations in distance array
     for row in range(nrow):
         for col in range(ncol):
             if in_arr[row, col] > 0:
-                in_arr[row, col] = 0
+                dist_arr[row, col] = 0
                 
     return np.asarray(dist_arr)
