@@ -27,10 +27,6 @@ class GridValueTests(unittest.TestCase):
         self.yi = np.load("data/small25_100rnd_Y.npy")
         self.zi = np.load("data/small25_100rnd_Z.npy")
         
-        # Change nodata by nans
-        self.zi = self.zi.astype("float")
-        self.zi[np.where(self.zi == -9999)] = np.nan
-        
         # Create a DEM
         self.dem = Grid(MY_GRID)
 
@@ -39,7 +35,7 @@ class GridValueTests(unittest.TestCase):
         ind = 88
         row, col = self.rows[ind], self.cols[ind]
         computed = self.dem.get_value(row, col)
-        self.assertEqual(np.isnan(computed), True)
+        self.assertEqual(computed, -9999)
 
     def test_get_value_02(self):
         # Taking row, col in other position (with value)

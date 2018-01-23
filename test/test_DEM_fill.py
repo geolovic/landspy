@@ -10,17 +10,12 @@ Testing suite for topopy Grid class
 import unittest
 import sys
 import numpy as np
+import scipy.io as sio
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import DEM
 
-MY_GRID = "data/small25.tif"
-
 class DEMFillTest(unittest.TestCase):
-    
-    def setUp(self):               
-        # Create a DEM object
-        self.dem = DEM(MY_GRID)  
 
     def test_fill_01(self):
         arr = np.array([[49, 36, 29, 29],
@@ -39,8 +34,7 @@ class DEMFillTest(unittest.TestCase):
         
         self.assertEqual(computed, expected)
     
-
-        
+  
     def test_fill_02(self):
         arr = np.array([[49, 36, 29, 29],
                         [32, 17, 12, 20],
@@ -58,7 +52,7 @@ class DEMFillTest(unittest.TestCase):
         expected = arr.tolist()
     
         self.assertEqual(computed, expected)
-    
+      
     def test_fill_03(self):
         arr = np.array([[49, 36, 29, 29],
                         [32, 17, 12, 20],
@@ -77,15 +71,46 @@ class DEMFillTest(unittest.TestCase):
         expected = arr.tolist()
     
         self.assertEqual(computed, expected)
-        
+          
     def test_fill_04(self):
+        dem = DEM("data/small25.tif")
+        fill = dem.fill_sinks().read_array().astype("int16")
         
-        dem = DEM(MY_GRID)
-        fill = dem.fill_sinks()
-        fill.save("data/dummy_fill.tif")
-        expected = (dem.get_size(), dem._tipo, dem.get_nodata())
-        computed = (fill.get_size(), fill._tipo, fill.get_nodata())
-        self.assertEqual(computed, expected)
+        mfill = sio.loadmat('data/mlab_files/fill_small25.mat')['fill']
+        mfill = mfill.astype("int16")
+        # Matlab files contain "nan" in the nodata positions
+        nodatapos = dem.get_nodata_pos()
+        mfill[nodatapos] = dem.get_nodata()
+        
+        computed = np.array_equal(fill, mfill)
+        self.assertEqual(computed, True)
+        
+    def test_fill_05(self):
+        dem = DEM("data/tunez.tif")
+        fill = dem.fill_sinks().read_array().astype("int16")
+        
+        mfill = sio.loadmat('data/mlab_files/fill_tunez.mat')['fill']
+        mfill = mfill.astype("int16")
+        # Matlab files contain "nan" in the nodata positions
+        nodatapos = dem.get_nodata_pos()
+        mfill[nodatapos] = dem.get_nodata()
+        
+        computed = np.array_equal(fill, mfill)
+        self.assertEqual(computed, True)
+        
+    def test_fill_06(self):
+        dem = DEM("data/tunez2.tif")
+        fill = dem.fill_sinks().read_array().astype("int16")
+        
+        mfill = sio.loadmat('data/mlab_files/fill_tunez2.mat')['fill']
+        mfill = mfill.astype("int16")
+        # Matlab files contain "nan" in the nodata positions
+        nodatapos = dem.get_nodata_pos()
+        mfill[nodatapos] = dem.get_nodata()
+        
+        computed = np.array_equal(fill, mfill)
+        self.assertEqual(computed, True)
+        
 
 if __name__ == "__main__":
     unittest.main()

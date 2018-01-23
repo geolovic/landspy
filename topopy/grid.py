@@ -33,9 +33,12 @@ class Grid():
         band : *str*
           Band to be open (usually don't need to be modified)
         """
-        raster = gdal.Open(path)
         
-        if raster:
+        if path:
+            raster = gdal.Open(path)
+            if not raster:
+                raise FileNotFoundError
+            
             banda = raster.GetRasterBand(band)
             self._size = (banda.XSize, banda.YSize)
             self._geot = raster.GetGeoTransform()
@@ -44,24 +47,15 @@ class Grid():
             self._nodata = banda.GetNoDataValue()
             self._array = banda.ReadAsArray()
             self._tipo = str(self._array.dtype)
-            self._put_nans()
+        
         else:
             self._geot = (0., 1., 0., 0., 0., -1.)
             self._cellsize = self._geot[1]
             self._proj = ""
             self._nodata = None
-            self._array = np.array([[0]], dtype="float")
+            self._array = np.array([[0]], dtype=np.float)
             self._tipo = str(self._array.dtype)
-            self._size = self._array.shape
-            
-    def _put_nans(self):
-        """
-        Changes nodata values by nans
-        """
-        self._array = self._array.astype("float")
-        if self._nodata:
-            inds = np.where(self._array == self._nodata)
-            self._array[inds] = np.nan
+            self._size = (self._array.shape[1], self._array.shape[0])
     
     def copy_layout(self, grid):
         """
@@ -93,33 +87,28 @@ class Grid():
         if self._size == (1, 1):          
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
-            self._size = (array.shape[1], array.shape[0])
-            self._put_nans()       
-        # Solo se podra cambiar el array interno si las dimensiones coinciden    
+            self._size = (array.shape[1], array.shape[0])    
+        # Si el grid no está vacio, solo se podra cambiar el array interno por otro de
+        # dimensiones equivalentes    
         elif array.shape == (self._size[1], self._size[0]):    
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
-            self._put_nans()
         else:
             return 0
         
-    def read_array(self, nans=True):
+    def read_array(self, ascopy=False):
         """
         Return the internal array of the Grid
         
         Parameters:
         ==========
-        nans : *bool*
-          If True, the array is read with nan values. If False, the array is read in its original 
-          type and with nodata values instead of nans
+        ascopy : *bool*
+          If True, the returned array is a memory view of the Grid original array.
         """
-        if nans:
-            return self._array
+        if ascopy:
+            return np.copy(self._array)
         else:
-            copyarr = np.copy(self._array)
-            if self._nodata:
-                copyarr[np.where(np.isnan(copyarr))] = self._nodata
-            return copyarr.astype(self._tipo)  
+            return self._array
     
     def find(self):
         """
@@ -132,19 +121,22 @@ class Grid():
         """
         Return the maximun value of the Grid
         """
-        return np.nanmax(self._array)
+        datapos = np.where(self._array != self._nodata)
+        return np.max(self._array[datapos])
     
     def min(self):
         """
         Return the minimun value of the Grid
         """
-        return np.nanmin(self._array)
+        datapos = np.where(self._array != self._nodata)
+        return np.min(self._array[datapos])
     
     def mean(self):
         """
         Return the mean value of the Grid
         """
-        return np.nanmean(self._array)
+        datapos = np.where(self._array != self._nodata)
+        return np.mean(self._array[datapos])
     
     def set_value(self, row, col, value):
         """
@@ -176,9 +168,21 @@ class Grid():
     
     def get_size(self):
         """
-        Return a tuple with the size of the grid (Xsize, Ysize)
+        Return a tuple with the size of the grid (XSize, YSize)
         """
         return self._size
+    
+    def get_dims(self):
+        """
+        Return a tuple with the size of the internal array (nrow, ncol)
+        """
+        return self._array.shape
+    
+    def get_ncells(self):
+        """
+        Return the total number of cells of the Grid
+        """
+        return self._array.size
     
     def get_projection(self):
         """
@@ -197,7 +201,7 @@ class Grid():
         """
         Return the position of the NoData values as a tuple of two arrays (rows, columns)
         """
-        return np.where(np.isnan(self._array))
+        return np.where(self._array == self._nodata)
 
     def get_cellsize(self):
         """
@@ -336,8 +340,9 @@ class Grid():
         """
         Sets the nodata value for the Grid
         """
-        self._nodata = float(value)
-        self._put_nans()
+        self._nodata = value
+        if self._nodata:
+            self._array[np.where(self._array == self._nodata)] = self._nodata
         
     def values_2_nodata(self, value):
         """
@@ -363,8 +368,6 @@ class Grid():
         else:
             inds = np.where(self._array == value)
             self._array[inds] = self._nodata
-        
-        self._put_nans()
         
     def plot(self, ax=None):
         """
@@ -400,12 +403,6 @@ class Grid():
             return 0
         else:
             tipo = NTYPES[str(self._tipo)]
-
-        # Put back nodata values and change type
-        copyarr = np.copy(self._array)
-        if self._nodata:
-            copyarr[np.where(np.isnan(copyarr))] = self._nodata        
-        copyarr = copyarr.astype(self._tipo)
         
         # Prepare driver to write raster
         driver = gdal.GetDriverByName("GTiff")
@@ -417,7 +414,7 @@ class Grid():
         if self._nodata:
             raster.GetRasterBand(1).SetNoDataValue(self._nodata)
         
-        raster.GetRasterBand(1).WriteArray(copyarr)
+        raster.GetRasterBand(1).WriteArray(self._array)
 
 class DEM(Grid):
     
@@ -430,7 +427,7 @@ class DEM(Grid):
         
         Returns:
         ----------
-        [flats, dills] : Grid objects
+        [flats, sills] : Grid objects
         
         References:
         -----------
@@ -449,14 +446,11 @@ class DEM(Grid):
 
         z_arr = self._array
         
-        # Handle nodata (nan values)
-        nans = False
-        if np.isnan(z_arr.max()):
-            nans = True
-            nans_ids = np.where(np.isnan(z_arr))
-            z_arr[nans_ids] = -9999.
+        # Change nodata to very low values
+        nodata_ids = self.get_nodata_pos()
+        z_arr[nodata_ids] = -9999
         
-        footprint = np.ones((3, 3), dtype="int")
+        footprint = np.ones((3, 3), dtype=np.int8)
         
         # Identify flats throught a image binary erosion
         # Flats will be True where cells don't have lower neighbors
@@ -469,12 +463,11 @@ class DEM(Grid):
         flats[-1,:] = False
         
         # Remove flats for nodata values and cells bordering them
-        if nans:
-            flats[nans_ids] = False
-            auxmat = np.zeros(flats.shape, dtype="bool")
-            auxmat[nans_ids] = True
-            nodata_bord = ndimage.morphology.grey_dilation(auxmat, footprint=footprint)
-            flats[nodata_bord] = False
+        flats[nodata_ids] = False
+        auxmat = np.zeros(flats.shape, dtype="bool")
+        auxmat[nodata_ids] = True
+        nodata_bord = ndimage.morphology.grey_dilation(auxmat, footprint=footprint)
+        flats[nodata_bord] = False
         
         # Identify sills
         sills = np.empty(z_arr.shape)
@@ -482,21 +475,22 @@ class DEM(Grid):
         sills[flats] = z_arr[flats]
         aux_dil = ndimage.morphology.grey_dilation(sills, footprint=footprint)
         sills = np.logical_and(aux_dil == z_arr, np.logical_not(flats))
-        if nans:
-            sills[nans_ids] = False
+        sills[nodata_ids] = False
         
         # Prepare outputs (as Grid objects)
         res = []
         for arr in [flats, sills]:
             grid = Grid()
             grid.copy_layout(self)
-            grid.set_nodata(-99)
-            grid.set_array(arr.astype("int8"))
+            grid.set_nodata(-1)
+            grid._tipo = 'int8'
+            grid.set_array(arr.astype(np.int8))
             
-            if nans:
-                grid._array[nans_ids] =  np.nan
-                if not nodata:
-                    grid._array[nans_ids] =  0
+            if nodata:
+                grid._array[nodata_ids] =  -1
+            else:
+                grid._array[nodata_ids] =  0
+                grid.set_nodata(None)
             
             res.append(grid)
         
@@ -530,10 +524,10 @@ class DEM(Grid):
         Applications, Springer-Verlag, pp. 173-174
     
         """
-        # Change nan values to a high value (will not have)
+        # Change nan values to a very low value
         copyarr = np.copy(self._array)
-        nan_inds = np.where(np.isnan(copyarr))
-        copyarr[nan_inds] = -9999.
+        nodata_pos = self.get_nodata_pos()
+        copyarr[nodata_pos] = -9999.
         
         # Set h_max to a value larger than the array maximum to ensure
         #   that the while loop will terminate
@@ -567,8 +561,8 @@ class DEM(Grid):
                 ndimage.grey_erosion(output_array, size=(3, 3), footprint=el))
 
         # Put back nodata values and change type
-        output_array[nan_inds] = self._nodata
-        output_array = output_array.astype(self._tipo)
+        if self._nodata:
+            output_array[nodata_pos] = self._nodata
         # Create output filled DEM
         filled_dem = DEM()
         filled_dem.copy_layout(self)

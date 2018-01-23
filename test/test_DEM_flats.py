@@ -10,6 +10,7 @@ Testing suite for topopy Grid class
 import unittest
 import sys
 import numpy as np
+import scipy.io as sio
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import DEM
@@ -18,67 +19,90 @@ from topopy import DEM
 class DEMFlatTest(unittest.TestCase):
     
     def test_identify_flats_00(self):               
-        # Create a DEM object
+        # Create a DEM object and make fill
         dem = DEM("data/tunez.tif")
+        fill = dem.fill_sinks()
         
-        # Load matlab-derivated flats and sills
-        m_flats = np.load("data/tunez_mlab_flats.npy")
-        m_sills = np.load("data/tunez_mlab_sills.npy")
+        # Identify flats and sills and load arrays
+        flats, sills = fill.identify_flats(nodata=False)
+        flats = flats.read_array()
+        sills = sills.read_array()
         
-        # Compute dem flats and sills
-        flats, sills = dem.identify_flats()
-        flats = flats.read_array().astype("int8")
-        sills = sills.read_array().astype("int8")
+        # Load matlab flats and sills
+        m_flats = sio.loadmat("data/mlab_files/flats_tunez.mat")['flats']
+        m_sills = sio.loadmat("data/mlab_files/sills_tunez.mat")['sills']
+        
+        # Compare
         computed = (np.array_equal(m_flats, flats),
                     np.array_equal(m_sills, sills))
         self.assertEqual(computed, (True, True))
-        
+     
     def test_identify_flats_01(self):               
-        # Create a DEM object (DEM Tunez with NoData)
+        # Create a DEM object and make fill
         dem = DEM("data/tunez2.tif")
+        fill = dem.fill_sinks()
         
-        # Load matlab-derivated flats and sills
-        m_flats = np.load("data/tunez2_mlab_flats.npy")
-        m_sills = np.load("data/tunez2_mlab_sills.npy")
+        # Identify flats and sills and load arrays
+        flats, sills = fill.identify_flats(nodata=False)
+        flats = flats.read_array()
+        sills = sills.read_array()
         
-        # Compute dem flats and sills
-        # Flats and sills from Grid class will have nodata values
-        # (Matlab do not have)
-        flats, sills = dem.identify_flats(nodata=True)
-        flat_arr = flats.read_array()
-        sill_arr = sills.read_array()
-        flat_arr[np.where(np.isnan(flat_arr))] = 0
-        sill_arr[np.where(np.isnan(sill_arr))] = 0
+        # Load matlab flats and sills
+        m_flats = sio.loadmat("data/mlab_files/flats_tunez2.mat")['flats']
+        m_sills = sio.loadmat("data/mlab_files/sills_tunez2.mat")['sills']
         
-        flats = flat_arr.astype("int8")
-        sills = sill_arr.astype("int8")
-        
+        # Compare
         computed = (np.array_equal(m_flats, flats),
                     np.array_equal(m_sills, sills))
         self.assertEqual(computed, (True, True))
-           
+      
     def test_identify_flats_02(self):               
-        # Create a DEM object (DEM Tunez with NoData)
-        dem = DEM("data/tunez2.tif")
+        # Create a DEM object and make fill
+        dem = DEM("data/small25.tif")
+        fill = dem.fill_sinks()
         
-        # Load matlab-derivated flats and sills
-        m_flats = np.load("data/tunez2_mlab_flats.npy")
-        m_sills = np.load("data/tunez2_mlab_sills.npy")
+        # Identify flats and sills and load arrays
+        flats, sills = fill.identify_flats(nodata=False)
+        flats = flats.read_array()
+        sills = sills.read_array()
         
-        # Compute dem flats and sills
-        # Flats and sills from Grid class will have nodata values
-        # (Matlab do not have)
-        flats, sills = dem.identify_flats(nodata=False)
-        flat_arr = flats.read_array()
-        sill_arr = sills.read_array()
+        # Load matlab flats and sills
+        m_flats = sio.loadmat("data/mlab_files/flats_small25.mat")['flats']
+        m_sills = sio.loadmat("data/mlab_files/sills_small25.mat")['sills']
         
-        flats = flat_arr.astype("int8")
-        sills = sill_arr.astype("int8")
-        
+        # Compare
         computed = (np.array_equal(m_flats, flats),
                     np.array_equal(m_sills, sills))
         self.assertEqual(computed, (True, True))
-
+     
+    def test_identify_flats_03(self):               
+        # Create a DEM object and make fill
+        dem = DEM("data/tunez2.tif")
+        fill = dem.fill_sinks()
+        
+        # Identify flats and sills and load arrays
+        flats, sills = fill.identify_flats(nodata=True)
+        flats_nodata = flats.get_nodata_pos()
+        sills_nodata = sills.get_nodata_pos()
+        flats = flats.read_array()
+        sills = sills.read_array()
+        
+        # Load matlab flats and sills
+        m_flats = sio.loadmat("data/mlab_files/flats_tunez2.mat")['flats']
+        m_sills = sio.loadmat("data/mlab_files/sills_tunez2.mat")['sills']
+        
+        m_flats = m_flats.astype(np.int8)
+        m_sills = m_sills.astype(np.int8)
+        
+        # Put nodata inplace
+        m_flats[flats_nodata] = -1
+        m_sills[sills_nodata] = -1
+        
+        # Compare
+        computed = (np.array_equal(m_flats, flats),
+                    np.array_equal(m_sills, sills))
+        self.assertEqual(computed, (True, True))
+      
 
 if __name__ == "__main__":
     unittest.main()
