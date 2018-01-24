@@ -13,7 +13,7 @@ import numpy as np
 import scipy.io as sio
 # Add to the path code folder and data folder
 sys.path.append("../")
-from topopy import DEM, Network
+from topopy import DEM, FlowD
 
 
 class PresillTest(unittest.TestCase):
@@ -22,7 +22,7 @@ class PresillTest(unittest.TestCase):
         # Open DEM and get flats, sills and presills
         dem = DEM('data/tunez.tif')
         flats, sills = dem.identify_flats(False)
-        fd = Network()
+        fd = FlowD()
         presills = fd._get_presills(flats, sills, dem)
         # Get MatLab Presills
         mlab_file = 'data/mlab_files/presill_tunez.mat'

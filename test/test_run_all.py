@@ -12,14 +12,11 @@ from test_Grid_01 import GridPropertyTests
 from test_Grid_02 import GridValueTests
 from test_DEM_fill import DEMFillTest
 from test_DEM_flats import DEMFlatTest
-from test_distance_cython import DistanceTest, CostTest
 
 suite1 = unittest.TestLoader().loadTestsFromTestCase(GridPropertyTests)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(GridValueTests)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(DEMFillTest)
 suite4 = unittest.TestLoader().loadTestsFromTestCase(DEMFlatTest)
-suite5 = unittest.TestLoader().loadTestsFromTestCase(DistanceTest)
-suite6 = unittest.TestLoader().loadTestsFromTestCase(CostTest)
 
-suite = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5, suite6])
+suite = unittest.TestSuite([suite1, suite2, suite3, suite4])
 unittest.TextTestRunner(verbosity=2).run(suite)

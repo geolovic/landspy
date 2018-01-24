@@ -1,21 +1,30 @@
 # -*- coding: utf-8 -*-
 
-# Grid.py
+# grid.py
 # Jose Vicente Perez Pena
 # Dpto. Geodinamica-Universidad de Granada
 # 18071 Granada, Spain
 # vperez@ugr.es // geolovic@gmail.com
 #
+# MIT License (see LICENSE file)
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified December 26, 2017
+# Last modified January 24, 2018
 
 
 import gdal
 import numpy as np
 from scipy import ndimage
-import matplotlib.pyplot as plt
+
+# This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
+# If matplotlib is not imported, Grid.plot() will not work.
+try: 
+    import matplotlib.pyplot as plt
+    PLT = True
+except Exception as e:
+    PLT = False
+
 
 NTYPES = {'int8': 3, 'int16': 3, 'int32': 5, 'int64': 5, 'uint8': 1, 'uint16': 2,
           'uint32': 4, 'uint64': 4, 'float16': 6, 'float32': 6, 'float64': 7}
@@ -378,6 +387,9 @@ class Grid():
         ax : *matplotlib.Axe*
           If is not defined, the function will use plt.imshow()
         """
+        if not PLT:
+            return
+        
         arr = self._array.astype("float")
         arr = np.copy(arr)
         if self._nodata:
@@ -411,7 +423,8 @@ class Grid():
             return
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
-        if self._nodata:
+        
+        if not self._nodata is None:
             raster.GetRasterBand(1).SetNoDataValue(self._nodata)
         
         raster.GetRasterBand(1).WriteArray(self._array)

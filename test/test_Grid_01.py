@@ -10,6 +10,7 @@ Testing suite for topopy Grid class
 import unittest
 import sys
 import numpy as np
+import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 
@@ -99,6 +100,22 @@ class GridPropertyTests(unittest.TestCase):
         expected = dem._array[[20, 30, 40, 50], [20, 30, 40, 50]]
         computed = dem2._array[[20, 30, 40, 50], [20, 30, 40, 50]]
         self.assertEqual(computed.sum(), expected.sum())
+
+    def test_save_02(self):
+        # Testing nodata with value of Zero
+        dem = Grid()
+        np.random.seed(1)
+        arr = np.random.randint(0, 100, (25, 25))
+        arr[np.where(arr%5==0)] = 0
+        dem.set_array(arr)
+        dem.set_nodata(0)
+        dem.save("data/dummy_dem.tif")
+
+        # Open with gdal
+        raster = gdal.Open("data/dummy_dem.tif")
+        banda = raster.GetRasterBand(1)
+        nodata = banda.GetNoDataValue()
+        self.assertEqual(nodata, 0)
            
     def test_values_2_nodata(self):
         dem = Grid()
