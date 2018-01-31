@@ -234,150 +234,94 @@ class Grid():
 
     def xy_2_cell(self, x, y):
         """
-        Get row col indexes coordinates from xy coordinates
+        Get row col indexes coordinates from XY coordinates
         
         Parameters:
         ===========
-        x : *number*, *list of values*, *array of values*
-            Value (or list of values) with x coordinates
-        y : *number*, *list of values*, *array of values*
-            Value (or list of values) with y coordinates
+        x : X coordinates (number, list, or numpy.ndarray)
+        y : Y coordinates (number, list, or numpy.ndarray)
             
         Return:
         =======
-        (row, col) : Tuple with row and column indexes (or list/array of values depending on the input type)
+        (row, col) : Tuple of ndarray with row and column indexes
         """
-        is_number = False
-        is_list = False
-        
-        if type(x) == int or type(x) == float:
-            is_number = True
-        
-        if type(x) == list:
-            is_list = True
-            x = np.array(x)
-            y = np.array(y)
-            
+        x = np.array(x)
+        y = np.array(y)       
         row = (self._geot[3] - y) / self._geot[1]
         col = (x - self._geot[0]) / self._geot[1]
-        
-        if is_number:
-            return int(row), int(col)
-        elif is_list:
-            return row.astype("int").tolist(), col.astype("int").tolist()
-        else:
-            return row.astype("int"), col.astype("int")
+        return row.astype(np.int32), col.astype(np.int32)
 
     def cell_2_xy(self, row, col):
         """
-        Get xy coordinates from cells (row and col values)
+        Get XY coordinates from row and column cell indexes
         
         Parameters:
         ===========
-        row : *number*, *list of values*, *array of values*
-            Value (or list of values) with row indexes
-        col : *number*, *list of values*, *array of values*
-            Value (or list of values) with column indexes
+        row : row indexes (number, list, or numpy.ndarray)
+        col : column indexes (number, list, or numpy.ndarray)
             
         Return:
         =======
-        (x, y) : Tuple of coordinates (or list/array of coordinates depending on the input type)
+        (x, y) : Tuple of ndarray with X and Y coordinates
         """
-        is_list = False                
-        if type(row) == list:
-            is_list = True
-            row = np.array(row)
-            col = np.array(col)
-        
+        row = np.array(row)
+        col = np.array(col)
         x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
         y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
-        
-        if is_list:
-            return x.tolist(), y.tolist()
-        else:
-            return x, y
+        return x, y
         
     def ind_2_cell(self, ind):
         """
-        Get row col indexes from cells ids (cells are indexed from left-to-right)
+        Get row col indexes from cells linear indexes (row-major, C-style)
         
         Parameters:
         ===========
-        ind : *number*, *list of values*, *array of values*
-            Cell index
-            
+        ind : linear indexes (number, list, or numpy.ndarray)
+        
         Return:
         =======
-        (row, col) : Tuple with row and column indexes (or list/array of values depending on the input type)
+        (row, col) : Tuple of ndarray with row and column indexes
         """
-        is_list = False                
-        if type(ind) == list:
-            is_list = True
-        
         row, col = np.unravel_index(ind, self._array.shape) 
-        if is_list:
-            return (row.tolist(), col.tolist())
-        else:
-            return (row, col)
+        return (row, col)
     
     def cell_2_ind(self, row, col):
         """
-        Get cell ids from row and column indexes (cells are indexed from left-to-right)
+        Get cell linear indexes (row-major, C-style) from row and column indexes
         
         Parameters:
         ===========
-        row : *number*, *list of values*, *array of values*
-            Value (or list of values) with row indexes
-        col : *number*, *list of values*, *array of values*
-            Value (or list of values) with column indexes
+        row : row indexes (number, list, or numpy.ndarray)
+        col : column indexes (number, list, or numpy.ndarray)
             
         Return:
         =======
-        ind : Index of the cell at (row, col) (or list/array of ids depending on the input type)
+        ind : Linear indexes (row-major, C-style)
         """
-        is_list = False                
-        if type(row) == list:
-            is_list = True
-        
         ind = np.ravel_multi_index((row, col), self._array.shape)
-        if is_list:
-            return ind.tolist()
-        else:
-            return ind
+        return ind
     
     def set_nodata(self, value):
         """
         Sets the nodata value for the Grid
         """
         self._nodata = value
-        if self._nodata:
-            self._array[np.where(self._array == self._nodata)] = self._nodata
         
     def values_2_nodata(self, value):
         """
-        Changes values to nodata,  if Grid nodata is defined (whether is not None). 
+        Change specific values to NoData (if Grid nodata is defined). 
         
         Parameters:
         ===========
-        value : *number*, *list of values*, *array of values*
-          Value or values that will change to NoData
+        value : Value or values that will be changed to NoData
         """
-        if not self._nodata:
+        if self._nodata is None:
             return
-        
-        is_number = False
-        if type(value) == int or type(value) == float:
-            is_number = True
-        
-        if not is_number:
-            inds = np.array([])
-            for num in value:
-                idx = np.where(self._array == num)
-                self._array[idx] = self._nodata        
-        else:
-            inds = np.where(self._array == value)
-            self._array[inds] = self._nodata
-        
+        value = np.array(value)
+        for val in value:
+            idx = np.where(self._array == val)
+            self._array[idx] = self._nodata        
+    
     def plot(self, ax=None):
         """
         Plots the grid in a new Axes or in a existing one
@@ -390,12 +334,11 @@ class Grid():
         if not PLT:
             return
         
-        arr = self._array.astype("float")
-        arr = np.copy(arr)
+        arr = self.read_array()
         if self._nodata:
-            nodata = float(self._nodata)
-            ids = np.where(arr==nodata)
-            arr[ids] = np.nan
+            mask = self._array == self._nodata
+            arr = np.ma.array (self._array, mask = mask)
+        
         if ax:
             ax.imshow(arr)
         else:

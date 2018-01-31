@@ -124,8 +124,9 @@ class GridPropertyTests(unittest.TestCase):
         dem.values_2_nodata([10, 11, 12, 13, 14])
         row, col = dem.ind_2_cell([10, 11, 12, 13, 14])
         computed = dem.get_value(row, col)
-        expected = [-99, -99, -99, -99, -99]
-        self.assertEqual(computed, expected)
+        expected = np.array([-99, -99, -99, -99, -99])
+        res = np.array_equal(computed, expected)
+        self.assertEqual(res, True)
 
  
 if __name__ == "__main__":

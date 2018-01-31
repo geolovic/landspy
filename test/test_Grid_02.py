@@ -86,11 +86,11 @@ class GridValueTests(unittest.TestCase):
     def test_xy_2_cell_03(self):
         xi = self.xi.tolist()
         yi = self.yi.tolist()
-        rows = self.rows.tolist()
-        cols = self.cols.tolist()
-        expected = (rows, cols)
-        computed = self.dem.xy_2_cell(xi, yi)
-        self.assertEqual(computed, expected)
+        rows = self.rows
+        cols = self.cols
+        crows, ccols = self.dem.xy_2_cell(xi, yi)
+        computed = (np.array_equal(rows, crows), np.array_equal(cols, ccols))
+        self.assertEqual(computed, (True, True))
         
     def test_ind_2_cell_01(self):
         idx = np.random.randint(0, 100)
@@ -102,12 +102,12 @@ class GridValueTests(unittest.TestCase):
         self.assertEqual(computed, expected)
         
     def test_ind_2_cell_02(self):
-        ind = self.ids.tolist()
-        row = self.rows.tolist()
-        col = self.cols.tolist()
-        expected = (row, col)
-        computed = self.dem.ind_2_cell(ind)
-        self.assertEqual(computed, expected)
+        ind = self.ids
+        row = self.rows
+        col = self.cols
+        crow, ccol = self.dem.ind_2_cell(ind)
+        computed = (np.array_equal(row, crow), np.array_equal(col, ccol))
+        self.assertEqual(computed, (True, True))
         
     def test_ind_2_cell_03(self):
         ind = self.ids
@@ -128,12 +128,13 @@ class GridValueTests(unittest.TestCase):
         self.assertEqual(computed, expected)
         
     def test_cell_2_ind_02(self):
-        ind = self.ids.tolist()
-        row = self.rows.tolist()
-        col = self.cols.tolist()
+        ind = self.ids
+        row = self.rows
+        col = self.cols
         expected = ind
         computed = self.dem.cell_2_ind(row, col)
-        self.assertEqual(computed, expected)
+        res = np.array_equal(expected, computed)
+        self.assertEqual(res, True)
         
     def test_cell_2_ind_03(self):
         ind = self.ids
