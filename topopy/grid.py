@@ -210,7 +210,10 @@ class Grid():
         """
         Return the position of the NoData values as a tuple of two arrays (rows, columns)
         """
-        return np.where(self._array == self._nodata)
+        if self._nodata is None:
+            return (np.array([], dtype=np.int), np.array([], dtype=np.int))
+        else:
+            return np.where(self._array == self._nodata)
 
     def get_cellsize(self):
         """

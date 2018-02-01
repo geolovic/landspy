@@ -13,7 +13,7 @@ def sort_pixels(dem, order="C"):
 
     cellsize = dem.get_cellsize()
     nodata_val = dem.get_nodata()
-    if not nodata_val:
+    if nodata_val is None:
         nodata_val = -9999
 
     # 01 Fill sinks
@@ -23,7 +23,7 @@ def sort_pixels(dem, order="C"):
     dem = fill
     
     # 02 Get flats and sills
-    flats, sills = identify_flats(dem)
+    flats, sills = identify_flats(dem, nodata_val)
     
     # 03 Get presills (i.e. pixels immediately upstream to sill pixels)
     presills_pos = get_presills(dem, flats, sills)
@@ -183,7 +183,7 @@ def fill_sinks(input_array, nodata_val):
     return output_array
 
 
-def identify_flats(fill_array, nodata_val=None):
+def identify_flats(fill_array, nodata_val):
     """
     This functions returns two binary Grid objects (values 0, 1) with flats and sills. 
     Flats are defined  as cells without downward neighboring cells. Sills are cells where 
