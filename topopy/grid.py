@@ -310,6 +310,15 @@ class Grid():
         """
         self._nodata = value
         
+    def nan_2_nodata(self):
+        """
+        Change nan values to NoData (if Grid nodata is defined). 
+        """
+        if self._nodata is None:
+            return
+        idx = np.isnan(self._array)
+        self._array[idx] = self._nodata
+    
     def values_2_nodata(self, value):
         """
         Change specific values to NoData (if Grid nodata is defined). 

@@ -84,11 +84,11 @@ dem.plot(ax)
 streams = fd.get_network(1000)
 streams.plot(ax)
 
-## Heads
-#row, col = get_stream_poi(fd, 1000, 'heads')
-#ax.plot(col, row, "ro")
+# Heads
+row, col = get_stream_poi(fd, 1000, 'heads')
+ax.plot(col, row, "ro")
 #
-## Confluences
-#row, col = get_stream_poi(fd, 1000, 'confluences')
-#ax.plot(col, row, "bs")
+# Confluences
+row, col = get_stream_poi(fd, 1000, 'confluences')
+ax.plot(col, row, "bs")
 

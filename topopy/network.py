@@ -474,8 +474,8 @@ class Flow():
         # Outlets coordinates are provided
         else:
             x, y = outlets
-            if not len(x) == len(y):
-                return
+#            if not len(x) == len(y):
+#                return
             row, col = self.xy_2_cell(x, y)
             inds = self.cell_2_ind(row, col)
             basin_arr = np.zeros(self._ncells, np.int)
@@ -494,7 +494,7 @@ class Flow():
         basin_arr = basin_arr.reshape(self._dims)  
         
         if asgrid:
-            return self._create_output_grid(self, basin_arr, 0)
+            return self._create_output_grid(basin_arr, 0)
         else:
             return basin_arr
             
