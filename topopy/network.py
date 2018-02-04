@@ -46,54 +46,26 @@ class Flow():
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
         
-        # Creates an empty Flow object
         if dem == "":
-            return
-        
-        # Set Network properties
-        self._dims = (dem._array.shape)
-        self._ncells = dem.get_ncells()
-        self._cellsize = dem.get_cellsize()
-        self._geot = dem.get_geotransform()
-        self._proj = dem.get_projection()
-        self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)
-        
-        # Get topologically sorted nodes (ix - givers, ixc - receivers)
-        self._ix, self._ixc = sort_pixels(dem)
-        
-        
-#        # 01 Fill sinks
-#        fill = dem.fill_sinks()
-#        topodiff = fill.read_array() -  dem.read_array()
-#        topodiff = topodiff.astype(np.float32)
-#        dem = fill
-#        
-#        # 02 Get flats and sills
-#        flats, sills = dem.identify_flats(False)
-#        
-#        # 03 Get presills (i.e. pixels immediately upstream to sill pixels)
-#        presill_pos = self._get_presills(flats, sills, dem)
-#        
-#        del sills
-#
-#        # 04 Get the auxiliar topography for the flats areas
-#        topodiff = self._get_topodiff(topodiff, flats)
-#
-#        # 05 Get the weights inside the flat areas (for the cost-distance analysis)
-#        weights = self._get_weights(flats, topodiff, presill_pos)
-#        
-#        del flats, topodiff, presill_pos
-#
-#        # 06 Sort pixels (givers)
-#        ix = self._sort_pixels(dem, weights)
-#        
-#        # 07 Get receivers
-#        ixc = self._get_receivers(ix, dem)
-#
-#        ind = ixc == ix
-#        ind = np.invert(ind)
-#        self._ix = ix[ind]
-#        self._ixc = ixc[ind]
+            # Creates an empty Flow object
+            self._dims = (0,)
+            self._ncells = 0
+            self._cellsize = 0.
+            self._geot = (0., 1., 0., 0., 0., -1.)
+            self._proj = ""
+            self._nodata_pos = np.array([])
+            self._ix = np.array([])
+            self._ixc = np.array([])
+        else:
+            # Set Network properties
+            self._dims = (dem._array.shape)
+            self._ncells = dem.get_ncells()
+            self._cellsize = dem.get_cellsize()
+            self._geot = dem.get_geotransform()
+            self._proj = dem.get_projection()
+            self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)
+            # Get topologically sorted nodes (ix - givers, ixc - receivers)
+            self._ix, self._ixc = sort_pixels(dem)
     
     def xy_2_cell(self, x, y):
         """
@@ -237,138 +209,6 @@ class Flow():
         arr = banda.ReadAsArray()
         self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
     
-    def get_stream_poi(self, threshold, kind="heads"):
-        """
-        This function find point of interest of the drainage network. These points of interest
-        can be 'heads', 'confluences' or 'outlets'.
-        
-        Parameters:
-        ===========
-        threshold : *int* 
-          Area threshold to initiate a channels (in cells)
-        kind : *str* {'heads', 'confluences', 'outlets'}
-          Kind of point of interest to return. 
-          
-        Returns:
-        ==========
-        (row, col) : *tuple*
-          Tuple of numpy nd arrays with the location of the points of interest
-          
-        References:
-        -----------
-        The algoritms to extract the point of interest have been adapted to Python 
-        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
-        derive point of interest in a really efficient way. Cite:
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
-        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-        """
-        # TODO -- Test function
-        # Check input parameters
-        if kind not in ['heads', 'confluences', 'outlets']:
-            return np.array([]), np.array([])
-        
-        # Get the Flow Accumulation and select cells that meet the threholds
-        fac = self.flow_accumulation(nodata = False).read_array()
-        w = fac > threshold
-        del fac
-        
-        # Build a sparse array with giver-receivers cells
-        w = w.ravel()
-        I   = w[self._ix]
-        ix  = self._ix[I]
-        ixc = self._ixc[I]
-        aux_vals = np.ones(ix.shape, dtype=np.int8)
-    
-        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
-        del I, ix, ixc, aux_vals # Clean up (Don't want to leave stuff in memory)
-        
-        if kind == 'heads':
-            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-            out_pos = (sum_arr == 0) & w
-        elif kind == 'confluences':
-            # Confluences will be channel cells with two or givers
-            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-            out_pos = sum_arr > 1
-        elif kind == 'outlets':
-            # Outlets will be channel cells marked only as receivers (ix) but not as givers (ixc) 
-            sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-            out_pos = (sum_arr == 0) & w  
-            
-        out_pos = out_pos.reshape(self._dims)
-        row, col = np.where(out_pos)
-        
-        return row, col    
-
-    def get_stream_order(self, threshold, kind="strahler", asgrid=True):
-        """
-        This function extract stream orders by using a determined area threshold
-    
-        Parameters:
-        ===========
-        threshold : *int* 
-          Area threshold to initiate a channels (in cells)
-        kind : *str* {'strahler', 'shreeve'}
-        asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-        """
-        if kind not in ['strahler', 'shreeve']:
-            return
-        
-        fac = self.get_flow_accumulation(nodata=False, asgrid=False)
-        w = fac > threshold
-        w = w.ravel()
-        I   = w[self._ix]
-        ix  = self._ix[I]
-        ixc = self._ixc[I]
-    
-        str_ord = np.copy(w).astype(np.int8)
-        visited = np.zeros(self._ncells, dtype=np.int8)
-    
-        if kind == 'strahler':
-            for n in range(len(ix)):
-                if (str_ord[ixc[n]] == str_ord[ix[n]]) & visited[ixc[n]]:
-                    str_ord[ixc[n]] = str_ord[ixc[n]] + 1
-                else:
-                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
-                    visited[ixc[n]] = True
-        elif kind == 'shreeve':
-            for n in range(len(ix)):
-                if visited[ixc[n]]:
-                    str_ord[ixc[n]] = str_ord[ixc[n]] + str_ord[ix[n]]
-                else:
-                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
-                    visited[ixc[n]] = True
-        str_ord = str_ord.reshape(self._dims)
-        
-        if asgrid:
-            return self._create_output_grid(str_ord, nodata_value=0)
-        else:
-            return str_ord
-
-    def get_network(self, threshold, asgrid=True):
-        """
-        This function extract a drainage network by using a determined area threshold
-
-        Parameters:
-        ===========
-        threshold : *int* 
-          Area threshold to initiate a channels (in cells)
-        asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-        """
-        # Get the Flow Accumulation and select cells that meet the threholds
-        fac = self.get_flow_accumulation(nodata = False, asgrid=False)
-        w = fac > threshold
-        w = w.astype(np.int8)
-        if asgrid:
-            return self._create_output_grid(w, 0)
-        else:
-            return w
-
     def get_flow_accumulation(self, weights=None, nodata=True, asgrid=True):
         """
         Calculates the flow accumulation from the topologically sorted pixels of the
@@ -497,7 +337,139 @@ class Flow():
             return self._create_output_grid(basin_arr, 0)
         else:
             return basin_arr
+    
+    def get_stream_poi(self, threshold, kind="heads"):
+        """
+        This function finds points of interest of the drainage network. These points of interest
+        can be 'heads', 'confluences' or 'outlets'.
+        
+        Parameters:
+        -----------
+        threshold : *int* 
+          Area threshold to initiate a channels (in cells)
+        kind : *str* {'heads', 'confluences', 'outlets'}
+          Kind of point of interest to return. 
+          
+        Returns:
+        -----------
+        (row, col) : *tuple*
+          Tuple of numpy nd arrays with the location of the points of interest
+          
+        References:
+        -----------
+        The algoritms to extract the point of interest have been adapted to Python 
+        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
+        derive point of interest in a really efficient way. Cite:
+                
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+        MATLAB-based software for topographic analysis and modeling in Earth 
+        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+        """
+        # TODO -- Test function
+        # Check input parameters
+        if kind not in ['heads', 'confluences', 'outlets']:
+            return np.array([]), np.array([])
+        
+        # Get the Flow Accumulation and select cells that meet the threholds
+        fac = self.flow_accumulation(nodata = False).read_array()
+        w = fac > threshold
+        del fac
+        
+        # Build a sparse array with giver-receivers cells
+        w = w.ravel()
+        I   = w[self._ix]
+        ix  = self._ix[I]
+        ixc = self._ixc[I]
+        aux_vals = np.ones(ix.shape, dtype=np.int8)
+    
+        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
+        del I, ix, ixc, aux_vals # Clean up (Don't want to leave stuff in memory)
+        
+        if kind == 'heads':
+            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = (sum_arr == 0) & w
+        elif kind == 'confluences':
+            # Confluences will be channel cells with two or givers
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = sum_arr > 1
+        elif kind == 'outlets':
+            # Outlets will be channel cells marked only as receivers (ix) but not as givers (ixc) 
+            sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
+            out_pos = (sum_arr == 0) & w  
             
+        out_pos = out_pos.reshape(self._dims)
+        row, col = np.where(out_pos)
+        
+        return row, col    
+
+    def get_stream_order(self, threshold, kind="strahler", asgrid=True):
+        """
+        This function extract stream orders by using a determined area threshold
+    
+        Parameters:
+        ===========
+        threshold : *int* 
+          Area threshold to initiate a channels (in cells)
+        kind : *str* {'strahler', 'shreeve'}
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+        """
+        if kind not in ['strahler', 'shreeve']:
+            return
+        
+        fac = self.get_flow_accumulation(nodata=False, asgrid=False)
+        w = fac > threshold
+        w = w.ravel()
+        I   = w[self._ix]
+        ix  = self._ix[I]
+        ixc = self._ixc[I]
+    
+        str_ord = np.copy(w).astype(np.int8)
+        visited = np.zeros(self._ncells, dtype=np.int8)
+    
+        if kind == 'strahler':
+            for n in range(len(ix)):
+                if (str_ord[ixc[n]] == str_ord[ix[n]]) & visited[ixc[n]]:
+                    str_ord[ixc[n]] = str_ord[ixc[n]] + 1
+                else:
+                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
+                    visited[ixc[n]] = True
+        elif kind == 'shreeve':
+            for n in range(len(ix)):
+                if visited[ixc[n]]:
+                    str_ord[ixc[n]] = str_ord[ixc[n]] + str_ord[ix[n]]
+                else:
+                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
+                    visited[ixc[n]] = True
+        str_ord = str_ord.reshape(self._dims)
+        
+        if asgrid:
+            return self._create_output_grid(str_ord, nodata_value=0)
+        else:
+            return str_ord
+
+    def get_network(self, threshold, asgrid=True):
+        """
+        This function extract a drainage network by using a determined area threshold
+
+        Parameters:
+        ===========
+        threshold : *int* 
+          Area threshold to initiate a channels (in cells)
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+        """
+        # Get the Flow Accumulation and select cells that meet the threholds
+        fac = self.get_flow_accumulation(nodata = False, asgrid=False)
+        w = fac > threshold
+        w = w.astype(np.int8)
+        if asgrid:
+            return self._create_output_grid(w, 0)
+        else:
+            return w
+        
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array
