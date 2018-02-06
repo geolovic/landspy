@@ -330,9 +330,10 @@ class Grid():
         """
         if self._nodata is None:
             return
+        
         if type(value) == int or type(value)==float:
             ind = np.where(self._array==value)
-            self._array[ind] = value
+            self._array[ind] = self._nodata
         else:
             for val in value:
                 ind = np.where(self._array == val)

@@ -288,7 +288,7 @@ class Flow():
         -----------
         The algoritms to extract the drainage basins have been adapted to Python 
         from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-        August, 2017). Cite:
+        August, 2017).
                 
         Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
         MATLAB-based software for topographic analysis and modeling in Earth 
@@ -314,8 +314,6 @@ class Flow():
         # Outlets coordinates are provided
         else:
             x, y = outlets
-#            if not len(x) == len(y):
-#                return
             row, col = self.xy_2_cell(x, y)
             inds = self.cell_2_ind(row, col)
             basin_arr = np.zeros(self._ncells, np.int)

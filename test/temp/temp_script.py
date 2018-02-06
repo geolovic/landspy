@@ -1,67 +1,42 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Feb  4 18:27:18 2018
+
+@author: vicen
+"""
 import numpy as np
-import gdal
-import sys
-sys.path.append("../../")
-from topopy import DEM, Grid, Flow
-import matplotlib.pyplot as plt
 
-BOTTOM = 1
-HEAD = 2
+class Array():
+    def __init__(self, arr, nodata):
+        self._array = arr
+        self._nodata = nodata
 
-# INITIAL PARAMETERS
-DIRECTION = HEAD
-threshold = 250
+arr = np.arange(16).reshape(4, 4)
 
-# Get the flow object
-dem = DEM("../data/small25.tif")
-flow = Flow()
-flow.load_gtiff("../data/small25_fd.tif")
 
-class GraphApp():
-	def __init__(self, ax, dem, flow):
-		self.ax = ax
-		self.dem = dem.read_array()
-		self.dem = self.dem.astype(np.float)
-		self.dem[dem.get_nodata_pos()] = np.nan
-		self.procc = np.empty(dem.get_dims())
-		self.procc.fill(np.nan)
-		fac = flow.flow_accumulation(False).read_array()
-		w = fac < 250
-		self.dims = flow._dims
-		self.w = np.array(w, dtype=np.float)
-		self.w[w] = np.nan
-		self.cid = ax.figure.canvas.mpl_connect('button_press_event', self.bpress)
+def values_2_nodata(arr, value):
+    """
+    Change specific values to NoData (if Grid nodata is defined). 
+    
+    Parameters:
+    ===========
+    value : Value or values that will be changed to NoData
+    """
+    if arr._nodata is None:
+        return
+    if type(value) == int or type(value)==float:
+        ind = np.where(arr._array==value)
+        arr._array[ind] = arr._nodata
+    else:
+        for val in value:
+            ind = np.where(arr._array == val)
+            arr._array[ind] = arr._nodata        
+ 
+    
+my_arr = Array(np.arange(16).reshape(4, 4), -99)
 
-		w = fac > 250
-		w = w.ravel()
-		I  = w[flow._ix]
-		self.ix  = flow._ix[I]
-		self.ixc = flow._ixc[I]
-		self.draw()
-		self.ind = 0
-		
-	def draw(self):
-		ax.imshow(self.dem)
-		#ax.imshow(self.w)
-		ax.imshow(self.procc, cmap=plt.cm.Wistia)
-		ax.figure.canvas.draw()
-
-	def process(self):
-		ind = self.ix[self.ind]
-		row, col = np.unravel_index(ind, self.dims)
-		self.procc[row, col] = 1
-		self.ind += 1
-	
-	def bpress(self, event):
-		if event.button == 1:
-			self.process()
-		if event.button == 3:
-			for n in range(20):
-				self.process()
-		self.draw()
-
-fig, ax = plt.subplots()
-mygraph = GraphApp(ax, dem, flow)
-
-plt.show()
-
+values_2_nodata(my_arr, 15)
+values_2_nodata(my_arr, [0, 1, 4])
+values_2_nodata(my_arr, np.array([5, 10]))
+print(my_arr._array)
