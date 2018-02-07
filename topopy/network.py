@@ -46,8 +46,8 @@ class Flow():
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
         
-        # Creates an empty Flow object
         if dem == "":
+<<<<<<< HEAD
             self._dims = (1, 1)
             self._ncells = 1           
             self._geot = (0., 1., 0., 0., 0., -1.)
@@ -59,15 +59,35 @@ class Flow():
         else:
             # Set Network properties
             self._dims = dem._array.shape
+=======
+            # Creates an empty Flow object
+            self._dims = (0,)
+            self._ncells = 0
+            self._cellsize = 0.
+            self._geot = (0., 1., 0., 0., 0., -1.)
+            self._proj = ""
+            self._nodata_pos = np.array([])
+            self._ix = np.array([])
+            self._ixc = np.array([])
+        else:
+            # Set Network properties
+            self._dims = (dem._array.shape)
+>>>>>>> afde7ad2bc7ae93634e3864b0fe58f188fe5a73a
             self._ncells = dem.get_ncells()
             self._cellsize = dem.get_cellsize()
             self._geot = dem.get_geotransform()
             self._proj = dem.get_projection()
             self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)
+<<<<<<< HEAD
             
             # Get topologically sorted nodes (ix - givers, ixc - receivers)
             self._ix, self._ixc = sort_pixels(dem)
 
+=======
+            # Get topologically sorted nodes (ix - givers, ixc - receivers)
+            self._ix, self._ixc = sort_pixels(dem)
+    
+>>>>>>> afde7ad2bc7ae93634e3864b0fe58f188fe5a73a
     def xy_2_cell(self, x, y):
         """
         Get row col indexes coordinates from XY coordinates
@@ -210,20 +230,147 @@ class Flow():
         arr = banda.ReadAsArray()
         self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
     
-    def get_stream_poi(self, threshold, kind="heads"):
+    def get_flow_accumulation(self, weights=None, nodata=True, asgrid=True):
         """
-        This function find point of interest of the drainage network. These points of interest
-        can be 'heads', 'confluences' or 'outlets'.
+        Calculates the flow accumulation from the topologically sorted pixels of the
+        Flow object. As pixels of the Flow objects are sorted topologically, the flow
+        accumulation can be obtained very fast with a computational time that is linearly
+        dependent on the number of cell of the DEM.
+        
+        Parameters:
+        ===========  
+        weights : *topopy.Grid*
+          Grid with weights for the flow accumulation (p.e. precipitation values)
+        nodata : *bool*
+          Boolean flag that indicates if the output flow accumulation grid will maintain NoData values. 
+          If nodata=False, nodata values will be filled with 0 and NoDataValue will set to None. 
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+
+        Reference:
+        ----------
+        Braun, J., Willett, S.D., 2013. A very efficient O(n), implicit and parallel 
+        method to solve the stream power equation governing fluvial incision and landscape 
+        evolution. Geomorphology 180–181, 170–179. 
+        """
+        # TODO -- Test function
+        if weights:
+            facc = weights.read_array()
+        else:
+            facc = np.ones(self._ncells, np.uint32)
+        
+        nix = len(self._ix)
+        for n in range(nix):
+            facc[self._ixc[n]] = facc[self._ix[n]] + facc[self._ixc[n]]
+        
+        facc = facc.reshape(self._dims)
+        if nodata:
+            nodata_val = np.iinfo(np.uint32).max
+        else:
+            nodata_val = 0
+        
+        row, col = np.unravel_index(self._nodata_pos, self._dims)
+        facc[row, col] = nodata_val
+        
+        # Get the output in form of a Grid object
+        if not nodata:
+            nodata_val = None
+        if asgrid:
+            return self._create_output_grid(facc, nodata_val)
+        else:
+            return facc
+
+    def get_drainage_basins(self, outlets=[], asgrid=True):
+        """
+        This function extracts the drainage basins for the Flow object and returns a Grid object that can
+        be saved into the disk.
         
         Parameters:
         ===========
+        outlets : *list* or *tuple*
+          List or tuple with (xi, yi) coordinate for outlets. xi and xi can be numbers, lists, or numpy.ndarrays
+          If outlets is an empty list (default) the basins will be extracted for all the outlets in the Flow object.
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+
+        Return:
+        =======
+        basins : *topopy.Grid* object with the different drainage basins.
+
+        Usage:
+        =====
+        basins = fd.drainage_basins() # Extract all the basins in the Flow objects
+        basins = fd.drainage_basins([520359.7, 4054132.2]) # Creates the basin for the outlet
+        xi = [520359.7, 519853.5]
+        yi = [4054132.2, 4054863.5]
+        basins = fd.drainage_basins((xi, yi)) # Create two basins according xi and yi coordinates
+
+        References:
+        -----------
+        The algoritms to extract the drainage basins have been adapted to Python 
+        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+        August, 2017).
+                
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+        MATLAB-based software for topographic analysis and modeling in Earth 
+        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+        """
+        temp_ix = self._ix
+        temp_ixc = self._ixc
+        
+        # If outlets are not specified, basins for all the outlets will be extracted
+        if outlets == []:
+            nbasins = 0
+            basin_arr = np.zeros(self._ncells, np.int)
+            nix = len(temp_ix)
+            for n in range(nix-1,-1,-1):
+                # If receiver is zero, add a new basin
+                if basin_arr[temp_ixc[n]] == 0:
+                    nbasins += 1
+                    basin_arr[temp_ixc[n]] = nbasins
+                
+                # Mark basin giver with the id of the basin receiver
+                basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
+                      
+        # Outlets coordinates are provided
+        else:
+            x, y = outlets
+            row, col = self.xy_2_cell(x, y)
+            inds = self.cell_2_ind(row, col)
+            basin_arr = np.zeros(self._ncells, np.int)
+            # Change basin array outlets by the basin id (starting to 1)
+            for n, inds in enumerate(inds):
+                basin_arr[inds] = n+1
+            
+            nix = len(temp_ix)
+            # Loop by all the sorted cells
+            for n in range(nix-1,-1,-1):
+                # If the basin receiver is not Zero and basin giver is zero
+                if (basin_arr[temp_ixc[n]] != 0) & (basin_arr[temp_ix[n]] == 0):
+                    # Mark giver with the basin id of the receiver
+                    basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
+        
+        basin_arr = basin_arr.reshape(self._dims)  
+        
+        if asgrid:
+            return self._create_output_grid(basin_arr, 0)
+        else:
+            return basin_arr
+    
+    def get_stream_poi(self, threshold, kind="heads"):
+        """
+        This function finds points of interest of the drainage network. These points of interest
+        can be 'heads', 'confluences' or 'outlets'.
+        
+        Parameters:
+        -----------
         threshold : *int* 
           Area threshold to initiate a channels (in cells)
         kind : *str* {'heads', 'confluences', 'outlets'}
           Kind of point of interest to return. 
           
         Returns:
-        ==========
+        -----------
         (row, col) : *tuple*
           Tuple of numpy nd arrays with the location of the points of interest
           
@@ -341,136 +488,7 @@ class Flow():
             return self._create_output_grid(w, 0)
         else:
             return w
-
-    def get_flow_accumulation(self, weights=None, nodata=True, asgrid=True):
-        """
-        Calculates the flow accumulation from the topologically sorted pixels of the
-        Flow object. As pixels of the Flow objects are sorted topologically, the flow
-        accumulation can be obtained very fast with a computational time that is linearly
-        dependent on the number of cell of the DEM.
         
-        Parameters:
-        ===========  
-        weights : *topopy.Grid*
-          Grid with weights for the flow accumulation (p.e. precipitation values)
-        nodata : *bool*
-          Boolean flag that indicates if the output flow accumulation grid will maintain NoData values. 
-          If nodata=False, nodata values will be filled with 0 and NoDataValue will set to None. 
-        asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-
-        Reference:
-        ----------
-        Braun, J., Willett, S.D., 2013. A very efficient O(n), implicit and parallel 
-        method to solve the stream power equation governing fluvial incision and landscape 
-        evolution. Geomorphology 180–181, 170–179. 
-        """
-        # TODO -- Test function
-        if weights:
-            facc = weights.read_array()
-        else:
-            facc = np.ones(self._ncells, np.uint32)
-        
-        nix = len(self._ix)
-        for n in range(nix):
-            facc[self._ixc[n]] = facc[self._ix[n]] + facc[self._ixc[n]]
-        
-        facc = facc.reshape(self._dims)
-        if nodata:
-            nodata_val = np.iinfo(np.uint32).max
-        else:
-            nodata_val = 0
-        
-        row, col = np.unravel_index(self._nodata_pos, self._dims)
-        facc[row, col] = nodata_val
-        
-        # Get the output in form of a Grid object
-        if not nodata:
-            nodata_val = None
-        if asgrid:
-            return self._create_output_grid(facc, nodata_val)
-        else:
-            return facc
-
-    def get_drainage_basins(self, outlets=[], asgrid=True):
-        """
-        This function extracts the drainage basins for the Flow object and returns a Grid object that can
-        be saved into the disk.
-        
-        Parameters:
-        ===========
-        outlets : *list* or *tuple*
-          List or tuple with (xi, yi) coordinate for outlets. xi and xi can be numbers, lists, or numpy.ndarrays
-          If outlets is an empty list (default) the basins will be extracted for all the outlets in the Flow object.
-        asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-
-        Return:
-        =======
-        basins : *topopy.Grid* object with the different drainage basins.
-
-        Usage:
-        =====
-        basins = fd.drainage_basins() # Extract all the basins in the Flow objects
-        basins = fd.drainage_basins([520359.7, 4054132.2]) # Creates the basin for the outlet
-        xi = [520359.7, 519853.5]
-        yi = [4054132.2, 4054863.5]
-        basins = fd.drainage_basins((xi, yi)) # Create two basins according xi and yi coordinates
-
-        References:
-        -----------
-        The algoritms to extract the drainage basins have been adapted to Python 
-        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-        August, 2017). Cite:
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
-        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-        """
-        temp_ix = self._ix
-        temp_ixc = self._ixc
-        
-        # If outlets are not specified, basins for all the outlets will be extracted
-        if outlets == []:
-            nbasins = 0
-            basin_arr = np.zeros(self._ncells, np.int)
-            nix = len(temp_ix)
-            for n in range(nix-1,-1,-1):
-                # If receiver is zero, add a new basin
-                if basin_arr[temp_ixc[n]] == 0:
-                    nbasins += 1
-                    basin_arr[temp_ixc[n]] = nbasins
-                
-                # Mark basin giver with the id of the basin receiver
-                basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
-                      
-        # Outlets coordinates are provided
-        else:
-            x, y = outlets
-#            if not len(x) == len(y):
-#                return
-            row, col = self.xy_2_cell(x, y)
-            inds = self.cell_2_ind(row, col)
-            basin_arr = np.zeros(self._ncells, np.int)
-            # Change basin array outlets by the basin id (starting to 1)
-            for n, inds in enumerate(inds):
-                basin_arr[inds] = n+1
-            
-            nix = len(temp_ix)
-            # Loop by all the sorted cells
-            for n in range(nix-1,-1,-1):
-                # If the basin receiver is not Zero and basin giver is zero
-                if (basin_arr[temp_ixc[n]] != 0) & (basin_arr[temp_ix[n]] == 0):
-                    # Mark giver with the basin id of the receiver
-                    basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
-        
-        basin_arr = basin_arr.reshape(self._dims)  
-        
-        if asgrid:
-            return self._create_output_grid(basin_arr, 0)
-        else:
-            return basin_arr
-            
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array

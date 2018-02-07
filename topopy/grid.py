@@ -40,7 +40,7 @@ class Grid():
         path : *str* 
           Path to the raster
         band : *str*
-          Band to be open (usually don't need to be modified)
+          Raster band to be open (usually don't need to be modified)
         """
         
         if path:
@@ -83,9 +83,9 @@ class Grid():
         
     def set_array(self, array):
         """
-        Set data array for a Grid Object. 
-        If Grid is an empty Grid [get_size() = (1, 1)], data are set and its size recalculated
-        If Grid is not an empty Grid, the input array should match with Grid Size
+        Set the data array for the current Grid object. 
+        If the current Grid is an empty Grid [get_size( ) = (1, 1)], data are set and its size recalculated
+        If The current Grid is not an empty Grid, the input array should match with Grid Size
         
         Parameters:
         ================
@@ -107,12 +107,16 @@ class Grid():
         
     def read_array(self, ascopy=False):
         """
-        Return the internal array of the Grid
+        Reads the internal array of the Grid instace
         
         Parameters:
         ==========
         ascopy : *bool*
           If True, the returned array is a memory view of the Grid original array.
+        
+        Return:
+        =======
+        **np.array** Internal array of the current Grid object
         """
         if ascopy:
             return np.copy(self._array)
@@ -122,7 +126,7 @@ class Grid():
     def find(self):
         """
         Find the non-zero elements in the array. Return a tuple of arrays with
-        row and col positios.
+        row and col positions.
         """
         return np.where(self._array > 0)
     
@@ -150,7 +154,6 @@ class Grid():
     def set_value(self, row, col, value):
         """
         Set the value for a cell of the grid at (row, col)
-        Input value will be converted to array datatype
         
         Parameters:
         ================
@@ -163,17 +166,14 @@ class Grid():
     
     def get_value(self, row, col):
         """
-        Get the value for a cell of the grid at (row, col)
+        Get the value for a cell/s of the grid at (row, col)
         
         Parameters:
         ================
-        row, col : *int* 
+        row, col : *int* *np.array*
           Row and column indexes
         """
-        if type(row) == list:
-            return self._array[row, col].tolist()
-        else:    
-            return self._array[row, col]
+        return self._array[row, col]
     
     def get_size(self):
         """
@@ -237,7 +237,7 @@ class Grid():
 
     def xy_2_cell(self, x, y):
         """
-        Get row col indexes coordinates from XY coordinates
+        Get row col indexes from XY coordinates
         
         Parameters:
         ===========
@@ -246,7 +246,7 @@ class Grid():
             
         Return:
         =======
-        (row, col) : Tuple of ndarray with row and column indexes
+        (row, col) : Tuple with (row, col) indices as np.ndarrays
         """
         x = np.array(x)
         y = np.array(y)       
@@ -256,7 +256,7 @@ class Grid():
 
     def cell_2_xy(self, row, col):
         """
-        Get XY coordinates from row and column cell indexes
+        Get XY coordinates from (row, col) cell indexes
         
         Parameters:
         ===========
@@ -265,7 +265,8 @@ class Grid():
             
         Return:
         =======
-        (x, y) : Tuple of ndarray with X and Y coordinates
+        (x, y) : Tuple with (x, y) coordinates as np.ndarrays
+
         """
         row = np.array(row)
         col = np.array(col)
@@ -273,36 +274,36 @@ class Grid():
         y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
         return x, y
         
-    def ind_2_cell(self, ind):
+    def ind_2_cell(self, ind, order="C"):
         """
         Get row col indexes from cells linear indexes (row-major, C-style)
         
         Parameters:
         ===========
         ind : linear indexes (number, list, or numpy.ndarray)
+        order : {'C', 'F'}, Row-major (C-style) or column-major (Fortran-style) order of indexes
         
         Return:
         =======
-        (row, col) : Tuple of ndarray with row and column indexes
+        Tuple with (row, col) indices as np.ndarrays
         """
-        row, col = np.unravel_index(ind, self._array.shape) 
-        return (row, col)
+        return np.unravel_index(ind, self._array.shape, order=order) 
     
-    def cell_2_ind(self, row, col):
+    def cell_2_ind(self, row, col, order="C"):
         """
-        Get cell linear indexes (row-major, C-style) from row and column indexes
+        Get cell linear indexes (row-major C-style or column-major F-style) from row and column indexes
         
         Parameters:
         ===========
         row : row indexes (number, list, or numpy.ndarray)
         col : column indexes (number, list, or numpy.ndarray)
+        order : {'C', 'F'}, Row-major (C-style) or column-major (Fortran-style) order for indexes
             
         Return:
         =======
-        ind : Linear indexes (row-major, C-style)
+        Linear indexes (row-major, C-style or column-major Fortran-style)
         """
-        ind = np.ravel_multi_index((row, col), self._array.shape)
-        return ind
+        return np.ravel_multi_index((row, col), self._array.shape, oder=order)
     
     def set_nodata(self, value):
         """
@@ -329,10 +330,14 @@ class Grid():
         """
         if self._nodata is None:
             return
-        value = np.array(value)
-        for val in value:
-            idx = np.where(self._array == val)
-            self._array[idx] = self._nodata        
+        
+        if type(value) == int or type(value)==float:
+            ind = np.where(self._array==value)
+            self._array[ind] = self._nodata
+        else:
+            for val in value:
+                ind = np.where(self._array == val)
+                self._array[ind] = self._nodata        
     
     def plot(self, ax=None):
         """
