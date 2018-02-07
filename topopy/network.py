@@ -48,53 +48,26 @@ class Flow():
         
         # Creates an empty Flow object
         if dem == "":
-            return
-        
-        # Set Network properties
-        self._dims = (dem._array.shape)
-        self._ncells = dem.get_ncells()
-        self._cellsize = dem.get_cellsize()
-        self._geot = dem.get_geotransform()
-        self._proj = dem.get_projection()
-        self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)
-        
-        # Get topologically sorted nodes (ix - givers, ixc - receivers)
-        self._ix, self._ixc = sort_pixels(dem)
-        
-        
-#        # 01 Fill sinks
-#        fill = dem.fill_sinks()
-#        topodiff = fill.read_array() -  dem.read_array()
-#        topodiff = topodiff.astype(np.float32)
-#        dem = fill
-#        
-#        # 02 Get flats and sills
-#        flats, sills = dem.identify_flats(False)
-#        
-#        # 03 Get presills (i.e. pixels immediately upstream to sill pixels)
-#        presill_pos = self._get_presills(flats, sills, dem)
-#        
-#        del sills
-#
-#        # 04 Get the auxiliar topography for the flats areas
-#        topodiff = self._get_topodiff(topodiff, flats)
-#
-#        # 05 Get the weights inside the flat areas (for the cost-distance analysis)
-#        weights = self._get_weights(flats, topodiff, presill_pos)
-#        
-#        del flats, topodiff, presill_pos
-#
-#        # 06 Sort pixels (givers)
-#        ix = self._sort_pixels(dem, weights)
-#        
-#        # 07 Get receivers
-#        ixc = self._get_receivers(ix, dem)
-#
-#        ind = ixc == ix
-#        ind = np.invert(ind)
-#        self._ix = ix[ind]
-#        self._ixc = ixc[ind]
-    
+            self._dims = (1, 1)
+            self._ncells = 1           
+            self._geot = (0., 1., 0., 0., 0., -1.)
+            self._cellsize = self._geot[1]
+            self._proj = ""
+            self._nodata_pos = np.array([], dtype=np.int32)
+            self._ix = np.array([], dtype=np.int32)
+            self._ixc = np.array([], dtype=np.int32)
+        else:
+            # Set Network properties
+            self._dims = dem._array.shape
+            self._ncells = dem.get_ncells()
+            self._cellsize = dem.get_cellsize()
+            self._geot = dem.get_geotransform()
+            self._proj = dem.get_projection()
+            self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)
+            
+            # Get topologically sorted nodes (ix - givers, ixc - receivers)
+            self._ix, self._ixc = sort_pixels(dem)
+
     def xy_2_cell(self, x, y):
         """
         Get row col indexes coordinates from XY coordinates
