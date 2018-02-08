@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 26 13:58:02 2017
+Created on Thrusday 08 Feb 2018
 Testing suite for topopy Flow class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
@@ -10,83 +10,39 @@ Testing suite for topopy Flow class
 import unittest
 import sys
 import numpy as np
-import scipy.io as sio
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import DEM, Flow
 
-
 class CreateFlow(unittest.TestCase):
     
-    def test_presill(self):
+    def test_create_load(self):
         # Create Flow object
-        in_dems = ['tunez', 'tunez2', 'small25']
-        
-        for path_dem in in_dems:
-            dem = DEM('data/' + path_dem + ".tif")
-            dem = dem.fill_sinks()
-            flats, sills = dem.identify_flats(False)
-            fd = Flow()
-            fd._dims = dem.get_dims()
-            rowcol = fd._get_presills(flats, sills, dem)
-            rowcol = np.array(rowcol)
-            row = rowcol[:,0]
-            col = rowcol[:,1]
-            presills = np.zeros(fd._dims, np.int)
-            presills[row, col]  = 1
-
-            # Get matlab-derived data
-            mlab_file = 'data/mlab_files/presills_{0}.mat'.format(path_dem)
-            mpresills = sio.loadmat(mlab_file)['PreSillPixel']
-            row, col = np.unravel_index(mpresills-1, fd._dims, "F")
-            mpresills = np.zeros(fd._dims, np.int)
-            mpresills[row, col]  = 1
-            self.assertEqual(np.array_equal(presills, mpresills), True)
+        dem_files = ['tunez', 'tunez2', 'small25']        
+        for filename in dem_files:
+            dem = DEM('data/' + filename + ".tif")
+            fd = Flow(dem)
+            fd2 = Flow('data/fd_' + filename + ".tif")
+            computed = np.array_equal(fd2._ix, fd._ix)
+            self.assertEqual(computed, True)
+           
+    def test_flow_properties_01(self):
+        dem_files = ['tunez', 'tunez2', 'small25'] 
+        for filename in dem_files:
+            dem = DEM('data/' + filename + ".tif")
+            fd = Flow('data/fd_' + filename + ".tif")
+            computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
+            expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+            self.assertEqual(computed, expected)
     
-    def test_auxtopo(self):
-        # Create Flow object
-        in_dems = ['tunez', 'tunez2', 'small25']
+    def test_flow_properties_02(self):
+        # Testing an empty Flow object
+        dem = DEM()
+        fd = Flow()
+        computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
+        expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+        self.assertEqual(computed, expected)
         
-        for path_dem in in_dems:
-            dem = DEM('data/' + path_dem + ".tif")
-            fill = dem.fill_sinks()
-            topodiff = fill.read_array() - dem.read_array()
-            topodiff = topodiff.astype(np.float32)
-            flats, sills = fill.identify_flats(False)
-            fd = Flow()
-            fd._dims = dem.get_dims()
-            auxtopo = fd._get_topodiff(topodiff, flats)
-            
-            # Get matlab-derived data
-            mlab_file = 'data/mlab_files/auxtopo_{0}.mat'.format(path_dem)
-            mauxtopo = sio.loadmat(mlab_file)['D'].astype(np.int16)
-          
-            self.assertEqual(np.array_equal(auxtopo, mauxtopo), True)
-    
-    def test_weights(self):
-        # Create Flow object
-        in_dems = ['tunez', 'tunez2', 'small25']
-        
-        for path_dem in in_dems:
-            dem = DEM('data/' + path_dem + ".tif")
-            fill = dem.fill_sinks()
-            topodiff = fill.read_array() - dem.read_array()
-            topodiff = topodiff.astype(np.float32)
-            dem = fill
-            flats, sills = fill.identify_flats(False)
-            fd = Flow()
-            fd._dims = dem.get_dims()
-            auxtopo = fd._get_topodiff(topodiff, flats)
-            presill_pos = fd._get_presills(flats, sills, dem)
-            weights = fd._get_weights(flats, auxtopo, presill_pos)
-            
-            # Get matlab-derived data
-            mlab_file = 'data/mlab_files/weights_{0}.mat'.format(path_dem)
-            mweights = sio.loadmat(mlab_file)['D']
-            
-            resta = np.abs(weights - mweights)
-          
-            self.assertEqual(np.all(resta < 0.01), True)
-            
+   
 if __name__ == "__main__":
     unittest.main()
