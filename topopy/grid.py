@@ -29,6 +29,114 @@ except Exception as e:
 NTYPES = {'int8': 3, 'int16': 3, 'int32': 5, 'int64': 5, 'uint8': 1, 'uint16': 2,
           'uint32': 4, 'uint64': 4, 'float16': 6, 'float32': 6, 'float64': 7}
 
+class PRaster():
+    
+    def __init__(self, path=""):
+        
+        if path:
+            raster = gdal.Open(path)
+            if not raster:
+                raise FileNotFoundError
+            
+            banda = raster.GetRasterBand(1)
+            self._size = (banda.XSize, banda.YSize)
+            self._dims = (banda.YSize, banda.XSize)
+            self._geot = raster.GetGeoTransform()
+            self._cellsize = self._geot[1]
+            self._proj = raster.GetProjection()
+            self._ncells = banda.XSize * banda.YSize
+        
+        else:
+            self._size = (1, 1)
+            self._dims = (1, 1)
+            self._geot = (0., 1., 0., 0., 0., -1.)
+            self._cellsize = self._geot[1]
+            self._proj = ""
+            self._ncells = 1
+
+    def get_size(self):
+        """
+        Return a tuple with the size of the grid (XSize, YSize)
+        """
+        return self._size
+    
+    def get_dims(self):
+        """
+        Return a tuple with the size of the internal array (nrow, ncol)
+        """
+        return self._array.shape
+    
+    def get_ncells(self):
+        """
+        Return the total number of cells of the Grid
+        """
+        return self._array.size
+    
+    def get_projection(self):
+        """
+        Return a string with the projection of the grid in WKT
+        """
+        return self._proj
+    
+    def get_cellsize(self):
+        """
+        Return the grid cellsize
+        """
+        return self._cellsize
+    
+    def get_geotransform(self):
+        """
+        Return the GeoTranstorm matrix of the grid. This matrix has the form:
+        *(ULx, Cx, Tx, ULy, Ty, Cy)*
+        
+        * ULx = Upper-Left X coordinate (upper-left corner of the pixel)
+        * ULy = Upper-Left Y coordinate (upper-left corner of the pixel)
+        * Cx = X Cellsize
+        * Cy = Y Cellsize (negative value)
+        * Tx = Rotation in X axis
+        * Ty = Rotation in Y axis
+        """
+        return self._geot 
+
+    def xy_2_cell(self, x, y):
+        """
+        Get row col indexes from XY coordinates
+        
+        Parameters:
+        ===========
+        x : X coordinates (number, list, or numpy.ndarray)
+        y : Y coordinates (number, list, or numpy.ndarray)
+            
+        Return:
+        =======
+        (row, col) : Tuple with (row, col) indices as np.ndarrays
+        """
+        x = np.array(x)
+        y = np.array(y)       
+        row = (self._geot[3] - y) / self._geot[1]
+        col = (x - self._geot[0]) / self._geot[1]
+        return row.astype(np.int32), col.astype(np.int32)
+
+    def cell_2_xy(self, row, col):
+        """
+        Get XY coordinates from (row, col) cell indexes
+        
+        Parameters:
+        ===========
+        row : row indexes (number, list, or numpy.ndarray)
+        col : column indexes (number, list, or numpy.ndarray)
+            
+        Return:
+        =======
+        (x, y) : Tuple with (x, y) coordinates as np.ndarrays
+
+        """
+        row = np.array(row)
+        col = np.array(col)
+        x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
+        y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
+        return x, y
+    
 class Grid():
         
     def __init__(self, path="", band=1):
@@ -303,7 +411,7 @@ class Grid():
         =======
         Linear indexes (row-major, C-style or column-major Fortran-style)
         """
-        return np.ravel_multi_index((row, col), self._array.shape, oder=order)
+        return np.ravel_multi_index((row, col), self._array.shape, order=order)
     
     def set_nodata(self, value):
         """
