@@ -1,4 +1,2 @@
-from topopy.grid import Grid
-from topopy.grid import DEM
-from topopy.grid import PRaster
+from topopy.grid import Grid, DEM, PRaster
 from topopy.network import Flow
