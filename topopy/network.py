@@ -10,17 +10,14 @@
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified January 30, 2017
+# Last modified February 13, 2018
 
 import numpy as np
 import gdal
-from scipy import ndimage
-from skimage import graph
-from scipy.sparse import csc_matrix
 from .ext.sortcells import sort_pixels
-from . import Grid
+from . import Grid, PRaster
 
-class Flow():
+class Flow(PRaster):
     
     def __init__(self, dem=""):
         """
@@ -28,12 +25,8 @@ class Flow():
         
         Parameters:
         ===========
-        dem : *DEM object* 
-          DEM object with the input Digital Elevation Model
-          
-        preprocess : *str* {'carve', 'fill'}
-          Type of preprocessing anaysis. These preprocessing algoritms sort pixels topologically 
-          in flats areas to ensure flow routing through them.        
+        dem : *DEM object* or *str*
+          DEM object with the input Digital Elevation Model, or path to a previously saved Flow object
         
         References:
         -----------
@@ -48,147 +41,37 @@ class Flow():
         
         if dem == "":
             # Creates an empty Flow object
+            self._size = (1, 1)
             self._dims = (1, 1)
-            self._ncells = 1           
             self._geot = (0., 1., 0., 0., 0., -1.)
             self._cellsize = self._geot[1]
             self._proj = ""
+            self._ncells = 1
             self._nodata_pos = np.array([], dtype=np.int32)
             self._ix = np.array([], dtype=np.int32)
             self._ixc = np.array([], dtype=np.int32)
+        
         elif type(dem) == str:
+            # Loads the Flow object in GeoTiff format
             try:
-                # Load the Flow object in GeoTiff format
                 self.load_gtiff(dem)
             except:
                 raise FlowError("Error opening the Geotiff")
         else:
             try:
                 # Set Network properties
-                self._dims = (dem._array.shape)
-                self._ncells = dem.get_ncells()
-                self._cellsize = dem.get_cellsize()
+                self._size = dem.get_size()
+                self._dims = dem.get_dims()
                 self._geot = dem.get_geotransform()
+                self._cellsize = dem.get_cellsize()
                 self._proj = dem.get_projection()
+                self._ncells = dem.get_ncells()
                 self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 self._ix, self._ixc = sort_pixels(dem)
             except:
                 raise FlowError("Unexpected Error creating the Flow object")
     
-    def get_size(self):
-        """
-        Return a tuple with the size of Flow object (XSize, YSize)
-        """
-        return (self._dims[1], self._dims[0])
-    
-    def get_dims(self):
-        """
-        Return a tuple with the dimensioens of the Flow object (nrow, ncol)
-        """
-        return self._dims
-    
-    def get_ncells(self):
-        """
-        Return the total number of cells of the Flow object
-        """
-        return self._ncells
-    
-    def get_projection(self):
-        """
-        Return a string with the projection of the Flow object in WKT
-        """
-        return self._proj
-       
-    def get_cellsize(self):
-        """
-        Return the cellsize
-        """
-        return self._cellsize
-    
-    def get_geotransform(self):
-        """
-        Return the GeoTranstorm matrix of the Flow object. This matrix has the form:
-        *(ULx, Cx, Tx, ULy, Ty, Cy)*
-        
-        * ULx = Upper-Left X coordinate (upper-left corner of the pixel)
-        * ULy = Upper-Left Y coordinate (upper-left corner of the pixel)
-        * Cx = X Cellsize
-        * Cy = Y Cellsize (negative value)
-        * Tx = Rotation in X axis
-        * Ty = Rotation in Y axis
-        """
-        return self._geot     
-    
-    def xy_2_cell(self, x, y):
-        """
-        Get row col indexes coordinates from XY coordinates
-        
-        Parameters:
-        ===========
-        x : X coordinates (number, list, or numpy.ndarray)
-        y : Y coordinates (number, list, or numpy.ndarray)
-            
-        Return:
-        =======
-        (row, col) : Tuple of ndarray with row and column indexes
-        """
-        x = np.array(x)
-        y = np.array(y)       
-        row = (self._geot[3] - y) / self._geot[1]
-        col = (x - self._geot[0]) / self._geot[1]
-        return row.astype(np.int32), col.astype(np.int32)
-
-    def cell_2_xy(self, row, col):
-        """
-        Get XY coordinates from row and column cell indexes
-        
-        Parameters:
-        ===========
-        row : row indexes (number, list, or numpy.ndarray)
-        col : column indexes (number, list, or numpy.ndarray)
-            
-        Return:
-        =======
-        (x, y) : Tuple of ndarray with X and Y coordinates
-        """
-        row = np.array(row)
-        col = np.array(col)
-        x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
-        y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
-        return x, y
-        
-    def ind_2_cell(self, ind):
-        """
-        Get row col indexes from cells linear indexes (row-major, C-style)
-        
-        Parameters:
-        ===========
-        ind : linear indexes (number, list, or numpy.ndarray)
-        
-        Return:
-        =======
-        (row, col) : Tuple of ndarray with row and column indexes
-        """
-        row, col = np.unravel_index(ind, self._dims) 
-        return (row, col)
-    
-    def cell_2_ind(self, row, col):
-        """
-        Get cell linear indexes (row-major, C-style) from row and column indexes
-        
-        Parameters:
-        ===========
-        row : row indexes (number, list, or numpy.ndarray)
-        col : column indexes (number, list, or numpy.ndarray)
-            
-        Return:
-        =======
-        ind : Linear indexes (row-major, C-style)
-        """
-        ind = np.ravel_multi_index((row, col), self._dims)
-        return ind
-
     def save_gtiff(self, path):
         """
         Saves the flow object as a geotiff. The geotiff file it wont have any
@@ -238,12 +121,13 @@ class Flow():
         """
         raster = gdal.Open(path)
 
-        # Set Network properties
+        # Set Network properties        
+        self._size = (raster.RasterXSize, raster.RasterYSize)
         self._dims = (raster.RasterYSize, raster.RasterXSize)
-        self._ncells = raster.RasterYSize * raster.RasterXSize
         self._geot = raster.GetGeoTransform()
-        self._proj = raster.GetProjection()
         self._cellsize = self._geot[1]
+        self._proj = raster.GetProjection()
+        self._ncells = raster.RasterYSize * raster.RasterXSize
 
         # Load nodata values
         banda = raster.GetRasterBand(3)
@@ -255,7 +139,6 @@ class Flow():
         banda = raster.GetRasterBand(1)
         arr = banda.ReadAsArray()
         self._ix = arr.ravel()[0:int(self._ncells - no_cells)]
-
         banda = raster.GetRasterBand(2)
         arr = banda.ReadAsArray()
         self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
@@ -390,6 +273,63 @@ class Flow():
             return self._create_output_grid(basin_arr, 0)
         else:
             return basin_arr
+            
+    def _create_output_grid(self, array, nodata_value=None):
+        """
+        Convenience function that creates a Grid object from an input array. The array
+        must have the same shape that self._dims and will maintain the Flow object 
+        properties as dimensions, geotransform, reference system, etc.
+        
+        Parameters:
+        ===========
+        array : *numpy.ndarray*
+          Array to convert to a Grid object
+        nodata_value _ *int* / *float*
+          Value for NoData values
+          
+        Returns:
+        ========
+        Grid object with the same properties that Flow
+        """
+        grid = Grid()
+        grid.copy_layout(self)
+        grid._nodata = nodata_value
+        grid._array = array
+        grid._tipo = str(array.dtype)
+        
+        return grid  
+
+class Network(PRaster):
+
+    def __init__(self, flow):
+        pass
+    
+    def get_stream_poi(self, kind="heads"):
+        pass
+    
+    def get_streams(self):
+        pass
+    
+    def get_stream_segments(self):
+        # Aceptar salida a vector
+        pass
+    
+    def get_stream_order(self, kind="strahler"):
+        # Aceptar salida a vector
+        pass
+    
+    def get_main_channels(self, heads=None):
+        # Aceptar salida a vector
+        pass
+
+    def calculate_chi(self, output, distance=0):
+        pass
+    
+    def extract_basin(self, outlet):
+        pass
+    
+    def snap_points(self, kind="heads"):
+        pass
     
 #    def get_stream_poi(self, threshold, kind="heads"):
 #        """
@@ -419,7 +359,6 @@ class Flow():
 #        MATLAB-based software for topographic analysis and modeling in Earth 
 #        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
 #        """
-#        # TODO -- Test function
 #        # Check input parameters
 #        if kind not in ['heads', 'confluences', 'outlets']:
 #            return np.array([]), np.array([])
@@ -523,35 +462,7 @@ class Flow():
 #        else:
 #            return w
 #        
-#    def _create_output_grid(self, array, nodata_value=None):
-#        """
-#        Convenience function that creates a Grid object from an input array. The array
-#        must have the same shape that self._dims and will maintain the Flow object 
-#        properties as dimensions, geotransform, reference system, etc.
-#        
-#        Parameters:
-#        ===========
-#        array : *numpy.ndarray*
-#          Array to convert to a Grid object
-#        nodata_value _ *int* / *float*
-#          Value for NoData values
-#          
-#        Returns:
-#        ========
-#        topopy.Grid object with the same properties that Flow
-#        """
-#        # TODO -- Test Function
-#        grid = Grid()
-#        grid._size = (self._dims[1], self._dims[0])
-#        grid._geot = self._geot
-#        grid._cellsize = self._geot[1]
-#        grid._proj = self._proj
-#        grid._nodata = nodata_value
-#        
-#        grid._array = array
-#        grid._tipo = str(array.dtype)
-#        
-#        return grid     
+   
 #
 #    def _get_presills(self, flats, sills, dem):
 #        """
