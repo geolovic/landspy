@@ -83,33 +83,96 @@ class TestPRaster00(unittest.TestCase):
             
             self.assertEqual(computed, expected)
 
-#class TestPRaster01(unittest.TestCase):
-#    
-#    def setUp(self):        
-#        # Load test data
-#        self.ids = np.load("data/small25_100rnd_id.npy")
-#        self.rows = np.load("data/small25_100rnd_row.npy")
-#        self.cols = np.load("data/small25_100rnd_col.npy")
-#        self.xi = np.load("data/small25_100rnd_X.npy")
-#        self.yi = np.load("data/small25_100rnd_Y.npy")
-#        
-#    def test_xy_2_cell_01(self):        
-#        raster = PRaster("data/small25.tif")
-#        xi = self.xi
-#        yi = self.yi
-#        rows = self.rows
-#        cols = self.cols
-#        c_rows, c_cols = raster.xy_2_cell(xi, yi)
-#        res = (np.array_equal(rows, c_rows), np.array_equal(cols, c_cols))
-#        self.assertEqual(res, (True, True))
-#        
-#    def test_xy_2_cell_02(self):
-#        raster = PRaster("data/small25.tif")
-#        x = 471927
-#        y = 4116048
-#        row, col = raster.xy_2_cell(x, y)
-#        self.assertEqual((43, 71), (row, col))
-#        
+class TestPRaster01(unittest.TestCase):
+    
+    def setUp(self):        
+        # Load test data
+        self.ids = np.load("data/small25_100rnd_id.npy")
+        self.rows = np.load("data/small25_100rnd_row.npy")
+        self.cols = np.load("data/small25_100rnd_col.npy")
+        self.xi = np.load("data/small25_100rnd_X.npy")
+        self.yi = np.load("data/small25_100rnd_Y.npy")
+        
+    def test_xy_2_cell_01(self):   
+        raster = PRaster("data/small25.tif")
+        xi = self.xi
+        yi = self.yi
+        rows = self.rows
+        cols = self.cols
+        c_rows, c_cols = raster.xy_2_cell(xi, yi)
+        res = (np.array_equal(rows, c_rows), np.array_equal(cols, c_cols))
+        self.assertEqual(res, (True, True))
+        
+    def test_xy_2_cell_02(self):
+        raster = PRaster("data/small25.tif")
+        x = 471927
+        y = 4116048
+        row, col = raster.xy_2_cell(x, y)
+        self.assertEqual((43, 71), (row, col))
+        
+    def test_xy_2_cell_03(self):
+        raster = PRaster("data/small25.tif")
+        xi = self.xi.tolist()
+        yi = self.yi.tolist()
+        rows = self.rows
+        cols = self.cols
+        c_rows, c_cols = raster.xy_2_cell(xi, yi)
+        res = (np.array_equal(rows, c_rows), np.array_equal(cols, c_cols))
+        self.assertEqual(res, (True, True))
+        
+        
+    def test_cell_2_xy_01(self):   
+        raster = PRaster("data/small25.tif")
+        xi = self.xi
+        yi = self.yi
+        rows = self.rows
+        cols = self.cols
+        cxi, cyi = raster.cell_2_xy(rows, cols)
+        res = (np.array_equal(cxi, xi), np.array_equal(cyi, yi))
+        self.assertEqual(res, (True, True))
+        
+    def test_cell_2_xy_02(self):
+        raster = PRaster("data/small25.tif")
+        x = 471927.1
+        y = 4116048.5
+        row =  43
+        col = 71
+        cx, cy = raster.cell_2_xy(row, col)
+        self.assertEqual((x, y), (cx, cy))
+        
+    def test_cell_2_xy_03(self):
+        raster = PRaster("data/small25.tif")
+        xi = self.xi
+        yi = self.yi
+        rows = self.rows.tolist()
+        cols = self.cols.tolist()
+        cxi, cyi = raster.cell_2_xy(rows, cols)
+        res = (np.array_equal(xi, cxi), np.array_equal(yi, cyi))
+        self.assertEqual(res, (True, True))      
+        
+    def test_cell_2_ind_01(self):   
+        raster = PRaster("data/small25.tif")
+        rows = self.rows
+        cols = self.cols
+        ids = self.ids
+        cids = raster.cell_2_ind(rows, cols)
+        self.assertEqual(np.array_equal(ids, cids), True)
+        
+    def test_cell_2_ind_02(self):
+        raster = PRaster("data/small25.tif")
+        row =  25
+        col = 11
+        ids = 4986
+        cids = raster.cell_2_ind(row, col)
+        self.assertEqual(ids, cids)
+    
+    def test_cell_2_ind_03(self):   
+        raster = PRaster("data/small25.tif")
+        rows = self.rows.tolist()
+        cols = self.cols.tolist()
+        ids = self.ids
+        cids = raster.cell_2_ind(rows, cols)
+        self.assertEqual(np.array_equal(ids, cids), True)
         
 if __name__ == "__main__":
     unittest.main()

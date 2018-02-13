@@ -8,15 +8,15 @@ Testing suite for topopy Grid class
 """
 import unittest
 
-from test_Grid_01 import GridPropertyTests
-from test_Grid_02 import GridValueTests
-from test_DEM_fill import DEMFillTest
-from test_DEM_flats import DEMFlatTest
+from test_Grid import TestGrid01
+from test_PRaster import TestPRaster00, TestPRaster01
+from test_DEM import DEMFillTest, DEMFlatTest
 
-suite1 = unittest.TestLoader().loadTestsFromTestCase(GridPropertyTests)
-suite2 = unittest.TestLoader().loadTestsFromTestCase(GridValueTests)
-suite3 = unittest.TestLoader().loadTestsFromTestCase(DEMFillTest)
-suite4 = unittest.TestLoader().loadTestsFromTestCase(DEMFlatTest)
+suite1 = unittest.TestLoader().loadTestsFromTestCase(TestGrid01)
+suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
+suite3 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)
+suite4 = unittest.TestLoader().loadTestsFromTestCase(DEMFillTest)
+suite5 = unittest.TestLoader().loadTestsFromTestCase(DEMFlatTest)
 
-suite = unittest.TestSuite([suite1, suite2, suite3, suite4])
+suite = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5])
 unittest.TextTestRunner(verbosity=2).run(suite)

@@ -7,10 +7,10 @@
 # vperez@ugr.es // geolovic@gmail.com
 #
 # MIT License (see LICENSE file)
-# Version: 1.0
-# December 26, 2017
+# Version: 1.1
+# February 13, 2018
 #
-# Last modified January 24, 2018
+# Last modified February 13, 2018
 
 
 import gdal
@@ -182,7 +182,8 @@ class PRaster():
         """
         return np.ravel_multi_index((row, col), self._dims)
     
-class Grid():
+    
+class Grid(PRaster):
         
     def __init__(self, path="", band=1):
         """
@@ -200,59 +201,50 @@ class Grid():
             raster = gdal.Open(path)
             if not raster:
                 raise FileNotFoundError
-            
-            banda = raster.GetRasterBand(band)
+                        
+            banda = raster.GetRasterBand(1)
             self._size = (banda.XSize, banda.YSize)
+            self._dims = (banda.YSize, banda.XSize)
             self._geot = raster.GetGeoTransform()
             self._cellsize = self._geot[1]
             self._proj = raster.GetProjection()
+            self._ncells = banda.XSize * banda.YSize
+            # New elements of Grid
             self._nodata = banda.GetNoDataValue()
             self._array = banda.ReadAsArray()
             self._tipo = str(self._array.dtype)
-        
+                  
         else:
+            self._size = (1, 1)
+            self._dims = (1, 1)
             self._geot = (0., 1., 0., 0., 0., -1.)
             self._cellsize = self._geot[1]
             self._proj = ""
+            self._ncells = 1
+            # New elements of Grid
             self._nodata = None
             self._array = np.array([[0]], dtype=np.float)
             self._tipo = str(self._array.dtype)
-            self._size = (self._array.shape[1], self._array.shape[0])
-    
-    def copy_layout(self, grid):
-        """
-        Copy all the parameters from another Grid instance except grid data (internal array)
-        
-        Parameters:
-        ================
-        grid : *Grid* 
-          Grid instance from which parameters will be copied
-        """
-        self._size = grid.get_size()
-        self._geot = grid.get_geotransform()
-        self._cellsize = self._geot[1]
-        self._proj = grid.get_projection()
-        self._nodata = grid.get_nodata()
-        
+           
     def set_array(self, array):
         """
         Set the data array for the current Grid object. 
-        If the current Grid is an empty Grid [get_size( ) = (1, 1)], data are set and its size recalculated
-        If The current Grid is not an empty Grid, the input array should match with Grid Size
+        If the current Grid is an empty Grid [get_size( ) = (1, 1)], any input array is valid
+        If The current Grid is not an empty Grid, the input array should match Grid dimensions
         
         Parameters:
         ================
         array : *numpy array* 
           Numpy array with the data
         """
-        # Si hemos creado un grid vacio, le podemos especificar el array
-        if self._size == (1, 1):          
+        # If the Grid is an empty Grid, any array is valid
+        if self._size == (1, 1):       
+            self._dims = array.shape
+            self._size = (array.shape[1], array.shape[0])    
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
-            self._size = (array.shape[1], array.shape[0])    
-        # Si el grid no está vacio, solo se podra cambiar el array interno por otro de
-        # dimensiones equivalentes    
-        elif array.shape == (self._size[1], self._size[0]):    
+        # If the Grid is not an empty Grid, input array shape must coincide with internal array
+        elif array.shape == self._dims:    
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
         else:
@@ -328,36 +320,18 @@ class Grid():
         """
         return self._array[row, col]
     
-    def get_size(self):
-        """
-        Return a tuple with the size of the grid (XSize, YSize)
-        """
-        return self._size
-    
-    def get_dims(self):
-        """
-        Return a tuple with the size of the internal array (nrow, ncol)
-        """
-        return self._array.shape
-    
-    def get_ncells(self):
-        """
-        Return the total number of cells of the Grid
-        """
-        return self._array.size
-    
-    def get_projection(self):
-        """
-        Return a string with the projection of the grid in WKT
-        """
-        return self._proj
-    
     def get_nodata(self):
         """
         Return the value for NoData in the grid. This value could be None if NoData
         are not defined in the grid.
         """
         return self._nodata
+    
+    def set_nodata(self, value):
+        """
+        Sets the nodata value for the Grid
+        """
+        self._nodata = value
     
     def get_nodata_pos(self):
         """
@@ -367,102 +341,6 @@ class Grid():
             return (np.array([], dtype=np.int), np.array([], dtype=np.int))
         else:
             return np.where(self._array == self._nodata)
-
-    def get_cellsize(self):
-        """
-        Return the grid cellsize
-        """
-        return self._cellsize
-    
-    def get_geotransform(self):
-        """
-        Return the GeoTranstorm matrix of the grid. This matrix has the form:
-        *(ULx, Cx, Tx, ULy, Ty, Cy)*
-        
-        * ULx = Upper-Left X coordinate (upper-left corner of the pixel)
-        * ULy = Upper-Left Y coordinate (upper-left corner of the pixel)
-        * Cx = X Cellsize
-        * Cy = Y Cellsize (negative value)
-        * Tx = Rotation in X axis
-        * Ty = Rotation in Y axis
-        """
-        return self._geot            
-
-    def xy_2_cell(self, x, y):
-        """
-        Get row col indexes from XY coordinates
-        
-        Parameters:
-        ===========
-        x : X coordinates (number, list, or numpy.ndarray)
-        y : Y coordinates (number, list, or numpy.ndarray)
-            
-        Return:
-        =======
-        (row, col) : Tuple with (row, col) indices as np.ndarrays
-        """
-        x = np.array(x)
-        y = np.array(y)       
-        row = (self._geot[3] - y) / self._geot[1]
-        col = (x - self._geot[0]) / self._geot[1]
-        return row.astype(np.int32), col.astype(np.int32)
-
-    def cell_2_xy(self, row, col):
-        """
-        Get XY coordinates from (row, col) cell indexes
-        
-        Parameters:
-        ===========
-        row : row indexes (number, list, or numpy.ndarray)
-        col : column indexes (number, list, or numpy.ndarray)
-            
-        Return:
-        =======
-        (x, y) : Tuple with (x, y) coordinates as np.ndarrays
-
-        """
-        row = np.array(row)
-        col = np.array(col)
-        x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
-        y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
-        return x, y
-        
-    def ind_2_cell(self, ind, order="C"):
-        """
-        Get row col indexes from cells linear indexes (row-major, C-style)
-        
-        Parameters:
-        ===========
-        ind : linear indexes (number, list, or numpy.ndarray)
-        order : {'C', 'F'}, Row-major (C-style) or column-major (Fortran-style) order of indexes
-        
-        Return:
-        =======
-        Tuple with (row, col) indices as np.ndarrays
-        """
-        return np.unravel_index(ind, self._array.shape, order=order) 
-    
-    def cell_2_ind(self, row, col, order="C"):
-        """
-        Get cell linear indexes (row-major C-style or column-major F-style) from row and column indexes
-        
-        Parameters:
-        ===========
-        row : row indexes (number, list, or numpy.ndarray)
-        col : column indexes (number, list, or numpy.ndarray)
-        order : {'C', 'F'}, Row-major (C-style) or column-major (Fortran-style) order for indexes
-            
-        Return:
-        =======
-        Linear indexes (row-major, C-style or column-major Fortran-style)
-        """
-        return np.ravel_multi_index((row, col), self._array.shape, order=order)
-    
-    def set_nodata(self, value):
-        """
-        Sets the nodata value for the Grid
-        """
-        self._nodata = value
         
     def nan_2_nodata(self):
         """
@@ -539,8 +417,8 @@ class Grid():
         
         if not self._nodata is None:
             raster.GetRasterBand(1).SetNoDataValue(self._nodata)
-        
         raster.GetRasterBand(1).WriteArray(self._array)
+
 
 class DEM(Grid):
     
@@ -619,7 +497,7 @@ class DEM(Grid):
                 grid.set_nodata(None)
             
             res.append(grid)
-        
+
         return res
 
     
@@ -693,6 +571,6 @@ class DEM(Grid):
         filled_dem = DEM()
         filled_dem.copy_layout(self)
         filled_dem.set_array(output_array)
+        filled_dem.set_nodata(self._nodata)
         return filled_dem
-
-                   
+    
