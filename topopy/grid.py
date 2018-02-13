@@ -64,13 +64,13 @@ class PRaster():
         """
         Return a tuple with the size of the internal array (nrow, ncol)
         """
-        return self._array.shape
+        return self._dims
     
     def get_ncells(self):
         """
         Return the total number of cells of the Grid
         """
-        return self._array.size
+        return self._ncells
     
     def get_projection(self):
         """
@@ -96,7 +96,23 @@ class PRaster():
         * Tx = Rotation in X axis
         * Ty = Rotation in Y axis
         """
-        return self._geot 
+        return self._geot
+    
+    def copy_layout(self, grid):
+        """
+        Copy all the parameters from another PRaster instance except grid data (and nodata)
+        
+        Parameters:
+        ================
+        pRaster : *PRaster* 
+          PRaster instance from which parameters will be copied
+        """
+        self._size = grid.get_size()
+        self._dims = grid.get_dims()
+        self._geot = grid.get_geotransform()
+        self._cellsize = grid.get_cellsize()
+        self._proj = grid.get_projection()
+        self._ncells = grid.get_ncells()
 
     def xy_2_cell(self, x, y):
         """
@@ -136,6 +152,35 @@ class PRaster():
         x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
         y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
         return x, y
+    
+    def ind_2_cell(self, ind, order="C"):
+        """
+        Get row col indexes from cells linear indexes (row-major, C-style)
+        
+        Parameters:
+        ===========
+        ind : linear indexes (number, list, or numpy.ndarray)
+        
+        Return:
+        =======
+        Tuple with (row, col) indices as np.ndarrays
+        """
+        return np.unravel_index(ind, self._dims) 
+    
+    def cell_2_ind(self, row, col):
+        """
+        Get cell linear indexes from row and column indexes
+        
+        Parameters:
+        ===========
+        row : row indexes (number, list, or numpy.ndarray)
+        col : column indexes (number, list, or numpy.ndarray)
+            
+        Return:
+        =======
+        Linear indexes (row-major, C-style)
+        """
+        return np.ravel_multi_index((row, col), self._dims)
     
 class Grid():
         
