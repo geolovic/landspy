@@ -15,6 +15,7 @@
 import numpy as np
 import gdal
 from .ext.sortcells import sort_pixels
+from scipy.sparse import csc_matrix
 from . import Grid, PRaster
 
 class Flow(PRaster):
@@ -296,7 +297,6 @@ class Flow(PRaster):
         grid._nodata = nodata_value
         grid._array = array
         grid._tipo = str(array.dtype)
-        
         return grid  
 
 class Network(PRaster):
@@ -352,6 +352,10 @@ class Network(PRaster):
         if kind not in ['heads', 'confluences', 'outlets']:
             return np.array([]), np.array([])
         
+        # Get grid channel cells
+        w = np.zeros(self._ncells, dtype=np.bool)
+        w[self._chcells] = True
+        
         # Build a sparse array with giver-receivers cells
         ix = self._ix
         ixc = self._ixc
@@ -386,15 +390,15 @@ class Network(PRaster):
         asgrid : *bool*
           Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
         """
-        # Get the Flow Accumulation and select cells that meet the threholds
-        streams = np.zeros(self._dims, dtype=np.int8)
-        streams = streams.ravel()
-        streams[self._chcells] = 1
-        streams = streams.reshape(self._dims)
+        # Get grid channel cells
+        w = np.zeros(self._ncells, dtype=np.int8)
+        w[self._chcells] = 1
+        w = w.reshape(self._dims)
+        # Return grid
         if asgrid:
-            return self._create_output_grid(streams, 0)
+            return self._create_output_grid(w, 0)
         else:
-            return streams
+            return w
     
     def get_stream_segments(self):
         # Aceptar salida a vector
@@ -416,6 +420,30 @@ class Network(PRaster):
     
     def snap_points(self, kind="heads"):
         pass
+    
+    def _create_output_grid(self, array, nodata_value=None):
+        """
+        Convenience function that creates a Grid object from an input array. The array
+        must have the same shape that self._dims and will maintain the Flow object 
+        properties as dimensions, geotransform, reference system, etc.
+        
+        Parameters:
+        ===========
+        array : *numpy.ndarray*
+          Array to convert to a Grid object
+        nodata_value _ *int* / *float*
+          Value for NoData values
+          
+        Returns:
+        ========
+        Grid object with the same properties that Flow
+        """
+        grid = Grid()
+        grid.copy_layout(self)
+        grid._nodata = nodata_value
+        grid._array = array
+        grid._tipo = str(array.dtype)
+        return grid  
     
 #    def get_stream_poi(self, threshold, kind="heads"):
 #        """
