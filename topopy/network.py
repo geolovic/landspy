@@ -303,7 +303,16 @@ class Network(PRaster):
 
     def __init__(self, flow, threshold):
         """
-        TODO - Escribir Documentation
+        Class to manipulate cells from a Network, which is defined by applying
+        a threshold to a flow accumulation raster derived from a topological 
+        sorted Flow object.
+        
+        Parameters:
+        -----------
+        flow : *Flow* instance
+          Flow class instance
+        threshold : *int*
+          Number the cells to initiate a channel
         """
         # Set raster properties
         self._size = flow.get_size()
