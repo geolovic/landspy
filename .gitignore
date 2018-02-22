@@ -106,3 +106,6 @@ ENV/
 
 # MAC files
 .DS_Store
+
+# Pycharm projects
+.idea
