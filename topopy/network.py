@@ -15,6 +15,7 @@
 import numpy as np
 import gdal
 from .ext.sortcells import sort_pixels
+from scipy.sparse import csc_matrix
 from . import Grid, PRaster
 
 class Flow(PRaster):
@@ -296,19 +297,108 @@ class Flow(PRaster):
         grid._nodata = nodata_value
         grid._array = array
         grid._tipo = str(array.dtype)
-        
         return grid  
 
 class Network(PRaster):
 
-    def __init__(self, flow):
-        pass
-    
+    def __init__(self, flow, threshold):
+        """
+        TODO - Escribir Documentation
+        """
+        # Set raster properties
+        self._size = flow.get_size()
+        self._dims = flow.get_dims()
+        self._geot = flow.get_geotransform()
+        self._cellsize = flow.get_cellsize()
+        self._proj = flow.get_projection()
+        self._ncells = flow.get_ncells()
+        self._nodata_pos = flow._nodata_pos       
+        # Get sort Nodes for channel cells
+        fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
+        w = fac > threshold
+        w = w.ravel()
+        I   = w[flow._ix]
+        self._chcells = np.where(w)
+        self._ix  = flow._ix[I]
+        self._ixc = flow._ixc[I]
+
     def get_stream_poi(self, kind="heads"):
-        pass
+        """
+        This function finds points of interest of the drainage network. These points of interest
+        can be 'heads', 'confluences' or 'outlets'.
+        
+        Parameters:
+        -----------
+        kind : *str* {'heads', 'confluences', 'outlets'}
+          Kind of point of interest to return. 
+          
+        Returns:
+        -----------
+        (row, col) : *tuple*
+          Tuple of numpy nd arrays with the location of the points of interest
+          
+        References:
+        -----------
+        The algoritms to extract the point of interest have been adapted to Python 
+        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
+        derive point of interest in a really efficient way. Cite:
+                
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+        MATLAB-based software for topographic analysis and modeling in Earth 
+        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+        """
+        # Check input parameters
+        if kind not in ['heads', 'confluences', 'outlets']:
+            return np.array([]), np.array([])
+        
+        # Get grid channel cells
+        w = np.zeros(self._ncells, dtype=np.bool)
+        w[self._chcells] = True
+        
+        # Build a sparse array with giver-receivers cells
+        ix = self._ix
+        ixc = self._ixc
+        aux_vals = np.ones(ix.shape, dtype=np.int8)
+        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
+        
+        if kind == 'heads':
+            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = (sum_arr == 0) & w
+        elif kind == 'confluences':
+            # Confluences will be channel cells with two or givers
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = sum_arr > 1
+        elif kind == 'outlets':
+            # Outlets will be channel cells marked only as receivers (ix) but not as givers (ixc) 
+            sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
+            out_pos = (sum_arr == 0) & w  
+            
+        out_pos = out_pos.reshape(self._dims)
+        row, col = np.where(out_pos)
+        
+        return row, col    
+
     
-    def get_streams(self):
-        pass
+    def get_streams(self, asgrid=True):
+        """
+        This function extract a drainage network by using a determined area threshold
+
+        Parameters:
+        ===========
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+        """
+        # Get grid channel cells
+        w = np.zeros(self._ncells, dtype=np.int8)
+        w[self._chcells] = 1
+        w = w.reshape(self._dims)
+        # Return grid
+        if asgrid:
+            return self._create_output_grid(w, 0)
+        else:
+            return w
     
     def get_stream_segments(self):
         # Aceptar salida a vector
@@ -330,6 +420,30 @@ class Network(PRaster):
     
     def snap_points(self, kind="heads"):
         pass
+    
+    def _create_output_grid(self, array, nodata_value=None):
+        """
+        Convenience function that creates a Grid object from an input array. The array
+        must have the same shape that self._dims and will maintain the Flow object 
+        properties as dimensions, geotransform, reference system, etc.
+        
+        Parameters:
+        ===========
+        array : *numpy.ndarray*
+          Array to convert to a Grid object
+        nodata_value _ *int* / *float*
+          Value for NoData values
+          
+        Returns:
+        ========
+        Grid object with the same properties that Flow
+        """
+        grid = Grid()
+        grid.copy_layout(self)
+        grid._nodata = nodata_value
+        grid._array = array
+        grid._tipo = str(array.dtype)
+        return grid  
     
 #    def get_stream_poi(self, threshold, kind="heads"):
 #        """
