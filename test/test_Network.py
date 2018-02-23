@@ -10,7 +10,6 @@ Testing suite for topopy Flow class
 import unittest
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import Grid, Flow, Network
@@ -37,7 +36,7 @@ class CreateNetwork(unittest.TestCase):
            st01 = streams.read_array()
            st02 = Grid("data/str_{0}.tif".format(filename)).read_array()
            self.assertTrue(np.array_equal(st01, st02), True)
-           
+        
     def test_streampoi(self):
         dem_files = ['tunez', 'tunez2', 'small25']        
         for filename in dem_files:
@@ -46,9 +45,31 @@ class CreateNetwork(unittest.TestCase):
             kinds = ['heads', 'confluences', 'outlets']
             for kind in kinds:
                 poi = st.get_stream_poi(kind)
+                rows = poi[0].reshape((poi[0].size, 1))
+                cols = poi[1].reshape((poi[1].size, 1))
+                comp_poi = np.append(rows, cols, axis=1)
+                exp_poi = np.load("data/mlab_files/{0}_{1}.npy".format(filename, kind))
+                self.assertEqual(np.array_equal(comp_poi, exp_poi), True)
+    
+    def test_stream_segments(self):
+        dem_files = ['tunez', 'tunez2', 'small25']        
+        for filename in dem_files:
+            fd = Flow("data/fd_{0}.tif".format(filename))
+            st = Network(fd, 1000)
+            ssegments = st.get_stream_segments(False)
+            esegments = Grid("data/mlab_files/{0}_segments.tif".format(filename)).read_array()
+            self.assertTrue(np.array_equal(ssegments, esegments), True)
+    
+    def test_stream_order(self):
+        dem_files = ['tunez', 'tunez2', 'small25']        
+        for filename in dem_files:
+            fd = Flow("data/fd_{0}.tif".format(filename))    
+            st = Network(fd, 1000)
+            
+            for kind in  ['strahler', 'shreeve']:
+                exp_order = st.get_stream_order(kind = kind, asgrid=False)
+                cmp_order = Grid("data/mlab_files/{0}_{1}.tif".format(filename, kind)).read_array()
+                self.assertTrue(np.array_equal(exp_order, cmp_order), True)
                 
-                
-   
-           
 if __name__ == "__main__":
     unittest.main()

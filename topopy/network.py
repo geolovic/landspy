@@ -409,13 +409,85 @@ class Network(PRaster):
         else:
             return w
     
-    def get_stream_segments(self):
-        # Aceptar salida a vector
-        pass
+    def get_stream_segments(self, asgrid=True):
+        """
+        This function extract a drainage network by using a determined area threshold
+        and output the numerated stream segments.
+
+        Parameters:
+        ===========
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+        """
+        # Get heads
+        head_ind = self.get_stream_poi("heads")
+        head_ind = self.cell_2_ind(head_ind[0], head_ind[1])
+        
+        # Get confluences
+        conf_ind = self.get_stream_poi("confluences")
+        conf_ind = self.cell_2_ind(conf_ind[0], conf_ind[1])
+                
+        # Merge all heads and confluences
+        all_ind = np.append(head_ind, conf_ind)
+        del conf_ind, head_ind # Clean up
+        
+        # We created a zeros arrays and put in confuences and heads their id
+        # Those id will be consecutive numbers starting in one
+        seg_arr = np.zeros(self._ncells, dtype=np.int32)
+        for n, inds in enumerate(all_ind):
+            seg_arr[inds] = n+1
+        
+        # Move throught giver list. If receiver is 0, give the same id that giver.
+        # If a receiver is not 0, that means that we are in a confluence. 
+        for n in range(len(self._ix)):
+            if seg_arr[self._ixc[n]] == 0:
+                seg_arr[self._ixc[n]] = seg_arr[self._ix[n]]
+        
+        # Reshape and output
+        seg_arr = seg_arr.reshape(self._dims)
+        if asgrid:
+            return self._create_output_grid(seg_arr, 0)
+        else:
+            return seg_arr
+
+    def get_stream_order(self, kind="strahler", asgrid=True):
+        """
+        This function extract streams orderded by strahler or shreeve
     
-    def get_stream_order(self, kind="strahler"):
-        # Aceptar salida a vector
-        pass
+        Parameters:
+        ===========
+        kind : *str* {'strahler', 'shreeve'}
+        asgrid : *bool*
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+        """
+        if kind not in ['strahler', 'shreeve']:
+            return
+        
+        # Get grid channel cells
+        str_ord = np.zeros(self._ncells, dtype=np.int8)
+        str_ord[self._chcells] = 1
+        visited = np.zeros(self._ncells, dtype=np.int8)
+    
+        if kind == 'strahler':
+            for n in range(len(self._ix)):
+                if (str_ord[self._ixc[n]] == str_ord[self._ix[n]]) & visited[self._ixc[n]]:
+                    str_ord[self._ixc[n]] = str_ord[self._ixc[n]] + 1                
+                else:
+                    str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
+                    visited[self._ixc[n]] = True
+        elif kind == 'shreeve':
+            for n in range(len(self._ix)):
+                if visited[self._ixc[n]]:
+                    str_ord[self._ixc[n]] = str_ord[self._ixc[n]] + str_ord[self._ix[n]]
+                else:
+                    str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
+                    visited[self._ixc[n]] = True
+        str_ord = str_ord.reshape(self._dims)
+        
+        if asgrid:
+            return self._create_output_grid(str_ord, nodata_value=0)
+        else:
+            return str_ord
     
     def get_main_channels(self, heads=None):
         # Aceptar salida a vector
@@ -427,8 +499,32 @@ class Network(PRaster):
     def extract_basin(self, outlet):
         pass
     
-    def snap_points(self, kind="heads"):
-        pass
+    def snap_points(self, row, col, kind="heads"):
+        """
+        Snap points to network points of interest {heads, confluences, or outlets}
+        
+        Parameters:
+        -----------
+        row : row indexes (number, list, or numpy.ndarray) of input points
+        col : column indexes (number, list, or numpy.ndarray) of input points
+        
+        Return:
+        =======
+        Tuple with (row, col) indices of snap points as np.ndarrays
+        """
+        n_points = len(row)
+        snap_row = []
+        snap_col = []
+        # Get stream poi
+        poi = self.get_stream_poi(kind = kind)
+        # Calculate distances
+        for n in range(n_points):
+            dist = np.sqrt((row[n]-poi[0])**2 + (col[n]-poi[1])**2)
+            min_pos = np.argmin(dist)
+            snap_row.append(poi[0][min_pos])
+            snap_col.append(poi[1][min_pos])
+            
+        return np.array(snap_row), np.array(snap_col)
     
     def _create_output_grid(self, array, nodata_value=None):
         """
