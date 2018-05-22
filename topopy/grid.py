@@ -423,16 +423,24 @@ class Grid(PRaster):
 
 class DEM(Grid):
     
-    def identify_flats(self, nodata=True):
+    def identify_flats(self, nodata=True, as_array=False):
         """
-        This functions returns two binary Grid objects (values 0, 1) with flats and sills. 
+        This functions returns two topopy.Grids (or numpy.ndarrays) with flats and sills. 
         Flats are defined  as cells without downward neighboring cells. Sills are cells where 
         flat regions spill over into lower terrain. It the DEM has nodata, they will be maintained
         in output grids.
         
+        Parameters:
+        ------------
+        nodata : boolean
+          Boolean that indicates if notada are kept (only if as_array is set to False)
+        as_array : boolean
+          Boolean that indicates if outputs are boolean numpy.ndarrays (True) or a Grid objects (False)
+        
         Returns:
-        ----------
-        [flats, sills] : Grid objects
+        ------------
+        (flats, sills) : Tuple
+          Tuple with two topopy.Grid or numpy.ndarray objects (depending on the flag as_array)
         
         References:
         -----------
@@ -482,24 +490,27 @@ class DEM(Grid):
         sills = np.logical_and(aux_dil == z_arr, np.logical_not(flats))
         sills[nodata_ids] = False
         
-        # Prepare outputs (as Grid objects)
-        res = []
-        for arr in [flats, sills]:
-            grid = Grid()
-            grid.copy_layout(self)
-            grid.set_nodata(-1)
-            grid._tipo = 'int8'
-            grid.set_array(arr.astype(np.int8))
+        # Prepare outputs
+        if as_array:
+            return flats, sills
+        else:
+            res = []
+            for arr in [flats, sills]:
+                grid = Grid()
+                grid.copy_layout(self)
+                grid.set_nodata(-1)
+                grid._tipo = 'int8'
+                grid.set_array(arr.astype(np.int8))
+                
+                if nodata:
+                    grid._array[nodata_ids] =  -1
+                else:
+                    grid._array[nodata_ids] =  0
+                    grid.set_nodata(None)
             
-            if nodata:
-                grid._array[nodata_ids] =  -1
-            else:
-                grid._array[nodata_ids] =  0
-                grid.set_nodata(None)
-            
-            res.append(grid)
-
-        return res
+                res.append(grid)
+    
+            return res
 
     def fill_sinks(self, as_array=False):
         """
@@ -519,7 +530,7 @@ class DEM(Grid):
         self._array[nodata_pos] = -9999.
         
         filled = reconstruction(seed, self._array, method='erosion')
-        
+        filled = filled.astype(self._array.dtype)
         # Put back nodata values and change type
         if self._nodata:
             self._array[nodata_pos] = self._nodata

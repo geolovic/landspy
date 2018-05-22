@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 26 13:58:02 2017
-Testing suite for topopy Grid class
+Testing suite for get_weights() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
+
+Last modified: May 23, 2018
 """
 
 import unittest
@@ -14,10 +16,10 @@ import scipy.io as sio
 import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
-from sortcells import identify_flats
- 
+from sortcells import get_weights
+infolder = "data"
 
-class FlatsSillsTest(unittest.TestCase):
+class WeightsTest(unittest.TestCase):
     
     def load_matlab_array(self, path, key, nptype, nodata_val):
         marray = sio.loadmat(path)[key]        
@@ -34,7 +36,7 @@ class FlatsSillsTest(unittest.TestCase):
         nodata = banda.GetNoDataValue()
         return arr, nodata
     
-    def test_identify_flats_00(self):
+    def test_get_weights(self):
 
         # Data for testing
         files = ['tunez', 'small25', 'tunez2']
@@ -43,27 +45,30 @@ class FlatsSillsTest(unittest.TestCase):
         for idx, file in enumerate(files):
             
             # Locate data
-            fill_path = "data/fill_{0}.npy".format(file)
-            flats_mlab_path = "data/flats_{0}.mat".format(file)
-            sills_mlab_path = "data/sills_{0}.mat".format(file)
+            auxtopo_path = infolder + "/auxtopo_{0}.npy".format(file)
+            flats_path = infolder + "/flats_{0}.npy".format(file)
+            presills_path = infolder + "/presills_{0}.npy".format(file)
+            weights_mlab_path = infolder + "/mlab_files/weights_{0}.mat".format(file)
             
             # Load numpy data
-            fill_arr = np.load(fill_path)
+            auxtopo_arr = np.load(auxtopo_path)
+            flats_arr = np.load(flats_path)
+            presills_arr = np.load(presills_path)
+            presills_pos = [(n[0], n[1]) for n in presills_arr]
             nodata = nodatas[idx]
             if not nodata:
                 nodata = -9999
-            
-            # Get Flats and Sills
-            flats, sills = identify_flats(fill_arr, nodata)
-            
-            # Get MatLab results
-            mflats = self.load_matlab_array(flats_mlab_path, 'flats', np.bool, nodata)
-            msills = self.load_matlab_array(sills_mlab_path, 'sills', np.bool, nodata)
-            
+
+            # Get weights
+            weights = get_weights(flats_arr, auxtopo_arr, presills_pos)
+
+            # Load MatLab data
+            mweights = self.load_matlab_array(weights_mlab_path, "D", np.float32, nodata)
+
             # Compare
-            computed = [np.array_equal(flats, mflats), np.array_equal(sills, msills)]
-            self.assertEqual(computed, [True, True])             
-    
+            resta = np.abs(weights - mweights)
+            res = np.all(resta<0.001)
+            self.assertEqual(res, True)
 
 if __name__ == "__main__":
     unittest.main()

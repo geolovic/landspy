@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 26 13:58:02 2017
-Testing suite for topopy Grid class
+Testing suite for get_weights() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
+
+Last modified: May 23, 2018
 """
 
 import unittest
@@ -14,7 +16,7 @@ import scipy.io as sio
 # Add to the path code folder and data folder
 sys.path.append("../")
 from sortcells import sort_dem, get_receivers
- 
+infolder = "data"
 
 class GetReceiversTest(unittest.TestCase):
     
@@ -31,13 +33,13 @@ class GetReceiversTest(unittest.TestCase):
             cellsize = cellsizes[idx]
             
             # Load numpy data
-            pfill = np.load("data/fill_{0}.npy".format(file))
+            pfill = np.load(infolder + "/fill_{0}.npy".format(file))
             # Change nodata values to large value (to mimic Matlab sorting)
             pfill[np.where(pfill==nodata)] = np.iinfo(pfill.dtype).max
-            pweights = np.load("data/weights_{0}.npy".format(file))
+            pweights = np.load(infolder + "/weights_{0}.npy".format(file))
             
             # Load matlab data
-            mixc = sio.loadmat("data/ixc0_{0}.mat".format(file))['ixc']
+            mixc = sio.loadmat(infolder + "/mlab_files/ixc0_{0}.mat".format(file))['ixc']
             mixc = mixc.ravel() - 1
             
             # Sort DEM pixels

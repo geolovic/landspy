@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 26 13:58:02 2017
-Testing suite for topopy Grid class
+Testing suite for sort_dem() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
+
+Last modified: May 23, 2018
 """
 
 import unittest
@@ -15,7 +17,7 @@ import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from sortcells import sort_dem
- 
+infolder = "data"
 
 class SortDEMTest(unittest.TestCase):
     
@@ -44,13 +46,13 @@ class SortDEMTest(unittest.TestCase):
             if not nodata:
                 nodata = -9999
             # Load numpy data
-            pfill = np.load("data/fill_{0}.npy".format(file))
+            pfill = np.load(infolder + "/fill_{0}.npy".format(file))
             # Change nodata values to large value (to mimic Matlab sorting)
             pfill[np.where(pfill==nodata)] = np.iinfo(pfill.dtype).max
-            pweights = np.load("data/weights_{0}.npy".format(file))
+            pweights = np.load(infolder + "/weights_{0}.npy".format(file))
             
             # Load matlab data
-            mix = sio.loadmat("data/ix0_{0}.mat".format(file))['ix0']
+            mix = sio.loadmat(infolder + "/mlab_files/ix0_{0}.mat".format(file))['ix0']
             mix = mix.ravel() - 1
             
             # Sort DEM pixels

@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 26 13:58:02 2017
-Testing suite for topopy Grid class
+Testing suite for get_presills() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
+
+Last modified: May 23, 2018
 """
 
 import unittest
@@ -14,10 +16,10 @@ import scipy.io as sio
 import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
-from sortcells import get_weights
- 
+from sortcells import get_presills
+infolder = "data"
 
-class WeightsTest(unittest.TestCase):
+class PreSillTest(unittest.TestCase):
     
     def load_matlab_array(self, path, key, nptype, nodata_val):
         marray = sio.loadmat(path)[key]        
@@ -34,39 +36,40 @@ class WeightsTest(unittest.TestCase):
         nodata = banda.GetNoDataValue()
         return arr, nodata
     
-    def test_get_weights(self):
-
+    def test_get_presills(self):
         # Data for testing
         files = ['tunez', 'small25', 'tunez2']
         nodatas = [None, -9999.0, -9999.0]
         
         for idx, file in enumerate(files):
-            
             # Locate data
-            auxtopo_path = "data/auxtopo_{0}.npy".format(file)
-            flats_path = "data/flats_{0}.npy".format(file)
-            presills_path = "data/presills_{0}.npy".format(file)
-            weights_mlab_path = "data/weights_{0}.mat".format(file)
+            fill_path = infolder + "/fill_{0}.npy".format(file)
+            flats_path = infolder + "/flats_{0}.npy".format(file)
+            sills_path = infolder + "/sills_{0}.npy".format(file)
+            presills_mlab_path = infolder + "/mlab_files/presills_{0}.mat".format(file)
             
             # Load numpy data
-            auxtopo_arr = np.load(auxtopo_path)
+            fill_arr = np.load(fill_path)
             flats_arr = np.load(flats_path)
-            presills_arr = np.load(presills_path)
-            presills_pos = [(n[0], n[1]) for n in presills_arr]
+            sills_arr = np.load(sills_path)
             nodata = nodatas[idx]
             if not nodata:
                 nodata = -9999
-
-            # Get weights
-            weights = get_weights(flats_arr, auxtopo_arr, presills_pos)
-
-            # Load MatLab data
-            mweights = self.load_matlab_array(weights_mlab_path, "D", np.float32, nodata)
-
+            
+            # Get Presills
+            presills = get_presills(fill_arr, flats_arr, sills_arr, False)
+            
+            # Get MatLab results
+            mpresill_inds = self.load_matlab_array(presills_mlab_path, 'PreSillPixel', np.int32, nodata)
+            mpresill_inds = mpresill_inds.ravel() - 1
+            row, col = np.unravel_index(mpresill_inds, fill_arr.shape, "F")
+            mpresills = np.zeros(fill_arr.shape, dtype=np.bool)
+            mpresills[row, col] = True
+            
             # Compare
-            resta = np.abs(weights - mweights)
-            res = np.all(resta<0.001)
-            self.assertEqual(res, True)
+            computed = np.array_equal(presills, mpresills)
+            self.assertEqual(computed, True)            
+        
 
 if __name__ == "__main__":
     unittest.main()

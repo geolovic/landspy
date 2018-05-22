@@ -9,38 +9,56 @@ import numpy as np
 from scipy import ndimage
 from skimage import graph
 
-def sort_pixels(dem, order="C"):
-    # 00 Get DEM properties
+def sort_pixels(dem, order="C", verbose=False):
+    
+    # Get DEM properties
     cellsize = dem.get_cellsize()
     nodata_val = dem.get_nodata()
     if nodata_val is None:
         nodata_val = -9999
 
     # 01 Fill sinks
-    fill = dem.fill_sinks(as_array=True)
-    dem = dem.read_array()
-    topodiff = fill - dem
-    dem = fill
+    fill = dem.fill_sinks()
+    dem_arr = dem.read_array()
+    fill_arr = fill.read_array()
+    topodiff = fill_arr - dem_arr
+    dem_arr = fill_arr
+    del(dem)
+    if verbose:
+        print("1/7 - DEM filled")
     
     # 02 Get flats and sills
-    flats, sills = identify_flats(dem, nodata_val)
+    flats, sills = fill.identify_flats(as_array=True)
+    del(fill)
+    if verbose:
+        print("2/7 - Flats and sills identified")
     
     # 03 Get presills (i.e. pixels immediately upstream to sill pixels)
-    presills_pos = get_presills(dem, flats, sills)
+    presills_pos = get_presills(dem_arr, flats, sills)
+    if verbose:
+        print("3/7 - Presills identified")
     
     # 04 Get the auxiliar topography for the flats areas
     topodiff = get_aux_topography(topodiff.astype(np.float32), flats.astype(np.int8))
+    if verbose:
+        print("4/7 - Auxiliar topography generated")
     
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
     weights = get_weights(flats, topodiff, presills_pos)
+    if verbose:
+        print("5/7 - Weights calculated")
     
     del flats, sills, presills_pos, topodiff
 
     # 06 Sort pixels (givers)
-    ix = sort_dem(dem, weights)
+    ix = sort_dem(dem_arr, weights)
+    if verbose:
+        print("6/7 - Pixels sorted")
     
     # 07 Get receivers
-    ixc = get_receivers(ix, dem, cellsize)
+    ixc = get_receivers(ix, dem_arr, cellsize)
+    if verbose:
+        print("7/7 - Receivers calculated")
 
     # 08 Remove nodata cells
     ind = ixc == ix
@@ -113,140 +131,6 @@ def get_presills(filldem, flats, sills, as_positions=True):
         presills[ps_rows, ps_cols] = True
         return presills
 
-def fill_sinks2(input_array, nodata_val):
-    """
-    Fill sinks method adapted from  fill depressions/sinks in floating point array
-    
-    Parameters:
-    ----------
-    input_array : *numpy.ndarray* 
-      Input array representing the DEM to be filled
-    nodata_val : *int* or *float*
-      Value for nodata (cells with values of nodata will be maintained)
-    
-    Returns:
-    ----------
-    fill_dem : *numpy.ndarray* 
-      Array with depressions/sinks filled
-
-    This algorithm has been adapted (with minor modifications) from the 
-    Charles Morton slow fill algorithm (with ndimage and python 3 was not slow
-    at all). 
-    
-    References
-    ----------
-    Soile, P., Vogt, J., and Colombo, R., 2003. Carving and Adaptive
-    Drainage Enforcement of Grid Digital Elevation Models.
-    Water Resources Research, 39(12), 1366
-    
-    Soille, P., 1999. Morphological Image Analysis: Principles and
-    Applications, Springer-Verlag, pp. 173-174
-
-    """    
-    # Change nodata values for very low values
-    copyarr = np.copy(input_array)
-    nodata_pos = np.where(input_array==nodata_val)
-    copyarr[nodata_pos] = -9999.
-    
-    # Set h_max to a value larger than the array maximum to ensure
-    #   that the while loop will terminate
-    h_max = copyarr.max() + 100
-
-    # Build mask of cells with data not on the edge of the image
-    # Use 3x3 square Structuring element
-    inside_mask = ndimage.morphology.binary_erosion(
-        np.isfinite(copyarr),
-        structure=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool))
-
-    # Initialize output array as max value test_array except edges
-    output_array = np.copy(copyarr)
-    output_array[inside_mask] = h_max
-
-    # Array for storing previous iteration
-    output_old_array = np.copy(copyarr)
-    output_old_array[:] = 0
-
-    # Cross structuring element
-    el = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool)
-
-    # Iterate until marker array doesn't change
-    while not np.array_equal(output_old_array, output_array):
-        output_old_array = np.copy(output_array)
-        output_array = np.maximum(
-            copyarr,
-            ndimage.grey_erosion(output_array, size=(3, 3), footprint=el))
-
-    # Put back nodata values and return
-    output_array[nodata_pos] = nodata_val
-    
-    return output_array
-
-
-def identify_flats(fill_array, nodata_val):
-    """
-    This functions returns two binary Grid objects (values 0, 1) with flats and sills. 
-    Flats are defined  as cells without downward neighboring cells. Sills are cells where 
-    flat regions spill over into lower terrain. It the DEM has nodata, they will be maintained
-    in output grids.
-    
-    Parameters:
-    -----------
-    fill_arr : *numpy.ndarray*
-      Array of values representing a filled DEM
-    
-    Returns:
-    ----------
-    [flats, sills] : *numpy.ndarray*
-      Logical arrays with flats and sill location as True
-    
-    References:
-    -----------
-    This algoritm is adapted from identifyflats.m by Wolfgang Schwanghart 
-    (version of 17. August, 2017) included in TopoToolbox matlab codes.
-    
-    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions 
-    for topographic analysis. Environ. Model. Softw. 25, 770–781. 
-    https://doi.org/10.1016/j.envsoft.2009.12.002
-    
-    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-    MATLAB-based software for topographic analysis and modeling in Earth 
-    surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-
-    """
-    
-    # Change nodata to very low values
-    nodata_ids = np.where(fill_array==nodata_val)
-    fill_array[nodata_ids] = -9999
-    
-    footprint = np.ones((3, 3), dtype=np.int8)
-    
-    # Identify flats throught a image binary erosion
-    # Flats will be True where cells don't have lower neighbors
-    flats = ndimage.morphology.grey_erosion(fill_array, footprint=footprint) == fill_array
-    
-    # Remove flats from the borders
-    flats[:,0] = False
-    flats[:,-1] = False
-    flats[0,:] = False
-    flats[-1,:] = False
-    
-    # Remove flats for nodata values and cells bordering them
-    flats[nodata_ids] = False
-    auxmat = np.zeros(flats.shape, dtype="bool")
-    auxmat[nodata_ids] = True
-    nodata_bord = ndimage.morphology.grey_dilation(auxmat, footprint=footprint)
-    flats[nodata_bord] = False
-    
-    # Identify sills
-    sills = np.empty(fill_array.shape)
-    sills.fill(-9999.)
-    sills[flats] = fill_array[flats]
-    aux_dil = ndimage.morphology.grey_dilation(sills, footprint=footprint)
-    sills = np.logical_and(aux_dil == fill_array, np.logical_not(flats))
-    sills[nodata_ids] = False
-    
-    # Return
-    return flats, sills
     
 def get_aux_topography(topodiff, flats):
     """
