@@ -14,7 +14,8 @@ import scipy.io as sio
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import DEM
-
+infolder = "data/in"
+outfolder = "data/out"
 
 class DEMFillTest(unittest.TestCase):
 
@@ -74,10 +75,10 @@ class DEMFillTest(unittest.TestCase):
         self.assertEqual(computed, expected)
           
     def test_fill_04(self):
-        dem = DEM("data/small25.tif")
+        dem = DEM(infolder + "/small25.tif")
         fill = dem.fill_sinks().read_array().astype("int16")
         
-        mfill = sio.loadmat('data/mlab_files/fill_small25.mat')['fill']
+        mfill = sio.loadmat(infolder + '/mlab_files/fill_small25.mat')['fill']
         mfill = mfill.astype("int16")
         # Matlab files contain "nan" in the nodata positions
         nodatapos = dem.get_nodata_pos()
@@ -87,10 +88,10 @@ class DEMFillTest(unittest.TestCase):
         self.assertEqual(computed, True)
         
     def test_fill_05(self):
-        dem = DEM("data/tunez.tif")
+        dem = DEM(infolder + "/tunez.tif")
         fill = dem.fill_sinks().read_array().astype("int16")
         
-        mfill = sio.loadmat('data/mlab_files/fill_tunez.mat')['fill']
+        mfill = sio.loadmat(infolder + '/mlab_files/fill_tunez.mat')['fill']
         mfill = mfill.astype("int16")
         # Matlab files contain "nan" in the nodata positions
         nodatapos = dem.get_nodata_pos()
@@ -100,10 +101,10 @@ class DEMFillTest(unittest.TestCase):
         self.assertEqual(computed, True)
         
     def test_fill_06(self):
-        dem = DEM("data/tunez2.tif")
+        dem = DEM(infolder + "/tunez2.tif")
         fill = dem.fill_sinks().read_array().astype("int16")
         
-        mfill = sio.loadmat('data/mlab_files/fill_tunez2.mat')['fill']
+        mfill = sio.loadmat(infolder + '/mlab_files/fill_tunez2.mat')['fill']
         mfill = mfill.astype("int16")
         # Matlab files contain "nan" in the nodata positions
         nodatapos = dem.get_nodata_pos()
@@ -117,7 +118,7 @@ class DEMFlatTest(unittest.TestCase):
     
     def test_identify_flats_00(self):               
         # Create a DEM object and make fill
-        dem = DEM("data/tunez.tif")
+        dem = DEM(infolder + "/tunez.tif")
         fill = dem.fill_sinks()
         
         # Identify flats and sills and load arrays
@@ -126,8 +127,8 @@ class DEMFlatTest(unittest.TestCase):
         sills = sills.read_array()
         
         # Load matlab flats and sills
-        m_flats = sio.loadmat("data/mlab_files/flats_tunez.mat")['flats']
-        m_sills = sio.loadmat("data/mlab_files/sills_tunez.mat")['sills']
+        m_flats = sio.loadmat(infolder + "/mlab_files/flats_tunez.mat")['flats']
+        m_sills = sio.loadmat(infolder + "/mlab_files/sills_tunez.mat")['sills']
         
         # Compare
         computed = (np.array_equal(m_flats, flats),
@@ -136,7 +137,7 @@ class DEMFlatTest(unittest.TestCase):
      
     def test_identify_flats_01(self):               
         # Create a DEM object and make fill
-        dem = DEM("data/tunez2.tif")
+        dem = DEM(infolder + "/tunez2.tif")
         fill = dem.fill_sinks()
         
         # Identify flats and sills and load arrays
@@ -145,8 +146,8 @@ class DEMFlatTest(unittest.TestCase):
         sills = sills.read_array()
         
         # Load matlab flats and sills
-        m_flats = sio.loadmat("data/mlab_files/flats_tunez2.mat")['flats']
-        m_sills = sio.loadmat("data/mlab_files/sills_tunez2.mat")['sills']
+        m_flats = sio.loadmat(infolder + "/mlab_files/flats_tunez2.mat")['flats']
+        m_sills = sio.loadmat(infolder + "/mlab_files/sills_tunez2.mat")['sills']
         
         # Compare
         computed = (np.array_equal(m_flats, flats),
@@ -155,7 +156,7 @@ class DEMFlatTest(unittest.TestCase):
       
     def test_identify_flats_02(self):               
         # Create a DEM object and make fill
-        dem = DEM("data/small25.tif")
+        dem = DEM(infolder + "/small25.tif")
         fill = dem.fill_sinks()
         
         # Identify flats and sills and load arrays
@@ -164,8 +165,8 @@ class DEMFlatTest(unittest.TestCase):
         sills = sills.read_array()
         
         # Load matlab flats and sills
-        m_flats = sio.loadmat("data/mlab_files/flats_small25.mat")['flats']
-        m_sills = sio.loadmat("data/mlab_files/sills_small25.mat")['sills']
+        m_flats = sio.loadmat(infolder + "/mlab_files/flats_small25.mat")['flats']
+        m_sills = sio.loadmat(infolder + "/mlab_files/sills_small25.mat")['sills']
         
         # Compare
         computed = (np.array_equal(m_flats, flats),
@@ -174,7 +175,7 @@ class DEMFlatTest(unittest.TestCase):
      
     def test_identify_flats_03(self):               
         # Create a DEM object and make fill
-        dem = DEM("data/tunez2.tif")
+        dem = DEM(infolder + "/tunez2.tif")
         fill = dem.fill_sinks()
         
         # Identify flats and sills and load arrays
@@ -185,8 +186,8 @@ class DEMFlatTest(unittest.TestCase):
         sills = sills.read_array()
         
         # Load matlab flats and sills
-        m_flats = sio.loadmat("data/mlab_files/flats_tunez2.mat")['flats']
-        m_sills = sio.loadmat("data/mlab_files/sills_tunez2.mat")['sills']
+        m_flats = sio.loadmat(infolder + "/mlab_files/flats_tunez2.mat")['flats']
+        m_sills = sio.loadmat(infolder + "/mlab_files/sills_tunez2.mat")['sills']
         
         m_flats = m_flats.astype(np.int8)
         m_sills = m_sills.astype(np.int8)

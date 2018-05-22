@@ -13,6 +13,7 @@ import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import PRaster
+infolder = "data/in"
 
 class TestPRaster00(unittest.TestCase):
     
@@ -20,14 +21,14 @@ class TestPRaster00(unittest.TestCase):
         # Test PRaster getters
         files = ["small25.tif", "tunez.tif", "tunez2.tif"]
         for file in files:
-            raster = PRaster("data/{0}".format(file))
+            raster = PRaster(infolder + "/{0}".format(file))
             size = raster.get_size()
             dims = raster.get_dims()
             ncells = raster.get_ncells()
             cellsize = raster.get_cellsize()
             geot = raster.get_geotransform()
             computed = (size, dims, ncells, cellsize, geot)
-            graster = gdal.Open("data/{0}".format(file))
+            graster = gdal.Open(infolder + "/{0}".format(file))
             band = graster.GetRasterBand(1)
             arr = band.ReadAsArray()
             ggeot = graster.GetGeoTransform()
@@ -40,8 +41,8 @@ class TestPRaster00(unittest.TestCase):
         
         for file in files:
             # Test PRaster getters for a raster
-            raster = PRaster("data/{0}".format(file))
-            graster = gdal.Open("data/{0}".format(file))
+            raster = PRaster(infolder + "/{0}".format(file))
+            graster = gdal.Open(infolder + "/{0}".format(file))
             self.assertEqual(raster.get_projection(), graster.GetProjection())
             
     def test_empty(self):
@@ -62,7 +63,7 @@ class TestPRaster00(unittest.TestCase):
         files = ["small25.tif", "tunez.tif", "tunez2.tif"]
         for file in files:
             b_raster = PRaster()
-            c_raster = PRaster("data/{0}".format(file))
+            c_raster = PRaster(infolder + "/{0}".format(file))
             b_raster.copy_layout(c_raster)
             
             size = c_raster.get_size()
@@ -87,14 +88,14 @@ class TestPRaster01(unittest.TestCase):
     
     def setUp(self):        
         # Load test data
-        self.ids = np.load("data/small25_100rnd_id.npy")
-        self.rows = np.load("data/small25_100rnd_row.npy")
-        self.cols = np.load("data/small25_100rnd_col.npy")
-        self.xi = np.load("data/small25_100rnd_X.npy")
-        self.yi = np.load("data/small25_100rnd_Y.npy")
+        self.ids = np.load(infolder + "/small25_100rnd_id.npy")
+        self.rows = np.load(infolder + "/small25_100rnd_row.npy")
+        self.cols = np.load(infolder + "/small25_100rnd_col.npy")
+        self.xi = np.load(infolder + "/small25_100rnd_X.npy")
+        self.yi = np.load(infolder + "/small25_100rnd_Y.npy")
         
     def test_xy_2_cell_01(self):   
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         xi = self.xi
         yi = self.yi
         rows = self.rows
@@ -104,14 +105,14 @@ class TestPRaster01(unittest.TestCase):
         self.assertEqual(res, (True, True))
         
     def test_xy_2_cell_02(self):
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         x = 471927
         y = 4116048
         row, col = raster.xy_2_cell(x, y)
         self.assertEqual((43, 71), (row, col))
         
     def test_xy_2_cell_03(self):
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         xi = self.xi.tolist()
         yi = self.yi.tolist()
         rows = self.rows
@@ -122,7 +123,7 @@ class TestPRaster01(unittest.TestCase):
         
         
     def test_cell_2_xy_01(self):   
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         xi = self.xi
         yi = self.yi
         rows = self.rows
@@ -132,7 +133,7 @@ class TestPRaster01(unittest.TestCase):
         self.assertEqual(res, (True, True))
         
     def test_cell_2_xy_02(self):
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         x = 471927.1
         y = 4116048.5
         row =  43
@@ -141,7 +142,7 @@ class TestPRaster01(unittest.TestCase):
         self.assertEqual((x, y), (cx, cy))
         
     def test_cell_2_xy_03(self):
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         xi = self.xi
         yi = self.yi
         rows = self.rows.tolist()
@@ -151,7 +152,7 @@ class TestPRaster01(unittest.TestCase):
         self.assertEqual(res, (True, True))      
         
     def test_cell_2_ind_01(self):   
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         rows = self.rows
         cols = self.cols
         ids = self.ids
@@ -159,7 +160,7 @@ class TestPRaster01(unittest.TestCase):
         self.assertEqual(np.array_equal(ids, cids), True)
         
     def test_cell_2_ind_02(self):
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         row =  25
         col = 11
         ids = 4986
@@ -167,7 +168,7 @@ class TestPRaster01(unittest.TestCase):
         self.assertEqual(ids, cids)
     
     def test_cell_2_ind_03(self):   
-        raster = PRaster("data/small25.tif")
+        raster = PRaster(infolder + "/small25.tif")
         rows = self.rows.tolist()
         cols = self.cols.tolist()
         ids = self.ids

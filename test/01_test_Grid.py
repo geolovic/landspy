@@ -14,17 +14,19 @@ import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import Grid
+infolder = "data/in"
+outfolder = "data/out"
 
 class TestGrid01(unittest.TestCase):
     
     def setUp(self):        
         # Load test data
-        self.ids = np.load("data/small25_100rnd_id.npy")
-        self.rows = np.load("data/small25_100rnd_row.npy")
-        self.cols = np.load("data/small25_100rnd_col.npy")
-        self.xi = np.load("data/small25_100rnd_X.npy")
-        self.yi = np.load("data/small25_100rnd_Y.npy")
-        self.zi = np.load("data/small25_100rnd_Z.npy")
+        self.ids = np.load(infolder + "/small25_100rnd_id.npy")
+        self.rows = np.load(infolder + "/small25_100rnd_row.npy")
+        self.cols = np.load(infolder + "/small25_100rnd_col.npy")
+        self.xi = np.load(infolder + "/small25_100rnd_X.npy")
+        self.yi = np.load(infolder + "/small25_100rnd_Y.npy")
+        self.zi = np.load(infolder + "/small25_100rnd_Z.npy")
         
     def test_set_read_array_00(self):
         # Set data to an empty array and to an array with differnt dimensions
@@ -69,9 +71,9 @@ class TestGrid01(unittest.TestCase):
         self.assertEqual(np.array_equal(computed, expected), True)
           
     def test_save(self):
-        dem = Grid("data/small25.tif")
-        dem.save("data/dummy_dem.tif")
-        dem2 = Grid("data/dummy_dem.tif")
+        dem = Grid(infolder + "/small25.tif")
+        dem.save(outfolder + "/dummy_dem.tif")
+        dem2 = Grid(outfolder + "/dummy_dem.tif")
         expected = dem.get_value([20, 30, 40, 50], [20, 30, 40, 50])
         computed = dem2.get_value([20, 30, 40, 50], [20, 30, 40, 50])
         self.assertEqual(np.array_equal(computed, expected), True)
@@ -84,9 +86,9 @@ class TestGrid01(unittest.TestCase):
         arr[np.where(arr%5==0)] = 0
         dem.set_array(arr)
         dem.set_nodata(0)
-        dem.save("data/dummy_dem.tif")
+        dem.save(outfolder + "/dummy_dem2.tif")
         # Open with gdal
-        raster = gdal.Open("data/dummy_dem.tif")
+        raster = gdal.Open(outfolder + "/dummy_dem2.tif")
         banda = raster.GetRasterBand(1)
         nodata = banda.GetNoDataValue()
         self.assertEqual(nodata, 0)
@@ -103,7 +105,7 @@ class TestGrid01(unittest.TestCase):
         self.assertEqual(res, True)
 
     def test_get_value_01(self):
-        dem = Grid("data/small25.tif")
+        dem = Grid(infolder + "/small25.tif")
         # Taking row, col in a nan position (88)
         ind = 88
         row, col = self.rows[ind], self.cols[ind]
@@ -111,7 +113,7 @@ class TestGrid01(unittest.TestCase):
         self.assertEqual(computed, -9999)
 
     def test_get_value_02(self):
-        dem = Grid("data/small25.tif")
+        dem = Grid(infolder + "/small25.tif")
         # Taking row, col in other position (with value)
         ind = 25
         row, col = self.rows[ind], self.cols[ind]
@@ -120,20 +122,20 @@ class TestGrid01(unittest.TestCase):
         self.assertEqual(computed, expected)
         
     def test_get_value_03(self):
-        dem = Grid("data/small25.tif")
+        dem = Grid(infolder + "/small25.tif")
         # Taking row, col outside array
         row, col = 199, 133
         self.assertRaises(IndexError, dem.get_value, row, col)
     
     def test_get_value_04(self):
-        dem = Grid("data/small25.tif")
+        dem = Grid(infolder + "/small25.tif")
         # Taking row, col as numpy arrays
         expected = self.zi
         computed = dem.get_value(self.rows, self.cols)
         self.assertEqual(np.nansum(computed),np.nansum(expected))
         
     def test_get_value_05(self):
-        dem = Grid("data/small25.tif")
+        dem = Grid(infolder + "/small25.tif")
         # Taking row, col as lists
         expected = np.nansum(self.zi.tolist())
         res =  dem.get_value(self.rows.tolist(), self.cols.tolist())
@@ -141,7 +143,7 @@ class TestGrid01(unittest.TestCase):
         self.assertEqual(computed, expected)
         
     def test_get_nodata_pos(self):
-        dem = Grid("data/small25.tif")
+        dem = Grid(infolder + "/small25.tif")
         arr = dem._array        
         row, col = dem.get_nodata_pos()
         crow, ccol= np.where(arr == -9999)

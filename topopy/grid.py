@@ -10,12 +10,13 @@
 # Version: 1.1
 # February 13, 2018
 #
-# Last modified February 13, 2018
+# Last modified May 22, 2018
 
 
 import gdal
 import numpy as np
 from scipy import ndimage
+from skimage.morphology import reconstruction
 
 # This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
 # If matplotlib is not imported, Grid.plot() will not work.
@@ -500,8 +501,38 @@ class DEM(Grid):
 
         return res
 
+    def fill_sinks(self):
+        """
+        Fill sinks in a DEM using scikit-image reconstruction algorithm
+                
+        Returns:
+        ----------
+        ndarray : topopy.DEM object
+          Filled DEM
+        """
+        # Get the seed to start the fill process
+        seed = np.copy(self._array)
+        seed[1:-1, 1:-1] = self._array.max()
+        
+        # Here we modified the inner array to save memory (instead of working with a copy)
+        nodata_pos = self.get_nodata_pos()
+        self._array[nodata_pos] = -9999.
+        
+        filled = reconstruction(seed, self._array, method='erosion')
+        
+        # Put back nodata values and change type
+        if self._nodata:
+            self._array[nodata_pos] = self._nodata
+            filled[nodata_pos] = self._nodata
+        
+        # Create output filled DEM and return
+        filled_dem = DEM()
+        filled_dem.copy_layout(self)
+        filled_dem.set_array(filled)
+        filled_dem.set_nodata(self._nodata)
+        return filled_dem
     
-    def fill_sinks(self, four_way=False):
+    def fill_sinks2(self, four_way=False):
         """
         Fill sinks method adapted from  fill depressions/sinks in floating point array
         
