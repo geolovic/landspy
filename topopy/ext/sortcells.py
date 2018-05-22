@@ -10,15 +10,15 @@ from scipy import ndimage
 from skimage import graph
 
 def sort_pixels(dem, order="C"):
-
+    # 00 Get DEM properties
     cellsize = dem.get_cellsize()
     nodata_val = dem.get_nodata()
     if nodata_val is None:
         nodata_val = -9999
 
     # 01 Fill sinks
+    fill = dem.fill_sinks(as_array=True)
     dem = dem.read_array()
-    fill = fill_sinks(dem, nodata_val)
     topodiff = fill - dem
     dem = fill
     
@@ -113,8 +113,7 @@ def get_presills(filldem, flats, sills, as_positions=True):
         presills[ps_rows, ps_cols] = True
         return presills
 
-
-def fill_sinks(input_array, nodata_val):
+def fill_sinks2(input_array, nodata_val):
     """
     Fill sinks method adapted from  fill depressions/sinks in floating point array
     

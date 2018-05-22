@@ -8,13 +8,14 @@ Testing suite for topopy Grid class
 """
 import unittest
 
-from test_Grid import TestGrid01
-from test_PRaster import TestPRaster00, TestPRaster01
-from test_DEM import DEMFillTest, DEMFlatTest
+from test_00_PRaster import TestPRaster00, TestPRaster01
+from test_01_Grid import TestGrid01
+from test_02_DEM import DEMFillTest, DEMFlatTest
 
-suite1 = unittest.TestLoader().loadTestsFromTestCase(TestGrid01)
-suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
-suite3 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)
+
+suite1 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
+suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)
+suite3 = unittest.TestLoader().loadTestsFromTestCase(TestGrid01)
 suite4 = unittest.TestLoader().loadTestsFromTestCase(DEMFillTest)
 suite5 = unittest.TestLoader().loadTestsFromTestCase(DEMFlatTest)
 

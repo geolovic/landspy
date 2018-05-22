@@ -13,20 +13,22 @@ import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import Flow
+infolder = "data/in"
+outfolder = "data/out"
 
 class FlowValueTest(unittest.TestCase):
     
     def setUp(self):        
         # Load test data
-        self.ids = np.load("data/small25_100rnd_id.npy")
-        self.rows = np.load("data/small25_100rnd_row.npy")
-        self.cols = np.load("data/small25_100rnd_col.npy")
-        self.xi = np.load("data/small25_100rnd_X.npy")
-        self.yi = np.load("data/small25_100rnd_Y.npy")
-        self.zi = np.load("data/small25_100rnd_Z.npy")
+        self.ids = np.load(infolder + "/small25_100rnd_id.npy")
+        self.rows = np.load(infolder + "/small25_100rnd_row.npy")
+        self.cols = np.load(infolder + "/small25_100rnd_col.npy")
+        self.xi = np.load(infolder + "/small25_100rnd_X.npy")
+        self.yi = np.load(infolder + "/small25_100rnd_Y.npy")
+        self.zi = np.load(infolder + "/small25_100rnd_Z.npy")
         
         # Load Flow object
-        self.fd = Flow("data/fd_small25.tif")
+        self.fd = Flow(infolder + "/fd_small25.tif")
     
     def test_xy_2_cell_01(self):
         xi = self.xi

@@ -15,8 +15,9 @@ import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from sortcells import fill_sinks
+infolder = "data/in"
+outfolder = "data/out"
 
-#(input_array, nodata_val=None):
 
 class FillTest(unittest.TestCase):
 
@@ -86,8 +87,8 @@ class FillTest(unittest.TestCase):
         # Testing real dems
         files = ['tunez', 'small25', 'tunez2']
         for file in files:
-            dempath = "data/{0}.tif".format(file)
-            mlab_path = "data/fill_{0}.mat".format(file)
+            dempath = infolder + "/{0}.tif".format(file)
+            mlab_path = infolder + "/mlab_files/fill_{0}.mat".format(file)
         
             dem_arr, nodata = self.load_raster(dempath)
             if not nodata:

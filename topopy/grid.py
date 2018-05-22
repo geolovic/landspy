@@ -501,7 +501,7 @@ class DEM(Grid):
 
         return res
 
-    def fill_sinks(self):
+    def fill_sinks(self, as_array=False):
         """
         Fill sinks in a DEM using scikit-image reconstruction algorithm
                 
@@ -525,12 +525,16 @@ class DEM(Grid):
             self._array[nodata_pos] = self._nodata
             filled[nodata_pos] = self._nodata
         
-        # Create output filled DEM and return
-        filled_dem = DEM()
-        filled_dem.copy_layout(self)
-        filled_dem.set_array(filled)
-        filled_dem.set_nodata(self._nodata)
-        return filled_dem
+        if as_array:
+            # Return filled DEM as numpy.ndarray
+            return filled
+        else:
+            # Return filled DEM as topopy.DEM
+            filled_dem = DEM()
+            filled_dem.copy_layout(self)
+            filled_dem.set_array(filled)
+            filled_dem.set_nodata(self._nodata)
+            return filled_dem
     
     def fill_sinks2(self, four_way=False):
         """
