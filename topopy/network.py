@@ -20,7 +20,7 @@ from . import Grid, PRaster
 
 class Flow(PRaster):
     
-    def __init__(self, dem=""):
+    def __init__(self, dem="", verbose=False):
         """
         Class that define a network object (topologically sorted giver-receiver cells)
         
@@ -69,7 +69,7 @@ class Flow(PRaster):
                 self._ncells = dem.get_ncells()
                 self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
-                self._ix, self._ixc = sort_pixels(dem)
+                self._ix, self._ixc = sort_pixels(dem, verbose=verbose)
             except:
                 raise FlowError("Unexpected Error creating the Flow object")
     
