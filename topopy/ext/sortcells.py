@@ -9,7 +9,7 @@ import numpy as np
 from scipy import ndimage
 from skimage import graph
 
-def sort_pixels(dem, order="C", verbose=False):
+def sort_pixels(dem, auxtopo=False, verbose=False, order="C"):
     
     # Get DEM properties
     cellsize = dem.get_cellsize()
@@ -39,7 +39,12 @@ def sort_pixels(dem, order="C", verbose=False):
         print("3/7 - Presills identified")
     
     # 04 Get the auxiliar topography for the flats areas
-    topodiff = get_aux_topography(topodiff.astype(np.float32), flats.astype(np.int8))
+    if auxtopo:
+        topodiff = get_aux_topography(topodiff.astype(np.float32), flats.astype(np.int8))
+    else:
+        topodiff = np.zeros(dem_arr.shape, dtype=np.int8)
+        topodiff[flats] = 1
+        
     if verbose:
         print("4/7 - Auxiliar topography generated")
     
@@ -60,11 +65,11 @@ def sort_pixels(dem, order="C", verbose=False):
     if verbose:
         print("7/7 - Receivers calculated")
 
-    # 08 Remove nodata cells
-    ind = ixc == ix
-    ind = np.invert(ind)
+    # 08 Remove givers==receivers and nodata
+    ind = np.invert(ixc == ix) # givers == receivers
     ix = ix[ind]
     ixc = ixc[ind]
+    
     return ix, ixc
 
 

@@ -20,7 +20,7 @@ from . import Grid, PRaster
 
 class Flow(PRaster):
     
-    def __init__(self, dem="", verbose=False):
+    def __init__(self, dem="", auxtopo=False, verbose=False):
         """
         Class that define a network object (topologically sorted giver-receiver cells)
         
@@ -28,6 +28,9 @@ class Flow(PRaster):
         ===========
         dem : *DEM object* or *str*
           DEM object with the input Digital Elevation Model, or path to a previously saved Flow object
+        auxtopo : boolean
+          Flag to determine if a auxiliar topography is used (process can be much slower). The auxiliar
+          topography is calculated with elevation differences between filled and un-filled dem
         
         References:
         -----------
@@ -59,19 +62,19 @@ class Flow(PRaster):
             except:
                 raise FlowError("Error opening the Geotiff")
         else:
-            try:
-                # Set Network properties
-                self._size = dem.get_size()
-                self._dims = dem.get_dims()
-                self._geot = dem.get_geotransform()
-                self._cellsize = dem.get_cellsize()
-                self._proj = dem.get_projection()
-                self._ncells = dem.get_ncells()
-                self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
-                # Get topologically sorted nodes (ix - givers, ixc - receivers)
-                self._ix, self._ixc = sort_pixels(dem, verbose=verbose)
-            except:
-                raise FlowError("Unexpected Error creating the Flow object")
+            #try:
+            # Set Network properties
+            self._size = dem.get_size()
+            self._dims = dem.get_dims()
+            self._geot = dem.get_geotransform()
+            self._cellsize = dem.get_cellsize()
+            self._proj = dem.get_projection()
+            self._ncells = dem.get_ncells()
+            self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
+            # Get topologically sorted nodes (ix - givers, ixc - receivers)
+            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, verbose=verbose)
+#            except:
+#                raise FlowError("Unexpected Error creating the Flow object")
     
     def save_gtiff(self, path):
         """
@@ -268,6 +271,8 @@ class Flow(PRaster):
                     # Mark giver with the basin id of the receiver
                     basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
         
+        # Put back nodata and reshape
+        basin_arr[self._nodata_pos] = 0
         basin_arr = basin_arr.reshape(self._dims)  
         
         if asgrid:
