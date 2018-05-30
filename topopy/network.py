@@ -259,10 +259,14 @@ class Flow(PRaster):
             row, col = self.xy_2_cell(x, y)
             inds = self.cell_2_ind(row, col)
             basin_arr = np.zeros(self._ncells, np.int)
+
             # Change basin array outlets by the basin id (starting to 1)
-            for n, inds in enumerate(inds):
-                basin_arr[inds] = n+1
-            
+            if inds.size == 1:
+                basin_arr[inds] = 1
+            else:
+                for n, inds in enumerate(inds):
+                    basin_arr[inds] = n + 1
+                
             nix = len(temp_ix)
             # Loop by all the sorted cells
             for n in range(nix-1,-1,-1):
