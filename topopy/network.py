@@ -10,7 +10,7 @@
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified February 13, 2018
+# Last modified 31 May, 2018
 
 import numpy as np
 import gdal
@@ -20,17 +20,23 @@ from . import Grid, PRaster
 
 class Flow(PRaster):
     
-    def __init__(self, dem="", auxtopo=False, verbose=False):
+    def __init__(self, dem="", auxtopo=False, filled=False, verbose=False):
         """
         Class that define a network object (topologically sorted giver-receiver cells)
         
         Parameters:
         ===========
         dem : *DEM object* or *str*
-          DEM object with the input Digital Elevation Model, or path to a previously saved Flow object
+          DEM object with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
+          parameter is an empty string, it will create an empty Flow object.
         auxtopo : boolean
-          Flag to determine if a auxiliar topography is used (process can be much slower). The auxiliar
-          topography is calculated with elevation differences between filled and un-filled dem
+          Boolean to determine if a auxiliar topography is used (much slower). The auxiliar
+          topography is calculated with elevation differences between filled and un-filled dem.
+        filled : boolean
+          Boolean to check if input DEM was already pit-filled. The used fill algoritms, althoug fast consumes
+          a lot of memory and in some cases could be necessary fill the DEM with alternative tools
+        verbose : boolean
+          Boolean to show processing messages in console to known the progress. Usefull with large DEMs
         
         References:
         -----------
@@ -72,7 +78,7 @@ class Flow(PRaster):
             self._ncells = dem.get_ncells()
             self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
             # Get topologically sorted nodes (ix - givers, ixc - receivers)
-            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, verbose=verbose)
+            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose)
 #            except:
 #                raise FlowError("Unexpected Error creating the Flow object")
     
@@ -166,8 +172,8 @@ class Flow(PRaster):
         
         Usage:
         ======
-        flowacc = fd.get_flow_accumulation() # Get a flow accumulation Grid object
-        flowacc.save("C:/Temp/flow_acc.tif") # Saves the flow accumulation in the disk
+        flowacc = fd.get_flow_accumulation() # Create a flow accumulation Grid object
+        flowacc.save("C:/Temp/flow_acc.tif") # Save the flow accumulation in the disk
         
         Reference:
         ----------
@@ -182,7 +188,7 @@ class Flow(PRaster):
         
         nix = len(self._ix)
         for n in range(nix):
-            facc[self._ixc[n]] = facc[self._ix[n]] + facc[self._ixc[n]]
+            facc[self._ixc[n]] += facc[self._ix[n]]
         
         facc = facc.reshape(self._dims)
         if nodata:
@@ -236,11 +242,12 @@ class Flow(PRaster):
         MATLAB-based software for topographic analysis and modeling in Earth 
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
-        temp_ix = self._ix
-        temp_ixc = self._ixc
+
         
-        # If outlets are not specified, basins for all the outlets will be extracted
+        # If outlets are not specified, all the basins will be extracted
         if outlets == []:
+            temp_ix = self._ix
+            temp_ixc = self._ixc
             nbasins = 0
             basin_arr = np.zeros(self._ncells, np.int)
             nix = len(temp_ix)
@@ -255,6 +262,8 @@ class Flow(PRaster):
                       
         # Outlets coordinates are provided
         else:
+            temp_ix = self._ix
+            temp_ixc = self._ixc
             x, y = outlets
             row, col = self.xy_2_cell(x, y)
             inds = self.cell_2_ind(row, col)
@@ -275,8 +284,7 @@ class Flow(PRaster):
                     # Mark giver with the basin id of the receiver
                     basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
         
-        # Put back nodata and reshape
-        basin_arr[self._nodata_pos] = 0
+        # Reshape and return
         basin_arr = basin_arr.reshape(self._dims)  
         
         if asgrid:
@@ -310,7 +318,7 @@ class Flow(PRaster):
 
 class Network(PRaster):
 
-    def __init__(self, flow, threshold):
+    def __init__(self, flow, dem, threshold):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -339,6 +347,8 @@ class Network(PRaster):
         self._chcells = np.where(w)
         self._ix  = flow._ix[I]
         self._ixc = flow._ixc[I]
+        self._ax = fac.ravel()[self._ix] * self._cellsize**2 # Area in map units
+        self._zx = dem.read_array().ravel()[self._ix]
 
     def get_stream_poi(self, kind="heads"):
         """
@@ -389,9 +399,9 @@ class Network(PRaster):
             sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
             out_pos = sum_arr > 1
         elif kind == 'outlets':
-            # Outlets will be channel cells marked only as receivers (ix) but not as givers (ixc) 
+            # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
             sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-            out_pos = (sum_arr == 0) & w  
+            out_pos = np.logical_and((sum_arr == 0), w)  
             
         out_pos = out_pos.reshape(self._dims)
         row, col = np.where(out_pos)
@@ -502,10 +512,10 @@ class Network(PRaster):
         # Aceptar salida a vector
         pass
 
-    def calculate_chi(self, output, distance=0):
+    def calculate_chi(self, mn=0.45):
         pass
     
-    def extract_basin(self, outlet):
+    def calculate_slope(self, dist=None):
         pass
     
     def snap_points(self, row, col, kind="heads"):

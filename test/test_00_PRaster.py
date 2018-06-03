@@ -19,7 +19,7 @@ class TestPRaster00(unittest.TestCase):
     
     def test_properties(self):
         # Test PRaster getters
-        files = ["small25.tif", "tunez.tif", "tunez2.tif"]
+        files = ["small25.tif", "tunez.tif", "jebja30.tif"]
         for file in files:
             raster = PRaster(infolder + "/{0}".format(file))
             size = raster.get_size()
@@ -37,7 +37,7 @@ class TestPRaster00(unittest.TestCase):
             
     def test_projections(self):
         # Test PRaster getters
-        files = ["small25.tif", "tunez.tif", "tunez2.tif"]
+        files = ["small25.tif", "tunez.tif", "jebja30.tif"]
         
         for file in files:
             # Test PRaster getters for a raster
@@ -60,7 +60,7 @@ class TestPRaster00(unittest.TestCase):
         
     def test_copy_layout(self):
         # Test copy_layout for some rasters
-        files = ["small25.tif", "tunez.tif", "tunez2.tif"]
+        files = ["small25.tif", "tunez.tif", "jebja30.tif"]
         for file in files:
             b_raster = PRaster()
             c_raster = PRaster(infolder + "/{0}".format(file))

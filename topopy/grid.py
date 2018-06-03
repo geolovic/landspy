@@ -457,14 +457,13 @@ class DEM(Grid):
 
         """
 
-        z_arr = self._array
+        z_arr = np.copy(self._array)
         
         # Change nodata to very low values
         nodata_ids = self.get_nodata_pos()
         z_arr[nodata_ids] = -9999
         
         footprint = np.ones((3, 3), dtype=np.int8)
-        
         # Identify flats throught a image binary erosion
         # Flats will be True where cells don't have lower neighbors
         flats = ndimage.morphology.grey_erosion(z_arr, footprint=footprint) == z_arr

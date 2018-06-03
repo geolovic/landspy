@@ -9,21 +9,30 @@ import numpy as np
 from scipy import ndimage
 from skimage import graph
 
-def sort_pixels(dem, auxtopo=False, verbose=False, order="C"):
+def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, order="C"):
     
     # Get DEM properties
     cellsize = dem.get_cellsize()
     nodata_val = dem.get_nodata()
     if nodata_val is None:
         nodata_val = -9999
-
+    if filled:
+        auxtopo=False
+        
     # 01 Fill sinks
-    fill = dem.fill_sinks()
-    dem_arr = dem.read_array()
-    fill_arr = fill.read_array()
-    topodiff = fill_arr - dem_arr
-    dem_arr = fill_arr
-    del(dem)
+    # If filled is True, input DEM was previously pit-filled
+    if filled:
+        fill = dem
+        dem_arr = fill.read_array()
+        topodiff = np.zeros(dem_arr.shape, dem_arr.dtype)
+        del(dem)
+    else:
+        fill = dem.fill_sinks()
+        dem_arr = dem.read_array()
+        fill_arr = fill.read_array()
+        topodiff = fill_arr - dem_arr
+        dem_arr = fill_arr
+        del(dem)     
     if verbose:
         print("1/7 - DEM filled")
     
@@ -65,10 +74,17 @@ def sort_pixels(dem, auxtopo=False, verbose=False, order="C"):
     if verbose:
         print("7/7 - Receivers calculated")
 
-    # 08 Remove givers==receivers and nodata
+    # 08 Remove givers==receivers
     ind = np.invert(ixc == ix) # givers == receivers
     ix = ix[ind]
     ixc = ixc[ind]
+    
+    # 09 Remove receivers marked as nodatas
+    w = dem_arr != nodata_val
+    w = w.ravel()
+    I   = w[ixc]
+    ix  = ix[I]
+    ixc = ixc[I]
     
     return ix, ixc
 

@@ -6,47 +6,57 @@ Created on Fri Jan 26 17:53:42 2018
 @author: vicen
 """
 
-import sys
-sys.path.append("../../")
-from topopy import Flow, Grid
+from topopy import Flow, Network, DEM
 import numpy as np
-from scipy.sparse import csc_matrix
 import matplotlib.pyplot as plt
 
+# Get DEM, Flow and Network
+dem = DEM("../data/in/tunez.tif")
 fd = Flow()
-fd.load_gtiff("../data/tunez_fd.tif")
-threshold = 1000
+fd.load_gtiff("../data/in/fd_tunez.tif")
+net = Network(fd, dem, 1000)
 
-ixcix = np.zeros(fd._ncells, np.int)
-ixcix[fd._ix] = np.arange(len(fd._ix))
-
+# Head
 x = 507194.338
 y = 4060151.087
 row, col = fd.xy_2_cell(x, y)
+ix = fd.cell_2_ind(row, col)
 
-channel_ix = fd.cell_2_ind(row, col)
-channel_points = [channel_ix]
 
-new_ind = channel_ix
-while ixcix[new_ind] != 0:
-    new_ind = fd._ixc[ixcix[new_ind]]
-    channel_points.append(new_ind)
+def get_channel(fd, ix):
+    ixcix = np.zeros(fd._ncells, np.int)
+    ixcix[fd._ix] = np.arange(len(fd._ix))
+    channel_points = [ix]
+    new_ind = ix
+    while ixcix[new_ind] != 0:
+        new_ind = fd._ixc[ixcix[new_ind]]
+        channel_points.append(new_ind)
+    return channel_points
 
-#while ixcix[channel_points[-1]] != 0:
-#    channel_points.append(fd._ixc[ixcix[channel_points[-1]]])
+def get_channel2(net, ix):
+    channel = [ix]
+    
+    while ix.size > 0:
+        idx = np.where(net._ix == ix)
+        if idx[0].size == 0:
+            break
+        channel.append(int(net._ixc[idx]))
+        ix = net._ixc[idx]
+            
+        return channel
 
+# Testing method 01
 marr = np.zeros(fd._ncells, np.int)
+channel_points = get_channel(fd, ix)
 marr[channel_points] = 1
 marr = marr.reshape(fd._dims)
-plt.imshow(marr)
+fig, ax = plt.subplots()
+ax.imshow(marr)
 
-
-#channel_ix = fd.cell_2_ind(row, col)
-#channel_points = []
-#
-#add_ind = channel_ix
-#channel_points.append(add_ind)
-#
-#while ixcix[add_ind] != 0:
-#    add_ind = ixcix[add_ind]
-#    channel_points.append(fd._ixc[add_ind])
+# Testing method 02
+marr = np.zeros(fd._ncells, np.int)
+channel_points = get_channel2(net, ix)
+marr[channel_points] = 1
+marr = marr.reshape(fd._dims)
+fig2, ax2 = plt.subplots()
+ax2.imshow(marr)
