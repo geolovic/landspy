@@ -14,7 +14,7 @@ from scipy.sparse import csc_matrix
 import matplotlib.pyplot as plt
 
 fd = Flow()
-fd.load_gtiff("../data/tunez_fd.tif")
+fd.load_gtiff("../data/in/fd_tunez.tif")
 threshold = 1000
 
 ixcix = np.zeros(fd._ncells, np.int)

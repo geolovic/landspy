@@ -45,21 +45,4 @@ dem = DEM("data/in/small.tif")
 fd = Flow(dem)
 net = Network(fd, dem, 3)
 
-
-#ixcix = np.zeros(net._ix.size, np.int)
-#ixcix[net._ix] = np.arange(net._ix.size)
-
-x = 503965.0
-y = 4065408.0
-row, col = fd.xy_2_cell(x, y)
-ix = net.cell_2_ind(row, col)
-
-channel = [ix]
-
-while ix.size > 0:
-    idx = np.where(net._ix == ix)[0]
-    if idx.size == 0:
-        break
-    channel.append(net._ixc[int(idx)])
-    ix = net._ixc[int(idx)]
-    
+net.calculate_chi()

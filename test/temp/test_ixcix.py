@@ -11,17 +11,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Get DEM, Flow and Network
-dem = DEM("../data/in/tunez.tif")
+dem = DEM("../data/in/jebja30.tif")
 fd = Flow()
-fd.load_gtiff("../data/in/fd_tunez.tif")
+fd.load_gtiff("../data/in/fd_jebja30.tif")
 net = Network(fd, dem, 1000)
 
 # Head
-x = 507194.338
-y = 4060151.087
+x = 577413
+y = 496519
 row, col = fd.xy_2_cell(x, y)
 ix = fd.cell_2_ind(row, col)
-
 
 def get_channel(fd, ix):
     ixcix = np.zeros(fd._ncells, np.int)
@@ -35,7 +34,6 @@ def get_channel(fd, ix):
 
 def get_channel2(net, ix):
     channel = [ix]
-    
     while ix.size > 0:
         idx = np.where(net._ix == ix)
         if idx[0].size == 0:
@@ -43,16 +41,16 @@ def get_channel2(net, ix):
         channel.append(int(net._ixc[idx]))
         ix = net._ixc[idx]
             
-        return channel
+    return channel
 
-# Testing method 01
-marr = np.zeros(fd._ncells, np.int)
-channel_points = get_channel(fd, ix)
-marr[channel_points] = 1
-marr = marr.reshape(fd._dims)
-fig, ax = plt.subplots()
-ax.imshow(marr)
-
+## Testing method 01
+#marr = np.zeros(fd._ncells, np.int)
+#channel_points = get_channel(fd, ix)
+#marr[channel_points] = 1
+#marr = marr.reshape(fd._dims)
+#fig, ax = plt.subplots()
+#ax.imshow(marr)
+#
 # Testing method 02
 marr = np.zeros(fd._ncells, np.int)
 channel_points = get_channel2(net, ix)
@@ -60,3 +58,27 @@ marr[channel_points] = 1
 marr = marr.reshape(fd._dims)
 fig2, ax2 = plt.subplots()
 ax2.imshow(marr)
+    
+def test_01(dem, fd):
+    for n in range(100):
+        row = np.random.randint(0, dem.get_dims()[0])
+        col = np.random.randint(0, dem.get_dims()[1])
+        ix = fd.cell_2_ind(row, col)
+        get_channel(fd, ix)
+        
+        
+def test_02(dem, net):
+#    marr = np.zeros(fd._ncells, np.int)
+    for n in range(100):
+        ix = np.random.choice(net._ix)
+        get_channel2(net, ix)
+#        marr[ch_points] = 1
+    
+#    marr = marr.reshape(fd._dims)
+#    fig2, ax2 = plt.subplots()
+#    ax2.imshow(marr)    
+#    
+        
+        
+        
+        

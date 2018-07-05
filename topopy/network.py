@@ -408,7 +408,6 @@ class Network(PRaster):
         
         return row, col    
 
-    
     def get_streams(self, asgrid=True):
         """
         This function extract a drainage network by using a determined area threshold
@@ -512,8 +511,27 @@ class Network(PRaster):
         # Aceptar salida a vector
         pass
 
-    def calculate_chi(self, mn=0.45):
-        pass
+    def calculate_chi(self, thetaref=0.45, a0=1.0):
+        tmpix = self._ix[::-1]
+        tmpixc = self._ixc[::-1]
+        tmpai = np.ones(self._ncells, dtype=np.int)
+        tmpai[self._ix] = self._ax
+        tmpai = self._ax[::-1]**thetaref
+        chi = np.zeros(self._ncells, dtype=np.float)
+        try:
+            for n in range(tmpix.size):
+                gr, gc = self.ind_2_cell(tmpix[n])
+                rr, rc = self.ind_2_cell(tmpixc[n])
+                gx, gy = self.cell_2_xy(gr, gc)
+                rx, ry = self.cell_2_xy(rr, rc)
+                dx = np.sqrt((rx-gx)**2 + (ry-gy)**2)
+                chi[tmpixc[n]] = chi[tmpix[n]] + (a0 * dx / tmpai[tmpixc[n]])
+        except:
+            print(n)
+            print(chi.size)
+            print(tmpix[n])
+            print(tmpixc[n])
+                
     
     def calculate_slope(self, dist=None):
         pass
