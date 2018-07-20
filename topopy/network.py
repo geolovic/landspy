@@ -27,16 +27,16 @@ class Flow(PRaster):
         Parameters:
         ===========
         dem : *DEM object* or *str*
-          DEM object with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
-          parameter is an empty string, it will create an empty Flow object.
+          topopy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
+          parameter is an empty string, it will create an empty Flow instance.
         auxtopo : boolean
           Boolean to determine if a auxiliar topography is used (much slower). The auxiliar
           topography is calculated with elevation differences between filled and un-filled dem.
         filled : boolean
-          Boolean to check if input DEM was already pit-filled. The used fill algoritms, althoug fast consumes
-          a lot of memory and in some cases could be necessary fill the DEM with alternative tools
+          Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
+          althoug fast, consumes a lot of memory. In some cases could be necessary fill the DEM with alternative GIS tools.
         verbose : boolean
-          Boolean to show processing messages in console to known the progress. Usefull with large DEMs
+          Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
         
         References:
         -----------
@@ -90,12 +90,13 @@ class Flow(PRaster):
         Parameters:
         ===========
         path : *str* 
-          Path for the Flow geotiff.
+          Path to store the geotiff file with the Flow data
 
-        The organization of this geotiff is as follow:
-        Band 1 --> Givers pixels reshaped to self._dims
-        Band 2 --> Receiver pixels reshaped to self._dims
-        Band 3 --> Nodata band (pixels with nodata == 1, pixels with data == 0)
+        The organization of this geotiff is as follow::
+            
+        * Band 1 --> Givers pixels reshaped to self._dims
+        * Band 2 --> Receiver pixels reshaped to self._dims
+        * Band 3 --> Nodata band (pixels with nodata == 1, pixels with data == 0)
         """
         driver = gdal.GetDriverByName("GTiff")
         raster = driver.Create(path, self._dims[1], self._dims[0], 3, 4)
@@ -350,7 +351,7 @@ class Network(PRaster):
         self._ax = fac.ravel()[self._ix] * self._cellsize**2 # Area in map units
         self._zx = dem.read_array().ravel()[self._ix]
 
-    def get_stream_poi(self, kind="heads"):
+    def get_stream_poi(self, kind="heads", coords="CELL"):
         """
         This function finds points of interest of the drainage network. These points of interest
         can be 'heads', 'confluences' or 'outlets'.
@@ -406,7 +407,12 @@ class Network(PRaster):
         out_pos = out_pos.reshape(self._dims)
         row, col = np.where(out_pos)
         
-        return row, col    
+        if coords=="CELL":
+            return row, col
+        elif coords=="XY":
+            return self.cell_2_xy(row, col)
+        elif coords=="IND":
+            return self.cell_2_ind(row, col)
 
     def get_streams(self, asgrid=True):
         """

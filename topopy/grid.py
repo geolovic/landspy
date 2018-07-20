@@ -105,7 +105,7 @@ class PRaster():
         
         Parameters:
         ================
-        pRaster : *PRaster* 
+        pRaster : topopy.PRaster instance 
           PRaster instance from which parameters will be copied
         """
         self._size = grid.get_size()
@@ -126,7 +126,7 @@ class PRaster():
             
         Return:
         =======
-        (row, col) : Tuple with (row, col) indices as np.ndarrays
+        **tuple** : Tuple with (row, col) indices as np.ndarrays
         """
         x = np.array(x)
         y = np.array(y)       
@@ -145,7 +145,7 @@ class PRaster():
             
         Return:
         =======
-        (x, y) : Tuple with (x, y) coordinates as np.ndarrays
+        **tuple** : Tuple with (x, y) coordinates as np.ndarrays
 
         """
         row = np.array(row)
@@ -154,7 +154,7 @@ class PRaster():
         y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
         return x, y
     
-    def ind_2_cell(self, ind, order="C"):
+    def ind_2_cell(self, ind):
         """
         Get row col indexes from cells linear indexes (row-major, C-style)
         
@@ -164,7 +164,7 @@ class PRaster():
         
         Return:
         =======
-        Tuple with (row, col) indices as np.ndarrays
+        **tuple** : Tuple with (row, col) indices as numpy.ndarrays
         """
         return np.unravel_index(ind, self._dims) 
     
@@ -179,7 +179,7 @@ class PRaster():
             
         Return:
         =======
-        Linear indexes (row-major, C-style)
+        **numpy.array** : Array with linear indexes (row-major, C-style)
         """
         return np.ravel_multi_index((row, col), self._dims)
     
@@ -192,9 +192,9 @@ class Grid(PRaster):
         
         Parameters:
         ================
-        path : *str* 
+        path : str 
           Path to the raster
-        band : *str*
+        band : int
           Raster band to be open (usually don't need to be modified)
         """
         
@@ -235,7 +235,7 @@ class Grid(PRaster):
         
         Parameters:
         ================
-        array : *numpy array* 
+        array : numpy.ndarray
           Numpy array with the data
         """
         # If the Grid is an empty Grid, any array is valid
@@ -257,12 +257,12 @@ class Grid(PRaster):
         
         Parameters:
         ==========
-        ascopy : *bool*
+        ascopy : bool
           If True, the returned array is a memory view of the Grid original array.
         
         Return:
         =======
-        **np.array** Internal array of the current Grid object
+        **numpy.ndarray** : Internal array of the current Grid object
         """
         if ascopy:
             return np.copy(self._array)
@@ -303,9 +303,9 @@ class Grid(PRaster):
         
         Parameters:
         ================
-        row, col : *int* 
+        row, col : int 
           Row and column indexes
-        value : *number*
+        value : number
           Value for the cell (row, col)
         """
         self._array[row, col] = value
@@ -316,7 +316,7 @@ class Grid(PRaster):
         
         Parameters:
         ================
-        row, col : *int* *np.array*
+        row, col : ints or numpy.ndarrays
           Row and column indexes
         """
         return self._array[row, col]
@@ -358,7 +358,7 @@ class Grid(PRaster):
         
         Parameters:
         ===========
-        value : Value or values that will be changed to NoData
+        value : Value or sequence of values that will be changed to NoData
         """
         if self._nodata is None:
             return
@@ -377,7 +377,7 @@ class Grid(PRaster):
         
         Parameters:
         ===========
-        ax : *matplotlib.Axe*
+        ax : matplotlib.Axe
           If is not defined, the function will use plt.imshow()
         """
         if not PLT:
@@ -399,7 +399,7 @@ class Grid(PRaster):
         
         Parameters:
         ================
-        path : *str* 
+        path : str 
           Path where new raster will be saved
         """
         # Check if the type of the internal array is compatible with gdal
@@ -433,14 +433,13 @@ class DEM(Grid):
         Parameters:
         ------------
         nodata : boolean
-          Boolean that indicates if notada are kept (only if as_array is set to False)
+          Boolean that indicates if notada are kept (True) or replaced by zeros (False)
         as_array : boolean
           Boolean that indicates if outputs are boolean numpy.ndarrays (True) or a Grid objects (False)
         
         Returns:
         ------------
-        (flats, sills) : Tuple
-          Tuple with two topopy.Grid or numpy.ndarray objects (depending on the flag as_array)
+        **tuple** : Tuple (flats, sills) with two topopy.Grid (as_array=False) or numpy.ndarray (as_array=True)
         
         References:
         -----------
