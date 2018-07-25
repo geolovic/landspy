@@ -16,6 +16,7 @@ import numpy as np
 import gdal
 from scipy import ndimage
 from skimage import graph
+from scipy.sparse import csc_matrix
 from . import Grid, PRaster
 
 class Flow(PRaster):
@@ -207,17 +208,95 @@ class Flow(PRaster):
             return self._create_output_grid(facc, nodata_val)
         else:
             return facc
+        
+    def get_stream_poi(self, threshold, kind="heads", coords="CELL"):
+        """
+        This function finds points of interest of the drainage network. These points of interest
+        can be 'heads', 'confluences' or 'outlets'.
+        
+        Parameters:
+        -----------
+        kind : *str* {'heads', 'confluences', 'outlets'}
+          Kind of point of interest to return.
+        coords : *str* {'CELL', 'XY', 'IND'}
+          Output coordinates for the stream point of interest. 
+          
+        Returns:
+        -----------
+        tuple of numpy.ndarrays or numpy.ndarray
+          Tuple of numpy nd arrays with the location of the points of interest
+          
+        References:
+        -----------
+        The algoritms to extract the point of interest have been adapted to Python 
+        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
+        derive point of interest in a really efficient way. Cite:
+                
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+        MATLAB-based software for topographic analysis and modeling in Earth 
+        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+        """
+        # Check input parameters
+        if kind not in ['heads', 'confluences', 'outlets']:
+            kind = 'heads'
+        if coords not in ['CELL', 'XY', 'IND']:
+            coords = 'CELL'
+        
+        # Get network using the threshold
+        fac = self.get_flow_accumulation(nodata=False, asgrid=False)
+        w = fac > threshold
+        w = w.ravel()
+        I   = w[self._ix]
+        chcells = np.where(w)
+        ix  = self._ix[I]
+        ixc = self._ixc[I]
+        
+        # Get grid channel cells
+        w = np.zeros(self._ncells, dtype=np.bool)
+        w[chcells] = True
+        
+        # Build a sparse array with giver-receivers cells
+        aux_vals = np.ones(ix.shape, dtype=np.int8)
+        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
+        
+        if kind == 'heads':
+            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = (sum_arr == 0) & w
+        elif kind == 'confluences':
+            # Confluences will be channel cells with two or givers
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = sum_arr > 1
+        elif kind == 'outlets':
+            # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
+            sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
+            out_pos = np.logical_and((sum_arr == 0), w)  
+            
+        out_pos = out_pos.reshape(self._dims)
+        row, col = np.where(out_pos)
+        
+        if coords=="CELL":
+            return row, col
+        elif coords=="XY":
+            return self.cell_2_xy(row, col)
+        elif coords=="IND":
+            return self.cell_2_ind(row, col)
 
-    def get_drainage_basins(self, outlets=[], asgrid=True):
+
+    def get_drainage_basins(self, outlets=[], min_area = 0.01, asgrid=True):
         """
         This function extracts the drainage basins for the Flow object and returns a Grid object that can
         be saved into the disk.
         
         Parameters:
         ===========
-        outlets : *list* or *tuple*
-          List or tuple with (xi, yi) coordinate for outlets. xi and xi can be numbers, lists, or numpy.ndarrays
-          If outlets is an empty list (default) the basins will be extracted for all the outlets in the Flow object.
+        outlets : *list*
+          List with (xi, yi) coordinates for the outlets. xi and xi can be numbers, lists, or numpy.ndarrays
+          If outlets is empty (default), all the basins with area larger than min_area will be extracted
+        min_area : *float*
+          Minimum area for basins to avoid get small basins. The area is given as a percentage of the 
+          number of cells (default 1%). Only valid if outlets list is empty.
         asgrid : *bool*
           Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
 
@@ -227,11 +306,12 @@ class Flow(PRaster):
 
         Usage:
         =====
-        basins = fd.drainage_basins() # Extract all the basins in the Flow object
-        basins = fd.drainage_basins([520359.7, 4054132.2]) # Creates the basin for the specified outlet
+        basins = fd.drainage_basins() # Extract all the basins in the Flow object with area larger than 0.1% of the number of pixels
+        basins = fd.drainage_basins(min_area=0.0) # Extract all the possible basin in the Flow object
+        basins = fd.drainage_basins([520359.7, 4054132.2]) # Extract the basin for the specified outlet
         xi = [520359.7, 519853.5]
         yi = [4054132.2, 4054863.5]
-        basins = fd.drainage_basins((xi, yi)) # Create two basins according xi and yi coordinates
+        basins = fd.drainage_basins((xi, yi)) # Create two basins at outlets indicated by xi, yi
 
         References:
         -----------
@@ -243,24 +323,27 @@ class Flow(PRaster):
         MATLAB-based software for topographic analysis and modeling in Earth 
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
-
-        
+        if outlets == [] and min_area > 0:
+            threshold = int(self._ncells * min_area)
+            outlets = self.get_stream_poi(threshold, kind="outlets", coords="XY")
+            
         # If outlets are not specified, all the basins will be extracted
         if outlets == []:
-            temp_ix = self._ix
-            temp_ixc = self._ixc
-            nbasins = 0
-            basin_arr = np.zeros(self._ncells, np.int)
-            nix = len(temp_ix)
-            for n in range(nix-1,-1,-1):
-                # If receiver is zero, add a new basin
-                if basin_arr[temp_ixc[n]] == 0:
-                    nbasins += 1
-                    basin_arr[temp_ixc[n]] = nbasins
-                
-                # Mark basin giver with the id of the basin receiver
-                basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
-                      
+            if min_area == 0.0:
+                temp_ix = self._ix
+                temp_ixc = self._ixc
+                nbasins = 0
+                basin_arr = np.zeros(self._ncells, np.int)
+                nix = len(temp_ix)
+                for n in range(nix-1,-1,-1):
+                    # If receiver is zero, add a new basin
+                    if basin_arr[temp_ixc[n]] == 0:
+                        nbasins += 1
+                        basin_arr[temp_ixc[n]] = nbasins
+                    
+                    # Mark basin giver with the id of the basin receiver
+                    basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
+            
         # Outlets coordinates are provided
         else:
             temp_ix = self._ix
