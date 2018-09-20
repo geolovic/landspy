@@ -223,8 +223,9 @@ class Flow(PRaster):
           
         Returns:
         -----------
-        tuple of numpy.ndarrays or numpy.ndarray
-          Tuple of numpy nd arrays with the location of the points of interest
+        numpy.ndarray
+          Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi]) (depending on coords) 
+          with the location of the points of interest 
           
         References:
         -----------
@@ -277,14 +278,15 @@ class Flow(PRaster):
         row, col = np.where(out_pos)
         
         if coords=="CELL":
-            return row, col
+            return np.array((row, col)).T
         elif coords=="XY":
-            return self.cell_2_xy(row, col)
+            xi, yi = self.cell_2_xy(row, col)
+            return np.array((xi, yi)).T
         elif coords=="IND":
             return self.cell_2_ind(row, col)
 
 
-    def get_drainage_basins(self, outlets=[], min_area = 0.01, asgrid=True):
+    def get_drainage_basins(self, outlets=[], min_area = 0.01, coords="CELL", asgrid=True):
         """
         This function extracts the drainage basins for the Flow object and returns a Grid object that can
         be saved into the disk.
@@ -298,7 +300,7 @@ class Flow(PRaster):
           Minimum area for basins to avoid get small basins. The area is given as a percentage of the 
           number of cells (default 1%). Only valid if outlets list is empty.
         asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array (False)
 
         Return:
         =======
@@ -329,20 +331,19 @@ class Flow(PRaster):
             
         # If outlets are not specified, all the basins will be extracted
         if outlets == []:
-            if min_area == 0.0:
-                temp_ix = self._ix
-                temp_ixc = self._ixc
-                nbasins = 0
-                basin_arr = np.zeros(self._ncells, np.int)
-                nix = len(temp_ix)
-                for n in range(nix-1,-1,-1):
-                    # If receiver is zero, add a new basin
-                    if basin_arr[temp_ixc[n]] == 0:
-                        nbasins += 1
-                        basin_arr[temp_ixc[n]] = nbasins
-                    
-                    # Mark basin giver with the id of the basin receiver
-                    basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
+            temp_ix = self._ix
+            temp_ixc = self._ixc
+            nbasins = 0
+            basin_arr = np.zeros(self._ncells, np.int)
+            nix = len(temp_ix)
+            for n in range(nix-1,-1,-1):
+                # If receiver is zero, add a new basin
+                if basin_arr[temp_ixc[n]] == 0:
+                    nbasins += 1
+                    basin_arr[temp_ixc[n]] = nbasins
+                
+                # Mark basin giver with the id of the basin receiver
+                basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
             
         # Outlets coordinates are provided
         else:
