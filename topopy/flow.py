@@ -21,7 +21,7 @@ from . import Grid, PRaster
 
 class Flow(PRaster):
     
-    def __init__(self, dem="", auxtopo=False, filled=False, verbose=False):
+    def __init__(self, dem="", auxtopo=False, filled=False, verbose=False, verb_func=print):
         """
         Class that define a network object (topologically sorted giver-receiver cells)
         
@@ -79,7 +79,8 @@ class Flow(PRaster):
             self._ncells = dem.get_ncells()
             self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
             # Get topologically sorted nodes (ix - givers, ixc - receivers)
-            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose)
+            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
+            self._nodata_pos = self._get_nodata_pos()
 #            except:
 #                raise FlowError("Unexpected Error creating the Flow object")
     
@@ -99,27 +100,41 @@ class Flow(PRaster):
         * Band 2 --> Receiver pixels reshaped to self._dims
         * Band 3 --> Nodata band (pixels with nodata == 1, pixels with data == 0)
         """
+#        driver = gdal.GetDriverByName("GTiff")
+#        raster = driver.Create(path, self._dims[1], self._dims[0], 2, 4)
+#        raster.SetGeoTransform(self._geot)
+#        raster.SetProjection(self._proj)
+#
+#        no_cells = self._ncells - len(self._ix)
+#        miss_cells = np.zeros(no_cells, np.uint32)
+#        ix = np.append(self._ix, miss_cells)
+#        ixc = np.append(self._ixc, miss_cells)
+#        nodata_arr = np.zeros(self._dims, np.uint32)
+#        nodata_pos = np.unravel_index(self._nodata_pos, self._dims)
+#        nodata_arr[nodata_pos] = 1
+#
+#        ix = ix.reshape(self._dims)
+#        ixc = ixc.reshape(self._dims)
+#
+#        raster.GetRasterBand(1).WriteArray(ix)
+#        raster.GetRasterBand(2).WriteArray(ixc)
+#        raster.GetRasterBand(3).WriteArray(nodata_arr)
+#        raster.GetRasterBand(3).SetNoDataValue(no_cells)
         driver = gdal.GetDriverByName("GTiff")
-        raster = driver.Create(path, self._dims[1], self._dims[0], 3, 4)
+        raster = driver.Create(path, self._dims[1], self._dims[0], 2, 4)
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
 
         no_cells = self._ncells - len(self._ix)
-
         miss_cells = np.zeros(no_cells, np.uint32)
         ix = np.append(self._ix, miss_cells)
         ixc = np.append(self._ixc, miss_cells)
-        nodata_arr = np.zeros(self._dims, np.uint32)
-        nodata_pos = np.unravel_index(self._nodata_pos, self._dims)
-        nodata_arr[nodata_pos] = 1
-
         ix = ix.reshape(self._dims)
         ixc = ixc.reshape(self._dims)
 
         raster.GetRasterBand(1).WriteArray(ix)
         raster.GetRasterBand(2).WriteArray(ixc)
-        raster.GetRasterBand(3).WriteArray(nodata_arr)
-        raster.GetRasterBand(3).SetNoDataValue(no_cells)
+        raster.GetRasterBand(1).SetNoDataValue(no_cells)
 
     def load_gtiff(self, path):
         """
@@ -141,19 +156,26 @@ class Flow(PRaster):
         self._proj = raster.GetProjection()
         self._ncells = raster.RasterYSize * raster.RasterXSize
 
-        # Load nodata values
-        banda = raster.GetRasterBand(3)
-        no_cells = banda.GetNoDataValue()
-        arr = banda.ReadAsArray()
-        self._nodata_pos = np.ravel_multi_index(np.where(arr==1), self._dims)
+#        # Load nodata values
+#        banda = raster.GetRasterBand(3)
+#        no_cells = banda.GetNoDataValue()
+#        arr = banda.ReadAsArray()
+#        self._nodata_pos = np.ravel_multi_index(np.where(arr==1), self._dims)
 
         # Load ix, ixc
         banda = raster.GetRasterBand(1)
+        no_cells = banda.GetNoDataValue()
         arr = banda.ReadAsArray()
         self._ix = arr.ravel()[0:int(self._ncells - no_cells)]
         banda = raster.GetRasterBand(2)
         arr = banda.ReadAsArray()
         self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
+        
+        # Get NoData positions
+        aux_arr = np.zeros(self._ncells, np.uint32)
+        aux_arr[self._ix] = 1
+        aux_arr[self._ixc] = 1
+        self._nodata_pos = np.where(aux_arr==0)[0]
     
     def get_flow_accumulation(self, weights=None, nodata=True, asgrid=True):
         """
@@ -399,9 +421,21 @@ class Flow(PRaster):
         grid._nodata = nodata_value
         grid._array = array
         grid._tipo = str(array.dtype)
-        return grid  
+        return grid
+    
+    def _get_nodata_pos(self):
+        """
+        Function that return nodata positions from ix and ixc lists. These NoData
+        position could be slightly different from original DEM Nodata positions, since 
+        individual cells that do not receive any flow and at the same time flow to 
+        Nodata cells are also considered NoData and excluded from analysis.      
+        """
+        aux_arr = np.zeros(self._ncells)
+        aux_arr[self._ix] = 1
+        aux_arr[self._ixc] = 1
+        return np.where(aux_arr == 0)[0]
 
-def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, order="C"):
+def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
     
     # Get DEM properties
     cellsize = dem.get_cellsize()
@@ -426,18 +460,18 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, order="C"):
         dem_arr = fill_arr
         del(dem)     
     if verbose:
-        print("1/7 - DEM filled")
+        verb_func("1/7 - DEM filled")
     
     # 02 Get flats and sills
     flats, sills = fill.identify_flats(as_array=True)
     del(fill)
     if verbose:
-        print("2/7 - Flats and sills identified")
+        verb_func("2/7 - Flats and sills identified")
     
     # 03 Get presills (i.e. pixels immediately upstream to sill pixels)
     presills_pos = get_presills(dem_arr, flats, sills)
     if verbose:
-        print("3/7 - Presills identified")
+        verb_func("3/7 - Presills identified")
     
     # 04 Get the auxiliar topography for the flats areas
     if auxtopo:
@@ -447,24 +481,24 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, order="C"):
         topodiff[flats] = 1
         
     if verbose:
-        print("4/7 - Auxiliar topography generated")
+        verb_func("4/7 - Auxiliar topography generated")
     
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
     weights = get_weights(flats, topodiff, presills_pos)
     if verbose:
-        print("5/7 - Weights calculated")
+        verb_func("5/7 - Weights calculated")
     
     del flats, sills, presills_pos, topodiff
 
     # 06 Sort pixels (givers)
     ix = sort_dem(dem_arr, weights)
     if verbose:
-        print("6/7 - Pixels sorted")
+        verb_func("6/7 - Pixels sorted")
     
     # 07 Get receivers
     ixc = get_receivers(ix, dem_arr, cellsize)
     if verbose:
-        print("7/7 - Receivers calculated")
+        verb_func("7/7 - Receivers calculated")
 
     # 08 Remove givers==receivers
     ind = np.invert(ixc == ix) # givers == receivers
