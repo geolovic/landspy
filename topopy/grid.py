@@ -99,6 +99,17 @@ class PRaster():
         """
         return self._geot
     
+    def is_inside(self, x, y):
+        """
+        Check if one point is inside the raster
+        """
+        row, col = self.xy_2_cell(x, y)
+        rowinside = np.logical_and(row >= 0, row < self._dims[0])
+        colinside = np.logical_and(col >= 0, col < self._dims[1])
+        inside = np.logical_and(rowinside, colinside)
+        return np.all(inside)
+        
+    
     def copy_layout(self, grid):
         """
         Copy all the parameters from another PRaster instance except grid data (and nodata)

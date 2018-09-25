@@ -80,6 +80,7 @@ class Flow(PRaster):
             self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
             # Get topologically sorted nodes (ix - givers, ixc - receivers)
             self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
+            # Recalculate NoData values
             self._nodata_pos = self._get_nodata_pos()
 #            except:
 #                raise FlowError("Unexpected Error creating the Flow object")
@@ -308,34 +309,36 @@ class Flow(PRaster):
             return self.cell_2_ind(row, col)
 
 
-    def get_drainage_basins(self, outlets=[], min_area = 0.01, coords="CELL", asgrid=True):
+    def get_drainage_basins(self, outlets=None, min_area = 0.005, coords="CELL", asgrid=True):
         """
         This function extracts the drainage basins for the Flow object and returns a Grid object that can
         be saved into the disk.
         
         Parameters:
         ===========
-        outlets : *list*
-          List with (xi, yi) coordinates for the outlets. xi and xi can be numbers, lists, or numpy.ndarrays
-          If outlets is empty (default), all the basins with area larger than min_area will be extracted
+        outlets : *iterable*
+          List/tuple with (x, y) coordinates for the outlets, or 2-D numpy.ndarray
+          with [x, y] columns. If outlets is None, all possible outlets will be 
+          extracted
         min_area : *float*
-          Minimum area for basins to avoid get small basins. The area is given as a percentage of the 
-          number of cells (default 1%). Only valid if outlets list is empty.
+          Minimum area for basins to avoid very small basins. The area is given as a 
+          percentage of the total number of cells (default 0.5%). Only valid if outlets is None.
         asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array (False)
+          Indicates if the network is returned as topopy.Grid (True) or as a numpy.ndarray (False)
 
         Return:
         =======
-        basins : *topopy.Grid* object with the different drainage basins.
+        basins : *topopy.Grid* object or numpy.ndarray with the different drainage basins.
 
         Usage:
         =====
-        basins = fd.drainage_basins() # Extract all the basins in the Flow object with area larger than 0.1% of the number of pixels
+        basins = fd.drainage_basins() # Extract all the basins in the Flow object with area larger than 0.05% of the number of pixels
         basins = fd.drainage_basins(min_area=0.0) # Extract all the possible basin in the Flow object
         basins = fd.drainage_basins([520359.7, 4054132.2]) # Extract the basin for the specified outlet
-        xi = [520359.7, 519853.5]
-        yi = [4054132.2, 4054863.5]
-        basins = fd.drainage_basins((xi, yi)) # Create two basins at outlets indicated by xi, yi
+        xi = [520359.7, 519853.5, 510646.5]
+        yi = [4054132.2, 4054863.5, 4054643.5]
+        outlets = np.array((xi, yi)).T
+        basins = fd.drainage_basins(outlets) # Create basins at positions indicated by xi and yi
 
         References:
         -----------
@@ -347,12 +350,25 @@ class Flow(PRaster):
         MATLAB-based software for topographic analysis and modeling in Earth 
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
-        if outlets == [] and min_area > 0:
+        # Sino especificamos outlets pero si área mínima, extraemos outlets con ese area mínima
+        if outlets is None and min_area > 0:
             threshold = int(self._ncells * min_area)
-            outlets = self.get_stream_poi(threshold, kind="outlets", coords="XY")
+            inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")      
+        elif isinstance(outlets, np.ndarray):
+            if not self.is_inside(outlets[:,0], outlets[:,1]):
+                raise FlowError("Some outlets coordinates are outside the grid")    
+            row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
+            inds = self.cell_2_ind(row, col)      
+        elif isinstance(outlets, list):
+            if not self.is_inside(outlets[0], outlets[1]):
+                raise FlowError("Some outlets coordinates are outside the grid") 
+            row, col = self.xy_2_cell(outlets[0], outlets[1])
+            inds = self.cell_2_ind(row, col)
+        else:
+            inds = np.array([])
             
         # If outlets are not specified, all the basins will be extracted
-        if outlets == []:
+        if inds.size == 0:
             temp_ix = self._ix
             temp_ixc = self._ixc
             nbasins = 0
@@ -367,13 +383,15 @@ class Flow(PRaster):
                 # Mark basin giver with the id of the basin receiver
                 basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
             
-        # Outlets coordinates are provided
+        # Outlets coordinates are provided (inds array)
         else:
+            # Check if all outlets are inside the grid
+            row, col = self.ind_2_cell(inds)
+            xi, yi = self.cell_2_xy(row, col)
+            if not self.is_inside(xi, yi):
+                raise FlowError("Some outlets coordinates are outside the grid")
             temp_ix = self._ix
             temp_ixc = self._ixc
-            x, y = outlets
-            row, col = self.xy_2_cell(x, y)
-            inds = self.cell_2_ind(row, col)
             basin_arr = np.zeros(self._ncells, np.int)
 
             # Change basin array outlets by the basin id (starting to 1)
