@@ -10,7 +10,7 @@
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified 31 May, 2018
+# Last modified September 25, 2018
 
 import numpy as np
 import gdal
@@ -69,21 +69,21 @@ class Flow(PRaster):
             except:
                 raise FlowError("Error opening the Geotiff")
         else:
-            #try:
-            # Set Network properties
-            self._size = dem.get_size()
-            self._dims = dem.get_dims()
-            self._geot = dem.get_geotransform()
-            self._cellsize = dem.get_cellsize()
-            self._proj = dem.get_projection()
-            self._ncells = dem.get_ncells()
-            self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
-            # Get topologically sorted nodes (ix - givers, ixc - receivers)
-            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
-            # Recalculate NoData values
-            self._nodata_pos = self._get_nodata_pos()
-#            except:
-#                raise FlowError("Unexpected Error creating the Flow object")
+            try:
+                # Set Network properties
+                self._size = dem.get_size()
+                self._dims = dem.get_dims()
+                self._geot = dem.get_geotransform()
+                self._cellsize = dem.get_cellsize()
+                self._proj = dem.get_projection()
+                self._ncells = dem.get_ncells()
+                self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
+                # Get topologically sorted nodes (ix - givers, ixc - receivers)
+                self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
+                # Recalculate NoData values
+                self._nodata_pos = self._get_nodata_pos()
+            except:
+                raise FlowError("Unexpected Error creating the Flow object")
     
     def save_gtiff(self, path):
         """
@@ -239,6 +239,8 @@ class Flow(PRaster):
         
         Parameters:
         -----------
+        threshold : *int*
+          Flow accumulation threshold to extract stream POI (in number of cells)
         kind : *str* {'heads', 'confluences', 'outlets'}
           Kind of point of interest to return.
         coords : *str* {'CELL', 'XY', 'IND'}
@@ -247,7 +249,7 @@ class Flow(PRaster):
         Returns:
         -----------
         numpy.ndarray
-          Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi]) (depending on coords) 
+          Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
           with the location of the points of interest 
           
         References:
@@ -309,7 +311,7 @@ class Flow(PRaster):
             return self.cell_2_ind(row, col)
 
 
-    def get_drainage_basins(self, outlets=None, min_area = 0.005, coords="CELL", asgrid=True):
+    def get_drainage_basins(self, outlets=None, min_area = 0.005, snap_threshold=0, asgrid=True):
         """
         This function extracts the drainage basins for the Flow object and returns a Grid object that can
         be saved into the disk.
@@ -333,7 +335,7 @@ class Flow(PRaster):
         Usage:
         =====
         basins = fd.drainage_basins() # Extract all the basins in the Flow object with area larger than 0.05% of the number of pixels
-        basins = fd.drainage_basins(min_area=0.0) # Extract all the possible basin in the Flow object
+        basins = fd.drainage_basins(min_area=0.0) # Extract all the possible basins in the Flow object
         basins = fd.drainage_basins([520359.7, 4054132.2]) # Extract the basin for the specified outlet
         xi = [520359.7, 519853.5, 510646.5]
         yi = [4054132.2, 4054863.5, 4054643.5]
@@ -357,6 +359,16 @@ class Flow(PRaster):
         elif isinstance(outlets, np.ndarray):
             if not self.is_inside(outlets[:,0], outlets[:,1]):
                 raise FlowError("Some outlets coordinates are outside the grid")    
+#            if snap_threshold > 0:
+#                fac = self.get_flow_accumulation(asgrid=False)
+#                fac_row, fac_col = np.where(fac > snap_threshold)
+#                fac_xi, fac_yi = self.cell_2_xy(fac_row, fac_col)
+#                snap_outlets = np.zeros(outlets.shape)
+#                for element in outlets:
+#                    di = np.sqrt((fac_xi - element[0])**2 + (fac_yi - element[1])**2)
+#                    mindist = np.where(di == di.min())
+#                    
+                    
             row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
             inds = self.cell_2_ind(row, col)      
         elif isinstance(outlets, list):
