@@ -10,7 +10,7 @@
 # Version: 1.1
 # February 13, 2018
 #
-# Last modified May 22, 2018
+# Last modified 28 September, 2018
 
 
 import gdal
@@ -108,7 +108,17 @@ class PRaster():
         colinside = np.logical_and(col >= 0, col < self._dims[1])
         inside = np.logical_and(rowinside, colinside)
         return np.all(inside)
+    
+    def get_extent(self):
+        """
+        Returns a tuple (XMin, XMax, YMin, YMax) with the extension of the Grid
+        """
+        xmin = self._geot[0]
+        xmax = self._geot[0] + self._size[0] * self._cellsize
+        ymin = self._geot[3] - self._size[1] * self._cellsize
+        ymax = self._geot[3]
         
+        return (xmin, xmax, ymin, ymax)
     
     def copy_layout(self, grid):
         """

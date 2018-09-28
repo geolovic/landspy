@@ -311,7 +311,7 @@ class Flow(PRaster):
             return self.cell_2_ind(row, col)
 
 
-    def get_drainage_basins(self, outlets=None, min_area = 0.005, snap_threshold=0, asgrid=True):
+    def get_drainage_basins(self, outlets=None, min_area = 0.005, asgrid=True):
         """
         This function extracts the drainage basins for the Flow object and returns a Grid object that can
         be saved into the disk.
@@ -358,17 +358,7 @@ class Flow(PRaster):
             inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")      
         elif isinstance(outlets, np.ndarray):
             if not self.is_inside(outlets[:,0], outlets[:,1]):
-                raise FlowError("Some outlets coordinates are outside the grid")    
-#            if snap_threshold > 0:
-#                fac = self.get_flow_accumulation(asgrid=False)
-#                fac_row, fac_col = np.where(fac > snap_threshold)
-#                fac_xi, fac_yi = self.cell_2_xy(fac_row, fac_col)
-#                snap_outlets = np.zeros(outlets.shape)
-#                for element in outlets:
-#                    di = np.sqrt((fac_xi - element[0])**2 + (fac_yi - element[1])**2)
-#                    mindist = np.where(di == di.min())
-#                    
-                    
+                raise FlowError("Some outlets coordinates are outside the grid")                                         
             row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
             inds = self.cell_2_ind(row, col)      
         elif isinstance(outlets, list):
@@ -428,7 +418,51 @@ class Flow(PRaster):
             return self._create_output_grid(basin_arr, 0)
         else:
             return basin_arr
+    
+    def snap_points(self, input_points, threshold, kind="channel"):
+        """
+        Snap input points to channel cells or to stream POI
+        
+        Parameters:
+        ===========
+        array : *iterable*
+          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
+          with [x, y] columns. 
+        threshold : *int*
+          Flow accumulation threshold (in number of cells) to extract channel cells or stream POI 
+        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
+            Kind of point to snap input points
+        
+        Returns:
+        ===========
+        numpy.ndarray
+          Numpy ndarray with two columns [xi, yi] with the snap points
+        """
+        if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
+            kind = 'channel'
+        
+        # Extract a numpy array with the coordinate to snap the points
+        if kind in ['heads', 'confluences', 'outlets']:
+            poi = self.get_stream_poi(threshold, kind, "XY")
             
+        else:
+            fac = self.get_flow_accumulation()
+            row, col = np.where(np.logical_and(fac.read_array() > threshold, fac.read_array() != fac.get_nodata()))
+            x, y = self.cell_2_xy(row, col)
+            poi = np.array((x, y)).T
+        
+        # Get array reshaped for the calculation
+        xi = input_points[:, 0].reshape((input_points.shape[0], 1))
+        yi = input_points[:, 1].reshape((input_points.shape[0], 1))
+        xci = poi[:, 0].reshape((1, poi.shape[0]))
+        yci = poi[:, 1].reshape((1, poi.shape[0]))
+        
+        # Calculate distances and get minimum
+        di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
+        pos = np.argmin(di, axis=1)
+        
+        return poi[pos]
+        
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array
@@ -455,7 +489,7 @@ class Flow(PRaster):
     
     def _get_nodata_pos(self):
         """
-        Function that return nodata positions from ix and ixc lists. These NoData
+        Function that returns nodata positions from ix and ixc lists. These NoData
         position could be slightly different from original DEM Nodata positions, since 
         individual cells that do not receive any flow and at the same time flow to 
         Nodata cells are also considered NoData and excluded from analysis.      
@@ -464,6 +498,8 @@ class Flow(PRaster):
         aux_arr[self._ix] = 1
         aux_arr[self._ixc] = 1
         return np.where(aux_arr == 0)[0]
+    
+    
 
 def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
     

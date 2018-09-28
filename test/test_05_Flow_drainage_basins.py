@@ -19,7 +19,26 @@ outfolder = "data/out"
 
 class DrainageBasinTest(unittest.TestCase):
     
-    def test_create_Flow_01(self):
+    
+    def test_drainage_basins_00(self):
+        # Test 10 random basins
+        dem_files = ['tunez.tif', 'small25.tif',  "jebja30.tif"]        
+        for file in dem_files:
+            flw_path = infolder +  "/fd_{0}".format(file)
+            fd = Flow(flw_path)
+            
+            # Creamos 10 cuencas aleatorias 
+            ri = np.random.randint(0, fd._dims[0], 10)
+            ci = np.random.randint(0, fd._dims[1], 10)
+            xi, yi = fd.cell_2_xy(ri, ci)
+            # Extract basins
+            outlets = np.array((xi, yi)).T
+            threshold = int(fd.get_ncells() * 0.05)
+            snap_outlets = fd.snap_points(outlets, threshold, kind="channel")
+            basins = fd.get_drainage_basins(snap_outlets)
+            basins.save(outfolder + "/rnd_snap_basins_{0}".format(file))
+    
+    def test_drainage_basins_01(self):
         # Test 10 random basins
         dem_files = ['tunez.tif', 'small25.tif',  "jebja30.tif"]        
         for file in dem_files:
@@ -35,7 +54,7 @@ class DrainageBasinTest(unittest.TestCase):
             basins = fd.get_drainage_basins(outlets)
             basins.save(outfolder + "/rnd_basins_{0}".format(file))
 
-    def test_create_Flow_02(self):
+    def test_drainage_basins_02(self):
         # Test extracting the biggest basin and input as a list [x, y]
         dem_files = ['tunez.tif', 'small25.tif',  "jebja30.tif"]        
         for file in dem_files:
@@ -52,7 +71,7 @@ class DrainageBasinTest(unittest.TestCase):
             basins = fd.get_drainage_basins(outlets)
             basins.save(outfolder + "/max_basin_{0}".format(file))       
 
-    def test_create_Flow_03(self):
+    def test_drainage_basins_03(self):
         # Test extracting the biggest basin and input as a list [x, y]
         dem_files = ['tunez.tif', 'small25.tif',  "jebja30.tif"]        
         for file in dem_files:
@@ -68,7 +87,7 @@ class DrainageBasinTest(unittest.TestCase):
             basins = fd.get_drainage_basins(outlets)
             basins.save(outfolder + "/max_basin2_{0}".format(file))
             
-    def test_create_Flow_04(self):
+    def test_drainage_basins_04(self):
         # Test extracting all basins (min_area = 10%)
         dem_files = ['tunez.tif', 'small25.tif',  "jebja30.tif"]        
         for file in dem_files:
@@ -78,7 +97,7 @@ class DrainageBasinTest(unittest.TestCase):
             basins = fd.get_drainage_basins()
             basins.save(outfolder + "/all_basins-minarea_{0}".format(file))
 
-    def test_create_Flow_05(self):
+    def test_drainage_basins_05(self):
         # Test extracting all basins
         dem_files = ['tunez.tif', 'small25.tif',  "jebja30.tif"]        
         for file in dem_files:
