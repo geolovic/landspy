@@ -30,12 +30,12 @@ class Flow(PRaster):
         dem : *DEM object* or *str*
           topopy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
           parameter is an empty string, it will create an empty Flow instance.
-        auxtopo : boolean
-          Boolean to determine if a auxiliar topography is used (much slower). The auxiliar
-          topography is calculated with elevation differences between filled and un-filled dem.
         filled : boolean
           Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
           althoug fast, consumes a lot of memory. In some cases could be necessary fill the DEM with alternative GIS tools.
+        auxtopo : boolean
+          Boolean to determine if a auxiliar topography is used (much slower). The auxiliar topography is calculated with 
+          elevation differences between filled and un-filled dem. If filled is True, auxtopo is ignored (cannot compute differences)
         verbose : boolean
           Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
         
@@ -269,23 +269,24 @@ class Flow(PRaster):
         if coords not in ['CELL', 'XY', 'IND']:
             coords = 'CELL'
         
-        # Get network using the threshold
+        # Get drainage network using the given threshold
         fac = self.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
         w = w.ravel()
         I   = w[self._ix]
-        chcells = np.where(w)
         ix  = self._ix[I]
         ixc = self._ixc[I]
         
-        # Get grid channel cells
+        # Recalculate grid channel cells
         w = np.zeros(self._ncells, dtype=np.bool)
-        w[chcells] = True
+        w[ix] = True
+        w[ixc] = True
         
         # Build a sparse array with giver-receivers cells
         aux_vals = np.ones(ix.shape, dtype=np.int8)
         sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
         
+        # Get stream POI according the selected type
         if kind == 'heads':
             # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
             sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
@@ -446,8 +447,8 @@ class Flow(PRaster):
             poi = self.get_stream_poi(threshold, kind, "XY")
             
         else:
-            fac = self.get_flow_accumulation()
-            row, col = np.where(np.logical_and(fac.read_array() > threshold, fac.read_array() != fac.get_nodata()))
+            fac = self.get_flow_accumulation(nodata=False, asgrid=False)
+            row, col = np.where(fac >= threshold)
             x, y = self.cell_2_xy(row, col)
             poi = np.array((x, y)).T
         

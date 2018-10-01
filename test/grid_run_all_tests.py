@@ -5,13 +5,13 @@ Created on Tue Dec 26 13:58:02 2017
 Testing suite for topopy Grid class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
+@last_modified: 01 October, 2018
 """
 import unittest
 
 from test_00_PRaster import TestPRaster00, TestPRaster01
 from test_01_Grid import TestGrid01
 from test_02_DEM import DEMFillTest, DEMFlatTest
-
 
 suite1 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)

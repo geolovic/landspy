@@ -17,305 +17,7 @@ import gdal
 from .ext.sortcells import sort_pixels
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster
-
-class Flow(PRaster):
-    
-    def __init__(self, dem="", auxtopo=False, filled=False, verbose=False):
-        """
-        Class that define a network object (topologically sorted giver-receiver cells)
-        
-        Parameters:
-        ===========
-        dem : *DEM object* or *str*
-          topopy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
-          parameter is an empty string, it will create an empty Flow instance.
-        auxtopo : boolean
-          Boolean to determine if a auxiliar topography is used (much slower). The auxiliar
-          topography is calculated with elevation differences between filled and un-filled dem.
-        filled : boolean
-          Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
-          althoug fast, consumes a lot of memory. In some cases could be necessary fill the DEM with alternative GIS tools.
-        verbose : boolean
-          Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
-        
-        References:
-        -----------
-        The algoritm to created the topologically sorted network has been adapted to Python from FLOWobj.m 
-        by Wolfgang Schwanghart (version of 17. August, 2017) included in TopoToolbox matlab codes (really
-        smart algoritms there!). If use, please cite:
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
-        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-        """
-        
-        if dem == "":
-            # Creates an empty Flow object
-            self._size = (1, 1)
-            self._dims = (1, 1)
-            self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = self._geot[1]
-            self._proj = ""
-            self._ncells = 1
-            self._nodata_pos = np.array([], dtype=np.int32)
-            self._ix = np.array([], dtype=np.int32)
-            self._ixc = np.array([], dtype=np.int32)
-        
-        elif type(dem) == str:
-            # Loads the Flow object in GeoTiff format
-            try:
-                self.load_gtiff(dem)
-            except:
-                raise FlowError("Error opening the Geotiff")
-        else:
-            #try:
-            # Set Network properties
-            self._size = dem.get_size()
-            self._dims = dem.get_dims()
-            self._geot = dem.get_geotransform()
-            self._cellsize = dem.get_cellsize()
-            self._proj = dem.get_projection()
-            self._ncells = dem.get_ncells()
-            self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
-            # Get topologically sorted nodes (ix - givers, ixc - receivers)
-            self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose)
-#            except:
-#                raise FlowError("Unexpected Error creating the Flow object")
-    
-    def save_gtiff(self, path):
-        """
-        Saves the flow object as a geotiff. The geotiff file it wont have any
-        sense if its open with GIS software.
-        
-        Parameters:
-        ===========
-        path : *str* 
-          Path to store the geotiff file with the Flow data
-
-        The organization of this geotiff is as follow::
-            
-        * Band 1 --> Givers pixels reshaped to self._dims
-        * Band 2 --> Receiver pixels reshaped to self._dims
-        * Band 3 --> Nodata band (pixels with nodata == 1, pixels with data == 0)
-        """
-        driver = gdal.GetDriverByName("GTiff")
-        raster = driver.Create(path, self._dims[1], self._dims[0], 3, 4)
-        raster.SetGeoTransform(self._geot)
-        raster.SetProjection(self._proj)
-
-        no_cells = self._ncells - len(self._ix)
-
-        miss_cells = np.zeros(no_cells, np.uint32)
-        ix = np.append(self._ix, miss_cells)
-        ixc = np.append(self._ixc, miss_cells)
-        nodata_arr = np.zeros(self._dims, np.uint32)
-        nodata_pos = np.unravel_index(self._nodata_pos, self._dims)
-        nodata_arr[nodata_pos] = 1
-
-        ix = ix.reshape(self._dims)
-        ixc = ixc.reshape(self._dims)
-
-        raster.GetRasterBand(1).WriteArray(ix)
-        raster.GetRasterBand(2).WriteArray(ixc)
-        raster.GetRasterBand(3).WriteArray(nodata_arr)
-        raster.GetRasterBand(3).SetNoDataValue(no_cells)
-
-    def load_gtiff(self, path):
-        """
-        Load a geotiff file with flow direction information. This geotiff must
-        have been saved with the save_gtiff() function.
-        
-        Parameters:
-        ===========
-        path : *str* 
-          Path for the Flow geotiff.
-        """
-        raster = gdal.Open(path)
-
-        # Set Network properties        
-        self._size = (raster.RasterXSize, raster.RasterYSize)
-        self._dims = (raster.RasterYSize, raster.RasterXSize)
-        self._geot = raster.GetGeoTransform()
-        self._cellsize = self._geot[1]
-        self._proj = raster.GetProjection()
-        self._ncells = raster.RasterYSize * raster.RasterXSize
-
-        # Load nodata values
-        banda = raster.GetRasterBand(3)
-        no_cells = banda.GetNoDataValue()
-        arr = banda.ReadAsArray()
-        self._nodata_pos = np.ravel_multi_index(np.where(arr==1), self._dims)
-
-        # Load ix, ixc
-        banda = raster.GetRasterBand(1)
-        arr = banda.ReadAsArray()
-        self._ix = arr.ravel()[0:int(self._ncells - no_cells)]
-        banda = raster.GetRasterBand(2)
-        arr = banda.ReadAsArray()
-        self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
-    
-    def get_flow_accumulation(self, weights=None, nodata=True, asgrid=True):
-        """
-        Calculates the flow accumulation from the topologically sorted pixels of the
-        Flow object. As pixels of the Flow objects are sorted topologically, the flow
-        accumulation can be obtained very fast with a computational time that is linearly
-        dependent on the number of cell of the DEM.
-        
-        Parameters:
-        ===========  
-        weights : *topopy.Grid*
-          Grid with weights for the flow accumulation (p.e. precipitation values)
-        nodata : *bool*
-          Boolean flag that indicates if the output flow accumulation grid will maintain NoData values. 
-          If nodata=False, nodata values will be filled with 0 and NoDataValue will set to None. 
-        asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-        
-        Usage:
-        ======
-        flowacc = fd.get_flow_accumulation() # Create a flow accumulation Grid object
-        flowacc.save("C:/Temp/flow_acc.tif") # Save the flow accumulation in the disk
-        
-        Reference:
-        ----------
-        Braun, J., Willett, S.D., 2013. A very efficient O(n), implicit and parallel 
-        method to solve the stream power equation governing fluvial incision and landscape 
-        evolution. Geomorphology 180–181, 170–179. 
-        """
-        if weights:
-            facc = weights.read_array()
-        else:
-            facc = np.ones(self._ncells, np.uint32)
-        
-        nix = len(self._ix)
-        for n in range(nix):
-            facc[self._ixc[n]] += facc[self._ix[n]]
-        
-        facc = facc.reshape(self._dims)
-        if nodata:
-            nodata_val = np.iinfo(np.uint32).max
-        else:
-            nodata_val = 0
-        
-        row, col = np.unravel_index(self._nodata_pos, self._dims)
-        facc[row, col] = nodata_val
-        
-        # Get the output in form of a Grid object
-        if not nodata:
-            nodata_val = None
-        if asgrid:
-            return self._create_output_grid(facc, nodata_val)
-        else:
-            return facc
-
-    def get_drainage_basins(self, outlets=[], asgrid=True):
-        """
-        This function extracts the drainage basins for the Flow object and returns a Grid object that can
-        be saved into the disk.
-        
-        Parameters:
-        ===========
-        outlets : *list* or *tuple*
-          List or tuple with (xi, yi) coordinate for outlets. xi and xi can be numbers, lists, or numpy.ndarrays
-          If outlets is an empty list (default) the basins will be extracted for all the outlets in the Flow object.
-        asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-
-        Return:
-        =======
-        basins : *topopy.Grid* object with the different drainage basins.
-
-        Usage:
-        =====
-        basins = fd.drainage_basins() # Extract all the basins in the Flow object
-        basins = fd.drainage_basins([520359.7, 4054132.2]) # Creates the basin for the specified outlet
-        xi = [520359.7, 519853.5]
-        yi = [4054132.2, 4054863.5]
-        basins = fd.drainage_basins((xi, yi)) # Create two basins according xi and yi coordinates
-
-        References:
-        -----------
-        The algoritms to extract the drainage basins have been adapted to Python 
-        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-        August, 2017).
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
-        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-        """
-
-        
-        # If outlets are not specified, all the basins will be extracted
-        if outlets == []:
-            temp_ix = self._ix
-            temp_ixc = self._ixc
-            nbasins = 0
-            basin_arr = np.zeros(self._ncells, np.int)
-            nix = len(temp_ix)
-            for n in range(nix-1,-1,-1):
-                # If receiver is zero, add a new basin
-                if basin_arr[temp_ixc[n]] == 0:
-                    nbasins += 1
-                    basin_arr[temp_ixc[n]] = nbasins
-                
-                # Mark basin giver with the id of the basin receiver
-                basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
-                      
-        # Outlets coordinates are provided
-        else:
-            temp_ix = self._ix
-            temp_ixc = self._ixc
-            x, y = outlets
-            row, col = self.xy_2_cell(x, y)
-            inds = self.cell_2_ind(row, col)
-            basin_arr = np.zeros(self._ncells, np.int)
-
-            # Change basin array outlets by the basin id (starting to 1)
-            if inds.size == 1:
-                basin_arr[inds] = 1
-            else:
-                for n, inds in enumerate(inds):
-                    basin_arr[inds] = n + 1
-                
-            nix = len(temp_ix)
-            # Loop by all the sorted cells
-            for n in range(nix-1,-1,-1):
-                # If the basin receiver is not Zero and basin giver is zero
-                if (basin_arr[temp_ixc[n]] != 0) & (basin_arr[temp_ix[n]] == 0):
-                    # Mark giver with the basin id of the receiver
-                    basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
-        
-        # Reshape and return
-        basin_arr = basin_arr.reshape(self._dims)  
-        
-        if asgrid:
-            return self._create_output_grid(basin_arr, 0)
-        else:
-            return basin_arr
-            
-    def _create_output_grid(self, array, nodata_value=None):
-        """
-        Convenience function that creates a Grid object from an input array. The array
-        must have the same shape that self._dims and will maintain the Flow object 
-        properties as dimensions, geotransform, reference system, etc.
-        
-        Parameters:
-        ===========
-        array : *numpy.ndarray*
-          Array to convert to a Grid object
-        nodata_value _ *int* / *float*
-          Value for NoData values
-          
-        Returns:
-        ========
-        Grid object with the same properties that Flow
-        """
-        grid = Grid()
-        grid.copy_layout(self)
-        grid._nodata = nodata_value
-        grid._array = array
-        grid._tipo = str(array.dtype)
-        return grid  
+  
 
 class Network(PRaster):
 
@@ -332,25 +34,28 @@ class Network(PRaster):
         threshold : *int*
           Number the cells to initiate a channel
         """
-        # Set raster properties
+        # Set PRaster properties
         self._size = flow.get_size()
         self._dims = flow.get_dims()
         self._geot = flow.get_geotransform()
         self._cellsize = flow.get_cellsize()
         self._proj = flow.get_projection()
         self._ncells = flow.get_ncells()
-        self._nodata_pos = flow._nodata_pos       
+      
         # Get sort Nodes for channel cells
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
         w = w.ravel()
         I   = w[flow._ix]
-        self._chcells = np.where(w)
         self._ix  = flow._ix[I]
         self._ixc = flow._ixc[I]
         self._ax = fac.ravel()[self._ix] * self._cellsize**2 # Area in map units
         self._zx = dem.read_array().ravel()[self._ix]
-
+        
+        ## TODO
+        self._slp = np.zeros(self._ix.shape)
+        self._chi = np.zeros(self._ix.shape)
+        
     def get_stream_poi(self, kind="heads", coords="CELL"):
         """
         This function finds points of interest of the drainage network. These points of interest
@@ -359,12 +64,15 @@ class Network(PRaster):
         Parameters:
         -----------
         kind : *str* {'heads', 'confluences', 'outlets'}
-          Kind of point of interest to return. 
+          Kind of point of interest to return.
+        coords : *str* {'CELL', 'XY', 'IND'}
+          Output coordinates for the stream point of interest. 
           
         Returns:
         -----------
-        (row, col) : *tuple*
-          Tuple of numpy nd arrays with the location of the points of interest
+        numpy.ndarray
+          Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
+          with the location of the points of interest 
           
         References:
         -----------
@@ -379,15 +87,18 @@ class Network(PRaster):
         """
         # Check input parameters
         if kind not in ['heads', 'confluences', 'outlets']:
-            return np.array([]), np.array([])
+            kind = 'heads'
+        if coords not in ['CELL', 'XY', 'IND']:
+            coords = 'CELL'
         
-        # Get grid channel cells
+        # Get array with channel cells
+        ix  = self._ix
+        ixc = self._ixc
         w = np.zeros(self._ncells, dtype=np.bool)
-        w[self._chcells] = True
+        w[self._ix] = True
+        w[self._ixc] = True
         
         # Build a sparse array with giver-receivers cells
-        ix = self._ix
-        ixc = self._ixc
         aux_vals = np.ones(ix.shape, dtype=np.int8)
         sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
         
@@ -408,9 +119,10 @@ class Network(PRaster):
         row, col = np.where(out_pos)
         
         if coords=="CELL":
-            return row, col
+            return np.array((row, col)).T
         elif coords=="XY":
-            return self.cell_2_xy(row, col)
+            xi, yi = self.cell_2_xy(row, col)
+            return np.array((xi, yi)).T
         elif coords=="IND":
             return self.cell_2_ind(row, col)
 

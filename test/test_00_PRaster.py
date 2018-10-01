@@ -88,11 +88,11 @@ class TestPRaster01(unittest.TestCase):
     
     def setUp(self):        
         # Load test data
-        self.ids = np.load(infolder + "/small25_100rnd_id.npy")
-        self.rows = np.load(infolder + "/small25_100rnd_row.npy")
-        self.cols = np.load(infolder + "/small25_100rnd_col.npy")
-        self.xi = np.load(infolder + "/small25_100rnd_X.npy")
-        self.yi = np.load(infolder + "/small25_100rnd_Y.npy")
+        self.ids = np.load(infolder + "/np_files/small25_100rnd_id.npy")
+        self.rows = np.load(infolder + "/np_files/small25_100rnd_row.npy")
+        self.cols = np.load(infolder + "/np_files/small25_100rnd_col.npy")
+        self.xi = np.load(infolder + "/np_files/small25_100rnd_X.npy")
+        self.yi = np.load(infolder + "/np_files/small25_100rnd_Y.npy")
         
     def test_xy_2_cell_01(self):   
         raster = PRaster(infolder + "/small25.tif")
