@@ -14,14 +14,13 @@
 
 import numpy as np
 import gdal
-from .ext.sortcells import sort_pixels
 from scipy.sparse import csc_matrix
-from . import Grid, PRaster
+from . import Grid, PRaster, Flow, DEM
   
 
 class Network(PRaster):
 
-    def __init__(self, flow, dem, threshold):
+    def __init__(self, dem, flow, threshold):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -29,8 +28,10 @@ class Network(PRaster):
         
         Parameters:
         -----------
-        flow : *Flow* instance
-          Flow class instance
+        dem : *topopy.DEM* object
+          Digital Elevation Model instance
+        flow : *topopy.Flow* object
+          Flow direccion instance
         threshold : *int*
           Number the cells to initiate a channel
         """
@@ -55,7 +56,19 @@ class Network(PRaster):
         ## TODO
         self._slp = np.zeros(self._ix.shape)
         self._chi = np.zeros(self._ix.shape)
+    
+    def calculate_di(self):
+        di = np.zeros(self._ncells, np.float)
         
+        nix = self._ix.size
+        for n in np.arange(nix)[::-1]:
+            grow, gcol = self.ind_2_cell(self._ix[n])
+            gx, gy = self.cell_2_xy(grow, gcol)
+            rrow, rcol = self.ind_2_cell(self._ixc[n])
+            rx, ry = self.cell_2_xy(rrow, rcol)
+            d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2) 
+            di[self._ix[n]] = di[self._ixc[n]] + d_gr
+    
     def get_stream_poi(self, kind="heads", coords="CELL"):
         """
         This function finds points of interest of the drainage network. These points of interest
