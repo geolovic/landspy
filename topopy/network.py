@@ -20,7 +20,7 @@ from . import Grid, PRaster, Flow, DEM
 
 class Network(PRaster):
 
-    def __init__(self, dem, flow, threshold):
+    def __init__(self, dem, flow, threshold=0, thetaref=0.45, winsize=0):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -34,6 +34,8 @@ class Network(PRaster):
           Flow direccion instance
         threshold : *int*
           Number the cells to initiate a channel
+        thetaref : *float*
+          m/n coeficient to calculate chi values in each channel cell
         """
         # Set PRaster properties
         self._size = flow.get_size()
@@ -43,6 +45,10 @@ class Network(PRaster):
         self._proj = flow.get_projection()
         self._ncells = flow.get_ncells()
       
+        # Get a threshold if not specified (0.5% of the total number of cells)
+        if threshold == 0:
+            threshold = self._ncells * 0.005
+            
         # Get sort Nodes for channel cells
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
@@ -50,23 +56,47 @@ class Network(PRaster):
         I   = w[flow._ix]
         self._ix  = flow._ix[I]
         self._ixc = flow._ixc[I]
+        
+        # Get Area, Distance, and Elevations for channel cells
         self._ax = fac.ravel()[self._ix] * self._cellsize**2 # Area in map units
         self._zx = dem.read_array().ravel()[self._ix]
         
-        ## TODO
-        self._slp = np.zeros(self._ix.shape)
-        self._chi = np.zeros(self._ix.shape)
-    
-    def calculate_di(self):
-        di = np.zeros(self._ncells, np.float)
+        # Distances to mouth (self._dx) and giver-receiver distances (self._dd)
+        di = np.zeros(self._ncells)
+        self._dd = np.zeros(self._ix.shape) # Giver-Receiver distance
         for n in np.arange(self._ix.size)[::-1]:
             grow, gcol = self.ind_2_cell(self._ix[n])
-            gx, gy = self.cell_2_xy(grow, gcol)
             rrow, rcol = self.ind_2_cell(self._ixc[n])
+            gx, gy = self.cell_2_xy(grow, gcol)
             rx, ry = self.cell_2_xy(rrow, rcol)
-            d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2) 
+            d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2)
+            self._dd[n] = d_gr
             di[self._ix[n]] = di[self._ixc[n]] + d_gr
-            return di
+        self._dx = di[self._ix]
+        
+        # Get chi values using the input thetaref
+        self.calculate_chi(thetaref)
+        
+        ## TODO
+        self._slp = np.zeros(self._ix.shape)
+        self._ksn = np.zeros(self._ix.shape)
+    
+    def calculate_chi(self, thetaref=0.45, a0=1.0):
+        """
+        Function that calculate chi_values for channel cells
+        
+        Parameters:
+        -----------
+        thetaref : *float*
+          m/n coeficient to calculate chi
+        a0 : *float*
+          Reference area to avoid dimensionality (usually don't need to be changed)
+        """
+        chi = np.zeros(self._ncells)
+        for n in np.arange(self._ix.size)[::-1]:
+            chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)
+            
+        self._chi = chi[self._ix]
     
     def get_stream_poi(self, kind="heads", coords="CELL"):
         """
@@ -241,26 +271,7 @@ class Network(PRaster):
         # Aceptar salida a vector
         pass
 
-    def calculate_chi(self, thetaref=0.45, a0=1.0):
-        tmpix = self._ix[::-1]
-        tmpixc = self._ixc[::-1]
-        tmpai = np.ones(self._ncells, dtype=np.int)
-        tmpai[self._ix] = self._ax
-        tmpai = self._ax[::-1]**thetaref
-        chi = np.zeros(self._ncells, dtype=np.float)
-        try:
-            for n in range(tmpix.size):
-                gr, gc = self.ind_2_cell(tmpix[n])
-                rr, rc = self.ind_2_cell(tmpixc[n])
-                gx, gy = self.cell_2_xy(gr, gc)
-                rx, ry = self.cell_2_xy(rr, rc)
-                dx = np.sqrt((rx-gx)**2 + (ry-gy)**2)
-                chi[tmpixc[n]] = chi[tmpix[n]] + (a0 * dx / tmpai[tmpixc[n]])
-        except:
-            print(n)
-            print(chi.size)
-            print(tmpix[n])
-            print(tmpixc[n])
+
                 
     
     def calculate_slope(self, dist=None):
