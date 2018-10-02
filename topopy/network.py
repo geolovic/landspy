@@ -59,15 +59,14 @@ class Network(PRaster):
     
     def calculate_di(self):
         di = np.zeros(self._ncells, np.float)
-        
-        nix = self._ix.size
-        for n in np.arange(nix)[::-1]:
+        for n in np.arange(self._ix.size)[::-1]:
             grow, gcol = self.ind_2_cell(self._ix[n])
             gx, gy = self.cell_2_xy(grow, gcol)
             rrow, rcol = self.ind_2_cell(self._ixc[n])
             rx, ry = self.cell_2_xy(rrow, rcol)
             d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2) 
             di[self._ix[n]] = di[self._ixc[n]] + d_gr
+            return di
     
     def get_stream_poi(self, kind="heads", coords="CELL"):
         """
