@@ -7,15 +7,14 @@
 # vperez@ugr.es // geolovic@gmail.com
 #
 # MIT License (see LICENSE file)
-# Version: 1.0
-# December 26, 2017
+# Version: 1.1
+# October 1th, 2018
 #
-# Last modified 31 May, 2018
+# Last modified October 3th, 2018
 
 import numpy as np
-import gdal
 from scipy.sparse import csc_matrix
-from . import Grid, PRaster, Flow, DEM
+from . import Grid, PRaster
   
 
 class Network(PRaster):
@@ -78,7 +77,7 @@ class Network(PRaster):
         self.calculate_chi(thetaref)
         
         ## TODO
-        self._slp = np.zeros(self._ix.shape)
+
         self._ksn = np.zeros(self._ix.shape)
     
     def calculate_chi(self, thetaref=0.45, a0=1.0):
@@ -99,74 +98,201 @@ class Network(PRaster):
         self._chi = chi[self._ix]
     
     def get_stream_poi(self, kind="heads", coords="CELL"):
+            """
+            This function finds points of interest of the drainage network. These points of interest
+            can be 'heads', 'confluences' or 'outlets'.
+            
+            Parameters:
+            -----------
+            kind : *str* {'heads', 'confluences', 'outlets'}
+              Kind of point of interest to return.
+            coords : *str* {'CELL', 'XY', 'IND'}
+              Output coordinates for the stream point of interest. 
+              
+            Returns:
+            -----------
+            numpy.ndarray
+              Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
+              with the location of the points of interest 
+              
+            References:
+            -----------
+            The algoritms to extract the point of interest have been adapted to Python 
+            from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+            August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
+            derive point of interest in a really efficient way. Cite:
+                    
+            Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+            MATLAB-based software for topographic analysis and modeling in Earth 
+            surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+            """
+            # Check input parameters
+            if kind not in ['heads', 'confluences', 'outlets']:
+                kind = 'heads'
+            if coords not in ['CELL', 'XY', 'IND']:
+                coords = 'CELL'
+
+            # Get grid channel cells
+            w = np.zeros(self._ncells, dtype=np.bool)
+            w[self._ix] = True
+            w[self._ixc] = True
+            
+            # Build a sparse array with giver-receivers cells
+            aux_vals = np.ones(self._ix.shape, dtype=np.int8)
+            sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self._ncells, self._ncells))
+            
+            # Get stream POI according the selected type
+            if kind == 'heads':
+                # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+                out_pos = (sum_arr == 0) & w
+            elif kind == 'confluences':
+                # Confluences will be channel cells with two or givers
+                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+                out_pos = sum_arr > 1
+            elif kind == 'outlets':
+                # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
+                sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
+                out_pos = np.logical_and((sum_arr == 0), w)  
+                
+            out_pos = out_pos.reshape(self._dims)
+            row, col = np.where(out_pos)
+            
+            if coords=="CELL":
+                return np.array((row, col)).T
+            elif coords=="XY":
+                xi, yi = self.cell_2_xy(row, col)
+                return np.array((xi, yi)).T
+            elif coords=="IND":
+                return self.cell_2_ind(row, col)
+
+    def snap_points(self, input_points, kind="channel"):
         """
-        This function finds points of interest of the drainage network. These points of interest
-        can be 'heads', 'confluences' or 'outlets'.
+        Snap input points to channel cells or to stream POI
         
         Parameters:
-        -----------
-        kind : *str* {'heads', 'confluences', 'outlets'}
-          Kind of point of interest to return.
-        coords : *str* {'CELL', 'XY', 'IND'}
-          Output coordinates for the stream point of interest. 
-          
+        ===========
+        array : *iterable*
+          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
+          with [x, y] columns. 
+        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
+            Kind of point to snap input points
+        
         Returns:
-        -----------
+        ===========
         numpy.ndarray
-          Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
-          with the location of the points of interest 
-          
-        References:
-        -----------
-        The algoritms to extract the point of interest have been adapted to Python 
-        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
-        derive point of interest in a really efficient way. Cite:
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
-        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+          Numpy ndarray with two columns [xi, yi] with the snap points
         """
-        # Check input parameters
-        if kind not in ['heads', 'confluences', 'outlets']:
-            kind = 'heads'
-        if coords not in ['CELL', 'XY', 'IND']:
-            coords = 'CELL'
+        if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
+            kind = 'channel'
         
-        # Get array with channel cells
-        ix  = self._ix
-        ixc = self._ixc
-        w = np.zeros(self._ncells, dtype=np.bool)
-        w[self._ix] = True
-        w[self._ixc] = True
+        # Extract a numpy array with the coordinate to snap the points
+        if kind in ['heads', 'confluences', 'outlets']:
+            poi = self.get_stream_poi(kind, "XY")     
+        else:
+            row, col = self.ind_2_cell(self._ix)
+            x, y = self.cell_2_xy(row, col)
+            poi = np.array((x, y)).T
         
-        # Build a sparse array with giver-receivers cells
-        aux_vals = np.ones(ix.shape, dtype=np.int8)
-        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
+        # Get array reshaped for the calculation
+        xi = input_points[:, 0].reshape((input_points.shape[0], 1))
+        yi = input_points[:, 1].reshape((input_points.shape[0], 1))
+        xci = poi[:, 0].reshape((1, poi.shape[0]))
+        yci = poi[:, 1].reshape((1, poi.shape[0]))
         
-        if kind == 'heads':
-            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-            out_pos = (sum_arr == 0) & w
-        elif kind == 'confluences':
-            # Confluences will be channel cells with two or givers
-            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-            out_pos = sum_arr > 1
-        elif kind == 'outlets':
-            # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
-            sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-            out_pos = np.logical_and((sum_arr == 0), w)  
+        # Calculate distances and get minimum
+        di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
+        pos = np.argmin(di, axis=1)
+        
+        return poi[pos]
+    
+    def calculate_slope(self, npoints):
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        
+        # Get heads and sorted them by elevation
+        heads = self.get_stream_poi("heads", "IND")
+        elev = self._zx[ixcix[heads]]
+        spos = np.argsort(-elev)
+        heads = heads[spos]
+        winlen = npoints * 2 + 1
+        slopes = np.zeros(self._ncells)
+        r2 = np.zeros(self._ncells)
+        
+        # Taking sequentally all the heads and compute downstream flow
+        for head in heads:
+            processing = True
+            lcell = head
+            mcell = self._ixc[ixcix[head]]
+            fcell = self._ixc[ixcix[mcell]]
+        
+            if ixcix[fcell] == 0 or ixcix[self._ixc[ixcix[fcell]]] == 0:
+                continue
             
-        out_pos = out_pos.reshape(self._dims)
-        row, col = np.where(out_pos)
+            # Obtenemos datos de elevacion y distancias
+            win = [fcell, mcell, lcell]
+            zi = self._zx[ixcix[win]]
+            di = self._dx[ixcix[win]]
+            
+            # Calculamos pendientes
+            poli, SCR = np.polyfit(di, zi, deg = 1, full = True)[:2]
+            R2 = float(1 - SCR/(zi.size * zi.var()))
+            slp = poli[0]
+            slopes[mcell] = slp
+            r2[mcell] = R2
+            
+            while processing:
+                # Cogemos la siguiente celda del canal (next_cell)
+                fcell = win[0]
+                next_cell = self._ixc[ixcix[fcell]]
+                
+                # Comprobamos la siguiente celda del canal
+                # Si la siguiente celda del canal no es cero
+                if ixcix[next_cell] != 0:
+                    # Añadimos siguiente celda
+                    win.insert(0, next_cell)
+                    fcell = win[0]
+                    # Movemos celda central
+                    mcell = self._ixc[ixcix[mcell]]
         
-        if coords=="CELL":
-            return np.array((row, col)).T
-        elif coords=="XY":
-            xi, yi = self.cell_2_xy(row, col)
-            return np.array((xi, yi)).T
-        elif coords=="IND":
-            return self.cell_2_ind(row, col)
+                    if len(win) < winlen:
+                        # Si estamos al principio del canal, win crece
+                        next_cell = self._ixc[ixcix[fcell]]
+                        win.insert(0, next_cell)
+                        fcell = win[0]
+                    else:
+                        # Si no estamos al principio, eliminamos celda final
+                        win.pop()
+                # Si la siguiente celda es cero, no añadimos celdas, sino que win decrece
+                else:
+                    mcell = self._ixc[ixcix[mcell]]
+                    win.pop()
+                    win.pop()
+                    if len(win) == 3:
+                        processing = False
+                        slopes[fcell] = 0.00001
+                        r2[fcell] = 0.00001
+                        
+                # Obtenemos datos de elevacion y distancias
+                zi = self._zx[ixcix[win]]
+                di = self._dx[ixcix[win]]
+                
+                # Calculamos pendiente de celda central
+                poli, SCR = np.polyfit(di, zi, deg = 1, full = True)[:2]
+                R2 = float(1 - SCR/(zi.size * zi.var()))
+                slp = poli[0]
+                
+                    
+                if slopes[mcell] == 0:
+                    slopes[mcell] = slp
+                    r2[mcell] = R2
+                else:
+                    processing = False
+        
+        self._slp = slopes[self._ix]
+    
+    ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
 
     def get_streams(self, asgrid=True):
         """
@@ -197,15 +323,9 @@ class Network(PRaster):
         asgrid : *bool*
           Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
         """
-        # Get heads
-        head_ind = self.get_stream_poi("heads")
-        head_ind = self.cell_2_ind(head_ind[0], head_ind[1])
-        
-        # Get confluences
-        conf_ind = self.get_stream_poi("confluences")
-        conf_ind = self.cell_2_ind(conf_ind[0], conf_ind[1])
-                
-        # Merge all heads and confluences
+        # Get heads adn confluences and merge them
+        head_ind = self.get_stream_poi("heads", "IND")
+        conf_ind = self.get_stream_poi("confluences", "IND")
         all_ind = np.append(head_ind, conf_ind)
         del conf_ind, head_ind # Clean up
         
@@ -270,39 +390,7 @@ class Network(PRaster):
     def get_main_channels(self, heads=None):
         # Aceptar salida a vector
         pass
-
-
-                
     
-    def calculate_slope(self, dist=None):
-        pass
-    
-    def snap_points(self, row, col, kind="heads"):
-        """
-        Snap points to network points of interest {heads, confluences, or outlets}
-        
-        Parameters:
-        -----------
-        row : row indexes (number, list, or numpy.ndarray) of input points
-        col : column indexes (number, list, or numpy.ndarray) of input points
-        
-        Return:
-        =======
-        Tuple with (row, col) indices of snap points as np.ndarrays
-        """
-        n_points = len(row)
-        snap_row = []
-        snap_col = []
-        # Get stream poi
-        poi = self.get_stream_poi(kind = kind)
-        # Calculate distances
-        for n in range(n_points):
-            dist = np.sqrt((row[n]-poi[0])**2 + (col[n]-poi[1])**2)
-            min_pos = np.argmin(dist)
-            snap_row.append(poi[0][min_pos])
-            snap_col.append(poi[1][min_pos])
-            
-        return np.array(snap_row), np.array(snap_col)
     
     def _create_output_grid(self, array, nodata_value=None):
         """
