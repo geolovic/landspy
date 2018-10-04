@@ -19,7 +19,7 @@ from . import Grid, PRaster
 
 class Network(PRaster):
 
-    def __init__(self, dem, flow, threshold=0, thetaref=0.45, winsize=0):
+    def __init__(self, dem, flow, threshold=0, thetaref=0.45, npoints=5):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -34,7 +34,10 @@ class Network(PRaster):
         threshold : *int*
           Number the cells to initiate a channel
         thetaref : *float*
-          m/n coeficient to calculate chi values in each channel cell
+          m/n coeficient to calculate chi values in each channel cell    
+        npoints : *int*
+          Number of points to calculate slope and ksn in each cell. Slope and ksn values
+          are calculated with a moving window of (npoints * 2 + 1) cells.
         """
         # Set PRaster properties
         self._size = flow.get_size()
@@ -47,7 +50,8 @@ class Network(PRaster):
         # Get a threshold if not specified (0.5% of the total number of cells)
         if threshold == 0:
             threshold = self._ncells * 0.005
-            
+        
+        self._threshold = threshold
         # Get sort Nodes for channel cells
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
@@ -76,9 +80,10 @@ class Network(PRaster):
         # Get chi values using the input thetaref
         self.calculate_chi(thetaref)
         
-        ## TODO
+        # Calculate slopes and ksn
+        self.calculate_gradients(npoints, 'slp')
+        self.calculate_gradients(npoints, 'ksn')
 
-        self._ksn = np.zeros(self._ix.shape)
     
     def calculate_chi(self, thetaref=0.45, a0=1.0):
         """
@@ -206,7 +211,31 @@ class Network(PRaster):
         
         return poi[pos]
     
-    def calculate_slope(self, npoints):
+    def calculate_gradients(self, npoints, kind='slp'):
+        """
+        This function calculates gradients (slope or ksn) for all channel cells. 
+        Gradients of each cell are calculated by linear regression using a number
+        of points (npoints) up and downstream.
+        
+        Parameters:
+        ===========
+        npoints : *int*
+          Window to analyze slopes. Slopes are calculated by linear regression using a window
+          of npoints * 2 + 1 pixel (using the central pixel)
+          
+        kind : *str* {'slp', 'ksn'}
+        """
+        if kind not in ['slp', 'ksn']:
+            kind = 'slp'
+        
+        # Get arrays depending on type
+        if kind == 'slp':
+            x_arr = self._dx
+            y_arr = self._zx
+        elif kind == 'ksn':
+            x_arr = self._chi
+            y_arr = self._zx
+            
         # Get ixcix auxiliar array
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
@@ -217,7 +246,7 @@ class Network(PRaster):
         spos = np.argsort(-elev)
         heads = heads[spos]
         winlen = npoints * 2 + 1
-        slopes = np.zeros(self._ncells)
+        gi = np.zeros(self._ncells)
         r2 = np.zeros(self._ncells)
         
         # Taking sequentally all the heads and compute downstream flow
@@ -232,14 +261,19 @@ class Network(PRaster):
             
             # Obtenemos datos de elevacion y distancias
             win = [fcell, mcell, lcell]
-            zi = self._zx[ixcix[win]]
-            di = self._dx[ixcix[win]]
+            xi = x_arr[ixcix[win]]
+            yi = y_arr[ixcix[win]]
             
-            # Calculamos pendientes
-            poli, SCR = np.polyfit(di, zi, deg = 1, full = True)[:2]
-            R2 = float(1 - SCR/(zi.size * zi.var()))
-            slp = poli[0]
-            slopes[mcell] = slp
+            # Calculamos pendiente de celda central por regresion
+            poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
+            # To avoid issues with horizontal colinear points
+            if yi.size * yi.var() == 0:
+                R2 = 1
+            else:
+                R2 = float(1 - SCR/(yi.size * yi.var()))
+            
+            g = poli[0]
+            gi[mcell] = g
             r2[mcell] = R2
             
             while processing:
@@ -271,32 +305,51 @@ class Network(PRaster):
                     win.pop()
                     if len(win) == 3:
                         processing = False
-                        slopes[fcell] = 0.00001
+                        gi[fcell] = 0.00001
                         r2[fcell] = 0.00001
                         
                 # Obtenemos datos de elevacion y distancias
-                zi = self._zx[ixcix[win]]
-                di = self._dx[ixcix[win]]
+                xi = x_arr[ixcix[win]]
+                yi = y_arr[ixcix[win]]
                 
-                # Calculamos pendiente de celda central
-                poli, SCR = np.polyfit(di, zi, deg = 1, full = True)[:2]
-                R2 = float(1 - SCR/(zi.size * zi.var()))
-                slp = poli[0]
+                # Calculamos pendiente de celda central por regresion
+                poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
                 
+                # To avoid issues with horizontal colinear points
+                if yi.size * yi.var() == 0:
+                    R2 = 1
+                else:
+                    R2 = float(1 - SCR/(yi.size * yi.var()))
+            
+                g = poli[0]
                     
-                if slopes[mcell] == 0:
-                    slopes[mcell] = slp
+                if gi[mcell] == 0:
+                    gi[mcell] = g
                     r2[mcell] = R2
                 else:
                     processing = False
         
-        self._slp = slopes[self._ix]
-    
-    ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+        if kind == 'slp':
+            self._slp = gi[self._ix]
+            self._r2slp = r2[self._ix]
+            self._slp_npoints = npoints
+        elif kind == 'ksn':
+            self._ksn = gi[self._ix]
+            self._r2ksn = r2[self._ix]
+            self._ksn_npoints = npoints
 
+    def export_2_points(self, path):
+        cab = "x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
+        row, col = self.ind_2_cell(self._ix)
+        x, y = self.cell_2_xy(row, col)
+        
+        out_arr = np.array((x, y, self._zx, self._dx, self._ax, self._chi, 
+                            self._slp, self._ksn, self._r2slp, self._r2ksn)).T
+        np.savetxt(path, out_arr, delimiter=";", header=cab, comments="")
+    
     def get_streams(self, asgrid=True):
         """
-        This function extract a drainage network by using a determined area threshold
+        This function outputs a grid representation of the Network object
 
         Parameters:
         ===========
@@ -305,7 +358,8 @@ class Network(PRaster):
         """
         # Get grid channel cells
         w = np.zeros(self._ncells, dtype=np.int8)
-        w[self._chcells] = 1
+        w[self._ix] = 1
+        w[self._ixc] = 1
         w = w.reshape(self._dims)
         # Return grid
         if asgrid:
@@ -347,6 +401,21 @@ class Network(PRaster):
             return self._create_output_grid(seg_arr, 0)
         else:
             return seg_arr
+    
+    def export_to_shp(self, path):
+        ## TODO
+        # El output shapefile debe de tener los siguientes campos:
+        # cid, order, from, to
+        
+        seg_arr = self.get_stream_segments(False)
+        driver = gdal.GetDriverByName("ESRI Shapefile")
+        dataset = None
+        
+    ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+
+
+    
+
 
     def get_stream_order(self, kind="strahler", asgrid=True):
         """
