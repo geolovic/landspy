@@ -13,7 +13,7 @@ import sys
 import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../")
-from topopy import Flow, DEM, Network
+from topopy import Network
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -23,12 +23,9 @@ class SnapPoiTest(unittest.TestCase):
         # Test 10 random basins
         files = ["small25", "morocco", "tunez", "jebja30"]
         for file in files:
-            flw_path = infolder +  "/{0}_fd.tif".format(file)
-            dem_path = infolder +  "/{0}.tif".format(file)
-            dem = DEM(dem_path)
-            fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
-            net = Network(dem, fd, thr)
+            # Cargamos objeto network guardado previamente
+            net_path = infolder +  "/{0}_network.net".format(file)
+            net = Network(net_path)
             
             # Obtenemos 20 puntos aleatorios
             x1, x2, y1, y2 = net.get_extent()
@@ -49,12 +46,9 @@ class SnapPoiTest(unittest.TestCase):
         # Test 10 random basins
         files = ["small25", "morocco", "tunez", "jebja30"]
         for file in files:
-            flw_path = infolder +  "/{0}_fd.tif".format(file)
-            dem_path = infolder +  "/{0}.tif".format(file)
-            dem = DEM(dem_path)
-            fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
-            net = Network(dem, fd, thr)
+            # Cargamos objeto network guardado previamente
+            net_path = infolder +  "/{0}_network.net".format(file)
+            net = Network(net_path)
             
             # Obtenemos 20 puntos aleatorios
             x1, x2, y1, y2 = net.get_extent()

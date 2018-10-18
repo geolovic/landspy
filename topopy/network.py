@@ -13,13 +13,14 @@
 # Last modified October 3th, 2018
 
 import numpy as np
+import os
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster
   
 
 class Network(PRaster):
 
-    def __init__(self, dem, flow, threshold=0, thetaref=0.45, npoints=5):
+    def __init__(self, dem=None, flow=None, threshold=0, thetaref=0.45, npoints=5):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -27,8 +28,8 @@ class Network(PRaster):
         
         Parameters:
         -----------
-        dem : *topopy.DEM* object
-          Digital Elevation Model instance
+        dem : *topopy.DEM* object or *str*
+          Digital Elevation Model instance or path to previously saved Network object
         flow : *topopy.Flow* object
           Flow direccion instance
         threshold : *int*
@@ -39,6 +40,11 @@ class Network(PRaster):
           Number of points to calculate slope and ksn in each cell. Slope and ksn values
           are calculated with a moving window of (npoints * 2 + 1) cells.
         """
+        # If dem is a str, load it
+        if type(dem)== str:
+            self._load(dem)
+            return
+        
         # Set PRaster properties
         self._size = flow.get_size()
         self._dims = flow.get_dims()
@@ -47,11 +53,11 @@ class Network(PRaster):
         self._proj = flow.get_projection()
         self._ncells = flow.get_ncells()
       
-        # Get a threshold if not specified (0.5% of the total number of cells)
+        # Get a threshold if not specified (Default 0.5% of the total number of cells)
         if threshold == 0:
             threshold = self._ncells * 0.005
-        
         self._threshold = threshold
+        
         # Get sort Nodes for channel cells
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
@@ -64,7 +70,7 @@ class Network(PRaster):
         self._ax = fac.ravel()[self._ix] * self._cellsize**2 # Area in map units
         self._zx = dem.read_array().ravel()[self._ix]
         
-        # Distances to mouth (self._dx) and giver-receiver distances (self._dd)
+        # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
         di = np.zeros(self._ncells)
         self._dd = np.zeros(self._ix.shape) # Giver-Receiver distance
         for n in np.arange(self._ix.size)[::-1]:
@@ -78,13 +84,85 @@ class Network(PRaster):
         self._dx = di[self._ix]
         
         # Get chi values using the input thetaref
+        self._thetaref = thetaref
         self.calculate_chi(thetaref)
         
         # Calculate slopes and ksn
         self.calculate_gradients(npoints, 'slp')
         self.calculate_gradients(npoints, 'ksn')
 
+    def save(self, path):
+        """
+        Saves the Network instance to disk. It will be saved as a numpy array in text format.
+        The first three rows will have the information of the raster
+        
+        Parameters:
+        ===========
+        path : *str*
+          Path to save the network object, with *.net extension
+        """
     
+        path = os.path.splitext(path)[0]
+            
+        # Create *.net file with properties
+        netfile = open(path + ".net", "w")
+        params = [self._size, self._cellsize, self._ncells, self._ksn_npoints, self._slp_npoints, self._thetaref] 
+        linea = ";".join([str(param) for param in params]) + "\n"
+        netfile.write(linea)
+        linea = ";".join([str(elem) for elem in self._geot]) + "\n"
+        netfile.write(linea)
+        netfile.write(str(self._proj))
+        netfile.close()
+        
+        # Create data array
+        data_arr = np.array((self._ix, self._ixc, self._ax, self._dx, self._zx,
+                             self._chi, self._slp, self._ksn, self._r2slp, 
+                             self._r2ksn, self._dd)).T
+        
+        # Save the network instance as numpy.ndarray in text format
+        np.save(path + ".npy", data_arr)
+    
+    def _load(self, path):
+        """
+        Loads a Network instance saved in the disk.
+        
+        Parameter:
+        ==========
+           Path to the saved network object
+        """
+        # Get properties from properties file *.net
+        netfile = path
+        fr = open(netfile, "r")
+        linea = fr.readline()[:-1]
+        data = linea.split(";")
+        self._size = (int(data[0].split(",")[0][1:]), int(data[0].split(",")[1][:-1]))
+        self._dims = (self._size[1], self._size[0])
+        self._cellsize = float(data[1])
+        self._ncells = int(data[2])
+        self._ksn_npoints = int(data[3])
+        self._slp_npoints = int(data[4])
+        self._thetaref = float(data[5])
+        linea = fr.readline()[:-1]
+        self._geot = tuple([float(n) for n in linea.split(";")])
+        linea = fr.readline()
+        self._proj = linea
+        fr.close()
+        
+        # Load data array from array file *.npy
+        arrfile = os.path.splitext(netfile)[0] + ".npy"
+        data_arr = np.load(arrfile)
+        self._ix = data_arr[:, 0].astype(np.int)
+        self._ixc = data_arr[:, 1].astype(np.int)
+        self._ax = data_arr[:, 2]
+        self._dx = data_arr[:, 3]
+        self._zx = data_arr[:, 4]
+        self._chi = data_arr[:, 5]
+        self._slp = data_arr[:, 6]
+        self._ksn = data_arr[:, 7]
+        self._r2slp = data_arr[:, 8]
+        self._r2ksn = data_arr[:, 9]
+        self._dd = data_arr[:, 10]
+         
     def calculate_chi(self, thetaref=0.45, a0=1.0):
         """
         Function that calculate chi_values for channel cells
@@ -98,119 +176,10 @@ class Network(PRaster):
         """
         chi = np.zeros(self._ncells)
         for n in np.arange(self._ix.size)[::-1]:
-            chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)
-            
+            chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)            
         self._chi = chi[self._ix]
-    
-    def get_stream_poi(self, kind="heads", coords="CELL"):
-            """
-            This function finds points of interest of the drainage network. These points of interest
-            can be 'heads', 'confluences' or 'outlets'.
-            
-            Parameters:
-            -----------
-            kind : *str* {'heads', 'confluences', 'outlets'}
-              Kind of point of interest to return.
-            coords : *str* {'CELL', 'XY', 'IND'}
-              Output coordinates for the stream point of interest. 
-              
-            Returns:
-            -----------
-            numpy.ndarray
-              Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
-              with the location of the points of interest 
-              
-            References:
-            -----------
-            The algoritms to extract the point of interest have been adapted to Python 
-            from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-            August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
-            derive point of interest in a really efficient way. Cite:
-                    
-            Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-            MATLAB-based software for topographic analysis and modeling in Earth 
-            surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-            """
-            # Check input parameters
-            if kind not in ['heads', 'confluences', 'outlets']:
-                kind = 'heads'
-            if coords not in ['CELL', 'XY', 'IND']:
-                coords = 'CELL'
-
-            # Get grid channel cells
-            w = np.zeros(self._ncells, dtype=np.bool)
-            w[self._ix] = True
-            w[self._ixc] = True
-            
-            # Build a sparse array with giver-receivers cells
-            aux_vals = np.ones(self._ix.shape, dtype=np.int8)
-            sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self._ncells, self._ncells))
-            
-            # Get stream POI according the selected type
-            if kind == 'heads':
-                # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-                out_pos = (sum_arr == 0) & w
-            elif kind == 'confluences':
-                # Confluences will be channel cells with two or givers
-                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-                out_pos = sum_arr > 1
-            elif kind == 'outlets':
-                # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
-                sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-                out_pos = np.logical_and((sum_arr == 0), w)  
-                
-            out_pos = out_pos.reshape(self._dims)
-            row, col = np.where(out_pos)
-            
-            if coords=="CELL":
-                return np.array((row, col)).T
-            elif coords=="XY":
-                xi, yi = self.cell_2_xy(row, col)
-                return np.array((xi, yi)).T
-            elif coords=="IND":
-                return self.cell_2_ind(row, col)
-
-    def snap_points(self, input_points, kind="channel"):
-        """
-        Snap input points to channel cells or to stream POI
-        
-        Parameters:
-        ===========
-        array : *iterable*
-          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
-          with [x, y] columns. 
-        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
-            Kind of point to snap input points
-        
-        Returns:
-        ===========
-        numpy.ndarray
-          Numpy ndarray with two columns [xi, yi] with the snap points
-        """
-        if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
-            kind = 'channel'
-        
-        # Extract a numpy array with the coordinate to snap the points
-        if kind in ['heads', 'confluences', 'outlets']:
-            poi = self.get_stream_poi(kind, "XY")     
-        else:
-            row, col = self.ind_2_cell(self._ix)
-            x, y = self.cell_2_xy(row, col)
-            poi = np.array((x, y)).T
-        
-        # Get array reshaped for the calculation
-        xi = input_points[:, 0].reshape((input_points.shape[0], 1))
-        yi = input_points[:, 1].reshape((input_points.shape[0], 1))
-        xci = poi[:, 0].reshape((1, poi.shape[0]))
-        yci = poi[:, 1].reshape((1, poi.shape[0]))
-        
-        # Calculate distances and get minimum
-        di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
-        pos = np.argmin(di, axis=1)
-        
-        return poi[pos]
-    
+        self._thetaref = thetaref
+      
     def calculate_gradients(self, npoints, kind='slp'):
         """
         This function calculates gradients (slope or ksn) for all channel cells. 
@@ -337,7 +306,116 @@ class Network(PRaster):
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
             self._ksn_npoints = npoints
+    
+    def get_stream_poi(self, kind="heads", coords="CELL"):
+            """
+            This function finds points of interest of the drainage network. These points of interest
+            can be 'heads', 'confluences' or 'outlets'.
+            
+            Parameters:
+            -----------
+            kind : *str* {'heads', 'confluences', 'outlets'}
+              Kind of point of interest to return.
+            coords : *str* {'CELL', 'XY', 'IND'}
+              Output coordinates for the stream point of interest. 
+              
+            Returns:
+            -----------
+            numpy.ndarray
+              Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
+              with the location of the points of interest 
+              
+            References:
+            -----------
+            The algoritms to extract the point of interest have been adapted to Python 
+            from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+            August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
+            derive point of interest in a really efficient way. Cite:
+                    
+            Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
+            MATLAB-based software for topographic analysis and modeling in Earth 
+            surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
+            """
+            # Check input parameters
+            if kind not in ['heads', 'confluences', 'outlets']:
+                kind = 'heads'
+            if coords not in ['CELL', 'XY', 'IND']:
+                coords = 'CELL'
 
+            # Get grid channel cells
+            w = np.zeros(self._ncells, dtype=np.bool)
+            w[self._ix] = True
+            w[self._ixc] = True
+            
+            # Build a sparse array with giver-receivers cells
+            aux_vals = np.ones(self._ix.shape, dtype=np.int8)
+            sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self._ncells, self._ncells))
+            
+            # Get stream POI according the selected type
+            if kind == 'heads':
+                # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+                out_pos = (sum_arr == 0) & w
+            elif kind == 'confluences':
+                # Confluences will be channel cells with two or givers
+                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+                out_pos = sum_arr > 1
+            elif kind == 'outlets':
+                # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
+                sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
+                out_pos = np.logical_and((sum_arr == 0), w)  
+                
+            out_pos = out_pos.reshape(self._dims)
+            row, col = np.where(out_pos)
+            
+            if coords=="CELL":
+                return np.array((row, col)).T
+            elif coords=="XY":
+                xi, yi = self.cell_2_xy(row, col)
+                return np.array((xi, yi)).T
+            elif coords=="IND":
+                return self.cell_2_ind(row, col)
+
+    def snap_points(self, input_points, kind="channel"):
+        """
+        Snap input points to channel cells or to stream POI
+        
+        Parameters:
+        ===========
+        array : *iterable*
+          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
+          with [x, y] columns. 
+        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
+            Kind of point to snap input points
+        
+        Returns:
+        ===========
+        numpy.ndarray
+          Numpy ndarray with two columns [xi, yi] with the snap points
+        """
+        if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
+            kind = 'channel'
+        
+        # Extract a numpy array with the coordinate to snap the points
+        if kind in ['heads', 'confluences', 'outlets']:
+            poi = self.get_stream_poi(kind, "XY")     
+        else:
+            row, col = self.ind_2_cell(self._ix)
+            x, y = self.cell_2_xy(row, col)
+            poi = np.array((x, y)).T
+        
+        # Get array reshaped for the calculation
+        xi = input_points[:, 0].reshape((input_points.shape[0], 1))
+        yi = input_points[:, 1].reshape((input_points.shape[0], 1))
+        xci = poi[:, 0].reshape((1, poi.shape[0]))
+        yci = poi[:, 1].reshape((1, poi.shape[0]))
+        
+        # Calculate distances and get minimum
+        di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
+        pos = np.argmin(di, axis=1)
+        
+        return poi[pos]
+    
     def export_2_points(self, path):
         cab = "x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
         row, col = self.ind_2_cell(self._ix)
@@ -401,38 +479,25 @@ class Network(PRaster):
             return self._create_output_grid(seg_arr, 0)
         else:
             return seg_arr
-    
-    def export_to_shp(self, path):
-        ## TODO
-        # El output shapefile debe de tener los siguientes campos:
-        # cid, order, from, to
         
-        seg_arr = self.get_stream_segments(False)
-        driver = gdal.GetDriverByName("ESRI Shapefile")
-        dataset = None
-        
-    ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
-
-
-    
-
-
     def get_stream_order(self, kind="strahler", asgrid=True):
         """
-        This function extract streams orderded by strahler or shreeve
+        This function extract streams orderded by strahler or shreeve. Cell values
+        will have a value acording with the order of the segment they belong
     
         Parameters:
         ===========
         kind : *str* {'strahler', 'shreeve'}
         asgrid : *bool*
-          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+          Indicates if the selfwork is returned as topopy.Grid (True) or as a numpy.array
         """
         if kind not in ['strahler', 'shreeve']:
             return
         
         # Get grid channel cells
         str_ord = np.zeros(self._ncells, dtype=np.int8)
-        str_ord[self._chcells] = 1
+        str_ord[self._ix] = 1
+        str_ord[self._ixc] = 1
         visited = np.zeros(self._ncells, dtype=np.int8)
     
         if kind == 'strahler':
@@ -455,12 +520,7 @@ class Network(PRaster):
             return self._create_output_grid(str_ord, nodata_value=0)
         else:
             return str_ord
-    
-    def get_main_channels(self, heads=None):
-        # Aceptar salida a vector
-        pass
-    
-    
+
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array
@@ -483,7 +543,62 @@ class Network(PRaster):
         grid._nodata = nodata_value
         grid._array = array
         grid._tipo = str(array.dtype)
-        return grid  
+        return grid 
+        
+    def export_to_shp(self, path):
+        ## TODO
+        # El output shapefile debe de tener los siguientes campos:
+        # cid, order, from, to
+        pass
+        
+#    def get_stream_order(self, kind="strahler", asgrid=True):
+#        """
+#        This function extract streams orderded by strahler or shreeve
+#    
+#        Parameters:
+#        ===========
+#        kind : *str* {'strahler', 'shreeve'}
+#        asgrid : *bool*
+#          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
+#        """
+#        if kind not in ['strahler', 'shreeve']:
+#            return
+#        
+#        # Get grid channel cells
+#        str_ord = np.zeros(self._ncells, dtype=np.int8)
+#        str_ord[self._ix] = 1
+#        str_ord[self._ixc] = 1
+#        visited = np.zeros(self._ncells, dtype=np.int8)
+#    
+#        if kind == 'strahler':
+#            for n in range(len(self._ix)):
+#                if (str_ord[self._ixc[n]] == str_ord[self._ix[n]]) & visited[self._ixc[n]]:
+#                    str_ord[self._ixc[n]] = str_ord[self._ixc[n]] + 1                
+#                else:
+#                    str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
+#                    visited[self._ixc[n]] = True
+#        elif kind == 'shreeve':
+#            for n in range(len(self._ix)):
+#                if visited[self._ixc[n]]:
+#                    str_ord[self._ixc[n]] = str_ord[self._ixc[n]] + str_ord[self._ix[n]]
+#                else:
+#                    str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
+#                    visited[self._ixc[n]] = True
+#        str_ord = str_ord.reshape(self._dims)
+#        
+#        if asgrid:
+#            return self._create_output_grid(str_ord, nodata_value=0)
+#        else:
+#            return str_ord
+    
+### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+    
+    def get_main_channels(self, heads=None):
+        # Aceptar salida a vector
+        pass
+    
+    
+ 
     
 #    def get_stream_poi(self, threshold, kind="heads"):
 #        """
