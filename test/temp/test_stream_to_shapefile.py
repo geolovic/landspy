@@ -1,4 +1,4 @@
-it #!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jan 26 17:53:42 2018
@@ -6,47 +6,78 @@ Created on Fri Jan 26 17:53:42 2018
 @author: vicen
 """
 
-import sys
-sys.path.append("../../")
-from topopy import Flow, Grid
+from topopy import Network
 import numpy as np
-from scipy.sparse import csc_matrix
 import matplotlib.pyplot as plt
 
-fd = Flow()
-fd.load_gtiff("../data/in/fd_tunez.tif")
-threshold = 1000
+net = Network("../data/in/jebja30_network.net")
 
-ixcix = np.zeros(fd._ncells, np.int)
-ixcix[fd._ix] = np.arange(len(fd._ix))
+self = net
+fig, ax = plt.subplots()
 
-x = 507194.338
-y = 4060151.087
-row, col = fd.xy_2_cell(x, y)
+#def export_to_shp(self, path="", continous=False):
+    
+# Get channel segments and orders
+ch_seg = self.get_stream_segments(False).ravel()
+ch_ord = self.get_stream_order(asgrid=False).ravel()
+ch_seg = ch_seg[self._ix]
+ch_ord = ch_ord[self._ix]
 
-channel_ix = fd.cell_2_ind(row, col)
-channel_points = [channel_ix]
+# Get ixcix auxiliar array
+ixcix = np.zeros(self._ncells, np.int)
+ixcix[self._ix] = np.arange(self._ix.size)
 
-new_ind = channel_ix
-while ixcix[new_ind] != 0:
-    new_ind = fd._ixc[ixcix[new_ind]]
-    channel_points.append(new_ind)
+channels = []
+conexions = []
+seg_ids = np.unique(ch_seg)
+for idx in seg_ids:
+    # skip zero channel (no channel)
+    if idx == 0:
+        continue
+    # Get givers for the segment id
+    pos = np.where(ch_seg == idx)[0]
+    ch_ix = self._ix[pos]
+    
+    # Add last point
+    first = ch_ix[0]
+    last = self._ixc[ixcix[ch_ix[-1]]]
+    ch_ix = np.append(ch_ix, last)
+    first = ch_ix[0]
+    
+    # Get segment order and receiver segment
+    order = ch_ord[ixcix[first]]
+    if ixcix[last] == 0:
+        flowto = 0
+    else:
+        flowto = ch_seg[ixcix[last]]
+    channels.append([idx, ch_ix])
+    conexions.append([idx, flowto, order])
+    
+    
+    colors = {1:"blue", 2:"red", 3:"green"}
+    row, col = net.ind_2_cell(ch_ix)
+    xi, yi = net.cell_2_xy(row, col)
+    ax.plot(xi, yi, color = colors[order])
 
-#while ixcix[channel_points[-1]] != 0:
-#    channel_points.append(fd._ixc[ixcix[channel_points[-1]]])
+    ax.text(xi[0], yi[0], str(idx), size=12)
+    
+procesados = []
+canales = []
+conexions = np.array(conexions)
 
-marr = np.zeros(fd._ncells, np.int)
-marr[channel_points] = 1
-marr = marr.reshape(fd._dims)
-plt.imshow(marr)
+for conex in conexions:
+    canal = conex[0]
+    orden = conex[2]
+    
+    cana
+    terminado = False
+    while not terminado:
+        next_canal = ch[1]
+        next_orden = conexions np.where(conexions[0] == next_canal)
+        if next_canal == 0:
+            terminado=True
+            
+            
 
 
-#channel_ix = fd.cell_2_ind(row, col)
-#channel_points = []
-#
-#add_ind = channel_ix
-#channel_points.append(add_ind)
-#
-#while ixcix[add_ind] != 0:
-#    add_ind = ixcix[add_ind]
-#    channel_points.append(fd._ixc[add_ind])
+    

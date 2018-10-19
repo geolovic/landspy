@@ -27,6 +27,7 @@ class NetworkClassTest(unittest.TestCase):
             thr = int(fd.get_ncells() * 0.01)
             # Creamos objeto network
             net = Network(dem, fd, thr)
+            net.save(net_path)
 
             # Cargamos objeto network guardado
             net2 = Network(net_path)

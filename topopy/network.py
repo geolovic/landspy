@@ -455,19 +455,19 @@ class Network(PRaster):
         asgrid : *bool*
           Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
         """
-        # Get heads adn confluences and merge them
+        # Get heads and confluences and merge them
         head_ind = self.get_stream_poi("heads", "IND")
         conf_ind = self.get_stream_poi("confluences", "IND")
         all_ind = np.append(head_ind, conf_ind)
         del conf_ind, head_ind # Clean up
         
-        # We created a zeros arrays and put in confuences and heads their id
+        # We created a zeros arrays and put in confluences and heads their id
         # Those id will be consecutive numbers starting in one
         seg_arr = np.zeros(self._ncells, dtype=np.int32)
         for n, inds in enumerate(all_ind):
             seg_arr[inds] = n+1
         
-        # Move throught giver list. If receiver is 0, give the same id that giver.
+        # Move throught channel list. If receiver is 0, give receiver the same id that giver.
         # If a receiver is not 0, that means that we are in a confluence. 
         for n in range(len(self._ix)):
             if seg_arr[self._ixc[n]] == 0:
@@ -545,7 +545,34 @@ class Network(PRaster):
         grid._tipo = str(array.dtype)
         return grid 
         
-    def export_to_shp(self, path):
+    def export_to_shp(self, path, continous=False):
+        
+        # Get channel segments and orders
+        ch_seg = self.get_stream_segments(False)
+        ch_ord = self.get_stream_order(asgrid=False)
+        
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        
+        channels = []
+        for idx in np.unique(ch_seg):
+            # Get segment points
+            pos = np.where(ch_seg == idx)
+            ch_ix = self._ix[ixcix[pos]]
+            # Add last point
+            last = self._ix[ixcix[self._ixc[pos]]]
+            np.append(ch_ix, last)
+            # Get segment order
+            first = ch_ix[0]
+            order = ch_ord[ixcix[first]]
+            flowto = ch_seg[ixcix[last]]
+            channels.append([ch_ix, flowto, order])
+        
+        
+        
+        
+        # Create output shapefile
         ## TODO
         # El output shapefile debe de tener los siguientes campos:
         # cid, order, from, to
