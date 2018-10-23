@@ -10,10 +10,11 @@
 # Version: 1.1
 # October 1th, 2018
 #
-# Last modified October 3th, 2018
+# Last modified October 23th, 2018
 
 import numpy as np
 import os
+import ogr, osr
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster
   
@@ -417,6 +418,12 @@ class Network(PRaster):
         return poi[pos]
     
     def export_2_points(self, path):
+        """
+        Export channel points to a semicolon-delimited text file
+        
+        path : str
+          Path for the output text file
+        """
         cab = "x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
         row, col = self.ind_2_cell(self._ix)
         x, y = self.cell_2_xy(row, col)
@@ -521,6 +528,195 @@ class Network(PRaster):
         else:
             return str_ord
 
+    def export_to_shp(self, path, con=False):
+        """
+        Export Network channels to shapefile format.
+        
+        path : str
+          Path to save the shapefile
+        con : bool
+          If False, channels will split in each confluence (segmented channels). If True, 
+          they will split only when order changes (continuous channels).
+        """
+        if con:
+            self._get_continuous_shp(path)
+        else:
+            self._get_segmented_shp(path)
+    
+    def _get_segmented_shp(self, path=""):
+        """
+        Export Network channels to shapefile format. Channels will split in each confluence.
+        
+        path : str
+          Path to save the shapefile 
+        """
+        # Create shapefile
+        driver = ogr.GetDriverByName("ESRI Shapefile")
+        dataset = driver.CreateDataSource(path)
+        sp = osr.SpatialReference()
+        sp.ImportFromWkt(self._proj)
+        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
+        layer.CreateField(ogr.FieldDefn("segid", ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn("flowto", ogr.OFTInteger))
+        
+        # Get channel segments and orders
+        ch_seg = self.get_stream_segments(False).ravel()
+        ch_ord = self.get_stream_order(asgrid=False).ravel()
+        ch_seg = ch_seg[self._ix]
+        ch_ord = ch_ord[self._ix]
+        
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        
+        seg_ids = np.unique(ch_seg)
+        for idx in seg_ids:
+            # skip zero channel (no channel)
+            if idx == 0:
+                continue   
+            # Get givers for the segment id
+            pos = np.where(ch_seg == idx)[0]
+            ch_ix = self._ix[pos]
+            
+            # Add last point
+            first = ch_ix[0]
+            last = self._ixc[ixcix[ch_ix[-1]]]
+            ch_ix = np.append(ch_ix, last)
+            first = ch_ix[0]
+            
+            # Get segment order and receiver segment
+            order = ch_ord[ixcix[first]]
+            if ixcix[last] == 0:
+                flowto = idx
+            else:
+                flowto = ch_seg[ixcix[last]]
+            
+            # Add feature
+            feat = ogr.Feature(layer.GetLayerDefn())
+            feat.SetField("segid", int(idx))
+            feat.SetField("order", int(order))
+            feat.SetField("flowto", int(flowto))
+            row, col = self.ind_2_cell(ch_ix)
+            xi, yi = self.cell_2_xy(row, col)
+            
+            geom = ogr.Geometry(ogr.wkbLineString)
+            
+            for n in range(xi.size):
+                geom.AddPoint(xi[n], yi[n])
+                
+            feat.SetGeometry(geom)
+            layer.CreateFeature(feat)
+           
+        layer = None
+        dataset = None
+    
+    
+    def _get_continuous_shp(self, path=""):
+        """
+        Export Network channels to shapefile format. Channels will split only when order changes.
+        
+        path : str
+          Path to save the shapefile 
+        """
+        # Create shapefile
+        driver = ogr.GetDriverByName("ESRI Shapefile")
+        dataset = driver.CreateDataSource(path)
+        sp = osr.SpatialReference()
+        sp.ImportFromWkt(self._proj)
+        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
+        layer.CreateField(ogr.FieldDefn("segid", ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn("flowto", ogr.OFTInteger))
+    
+        # Get heads and confluences
+        heads = self.get_stream_poi(kind="heads", coords="IND")
+        confs = self.get_stream_poi(kind="confluences", coords="IND")
+        
+        # Get channel orders
+        ch_ord = self.get_stream_order(asgrid=False).ravel()
+        ch_ord = ch_ord[self._ix]
+        
+        # Remove confluences of different orders
+        confs_to_remove = []
+        for conf in confs:
+            givs = ch_ord[np.where(self._ixc == conf)]
+            if np.unique(givs).size > 1:
+                confs_to_remove.append(conf)    
+        confs = confs.tolist()
+        for conf in confs_to_remove:
+            confs.remove(conf)     
+        confs = np.array(confs)
+    
+        # Merge heads and confluences
+        confs = np.append(heads, confs)
+    
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+    
+        # Auxiliar array to record segment ids
+        seg_arr = np.zeros(self._ncells, np.int)
+        segid = 1
+        
+#        # Iterate confluences -- BAK
+#        channels = []
+#        for conf in confs:
+#            row, col = self.ind_2_cell(conf)
+#            x, y = self.cell_2_xy(row, col)
+#            ch_idx = [conf]
+#            order = ch_ord[ixcix[conf]]
+#            next_cell = conf
+#            while ixcix[next_cell] != 0:
+#                seg_arr[next_cell] = segid
+#                next_cell = self._ixc[ixcix[next_cell]]
+#                ch_idx.append(next_cell)
+#                if ch_ord[ixcix[next_cell]] > order:
+#                    break
+#            channels.append([ch_idx, segid, order])
+#            segid += 1
+        
+        # Iterate confluences
+        channels = []
+        for conf in confs:
+            row, col = self.ind_2_cell(conf)
+            x, y = self.cell_2_xy(row, col)
+            ch_idx = [conf]
+            order = ch_ord[ixcix[conf]]
+            seg_arr[conf] = segid
+            # Skip if a confluence is also an outlet (and not the first cell of ix array)
+            if ixcix[conf] == 0 and conf != self._ix[0]:
+                continue
+            next_cell = self._ixc[ixcix[conf]]
+            while ixcix[next_cell] != 0:
+                seg_arr[next_cell] = segid
+                ch_idx.append(next_cell)
+                next_cell = self._ixc[ixcix[next_cell]]
+                if ch_ord[ixcix[next_cell]] > order:
+                    break
+            ch_idx.append(next_cell) # Add last cell
+            channels.append([ch_idx, segid, order])
+            segid += 1
+    
+        # Establish segment conectivity and create features
+        for ch in channels:
+            flowto = seg_arr[ch[0][-1]]
+            feat = ogr.Feature(layer.GetLayerDefn())
+            feat.SetField("segid", int(ch[1]))
+            feat.SetField("order", int(ch[2]))
+            feat.SetField("flowto", int(flowto))
+            row, col = self.ind_2_cell(ch[0])
+            xi, yi = self.cell_2_xy(row, col)
+            geom = ogr.Geometry(ogr.wkbLineString)
+            for n in range(xi.size):
+                geom.AddPoint(xi[n], yi[n])
+            
+            feat.SetGeometry(geom)
+            layer.CreateFeature(feat)
+
+        layer = None
+        dataset = None    
+
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array
@@ -543,340 +739,11 @@ class Network(PRaster):
         grid._nodata = nodata_value
         grid._array = array
         grid._tipo = str(array.dtype)
-        return grid 
-        
-    def export_to_shp(self, path, continous=False):
-        
-        # Get channel segments and orders
-        ch_seg = self.get_stream_segments(False)
-        ch_ord = self.get_stream_order(asgrid=False)
-        
-        # Get ixcix auxiliar array
-        ixcix = np.zeros(self._ncells, np.int)
-        ixcix[self._ix] = np.arange(self._ix.size)
-        
-        channels = []
-        for idx in np.unique(ch_seg):
-            # Get segment points
-            pos = np.where(ch_seg == idx)
-            ch_ix = self._ix[ixcix[pos]]
-            # Add last point
-            last = self._ix[ixcix[self._ixc[pos]]]
-            np.append(ch_ix, last)
-            # Get segment order
-            first = ch_ix[0]
-            order = ch_ord[ixcix[first]]
-            flowto = ch_seg[ixcix[last]]
-            channels.append([ch_ix, flowto, order])
-        
-        
-        
-        
-        # Create output shapefile
-        ## TODO
-        # El output shapefile debe de tener los siguientes campos:
-        # cid, order, from, to
-        pass
-        
-#    def get_stream_order(self, kind="strahler", asgrid=True):
-#        """
-#        This function extract streams orderded by strahler or shreeve
-#    
-#        Parameters:
-#        ===========
-#        kind : *str* {'strahler', 'shreeve'}
-#        asgrid : *bool*
-#          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-#        """
-#        if kind not in ['strahler', 'shreeve']:
-#            return
-#        
-#        # Get grid channel cells
-#        str_ord = np.zeros(self._ncells, dtype=np.int8)
-#        str_ord[self._ix] = 1
-#        str_ord[self._ixc] = 1
-#        visited = np.zeros(self._ncells, dtype=np.int8)
-#    
-#        if kind == 'strahler':
-#            for n in range(len(self._ix)):
-#                if (str_ord[self._ixc[n]] == str_ord[self._ix[n]]) & visited[self._ixc[n]]:
-#                    str_ord[self._ixc[n]] = str_ord[self._ixc[n]] + 1                
-#                else:
-#                    str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
-#                    visited[self._ixc[n]] = True
-#        elif kind == 'shreeve':
-#            for n in range(len(self._ix)):
-#                if visited[self._ixc[n]]:
-#                    str_ord[self._ixc[n]] = str_ord[self._ixc[n]] + str_ord[self._ix[n]]
-#                else:
-#                    str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
-#                    visited[self._ixc[n]] = True
-#        str_ord = str_ord.reshape(self._dims)
-#        
-#        if asgrid:
-#            return self._create_output_grid(str_ord, nodata_value=0)
-#        else:
-#            return str_ord
-    
+        return grid
+
 ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
     
-    def get_main_channels(self, heads=None):
-        # Aceptar salida a vector
-        pass
-    
-    
- 
-    
-#    def get_stream_poi(self, threshold, kind="heads"):
-#        """
-#        This function finds points of interest of the drainage network. These points of interest
-#        can be 'heads', 'confluences' or 'outlets'.
-#        
-#        Parameters:
-#        -----------
-#        threshold : *int* 
-#          Area threshold to initiate a channels (in cells)
-#        kind : *str* {'heads', 'confluences', 'outlets'}
-#          Kind of point of interest to return. 
-#          
-#        Returns:
-#        -----------
-#        (row, col) : *tuple*
-#          Tuple of numpy nd arrays with the location of the points of interest
-#          
-#        References:
-#        -----------
-#        The algoritms to extract the point of interest have been adapted to Python 
-#        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-#        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
-#        derive point of interest in a really efficient way. Cite:
-#                
-#        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-#        MATLAB-based software for topographic analysis and modeling in Earth 
-#        surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
-#        """
-#        # Check input parameters
-#        if kind not in ['heads', 'confluences', 'outlets']:
-#            return np.array([]), np.array([])
-#        
-#        # Get the Flow Accumulation and select cells that meet the threholds
-#        fac = self.flow_accumulation(nodata = False).read_array()
-#        w = fac > threshold
-#        del fac
-#        
-#        # Build a sparse array with giver-receivers cells
-#        w = w.ravel()
-#        I   = w[self._ix]
-#        ix  = self._ix[I]
-#        ixc = self._ixc[I]
-#        aux_vals = np.ones(ix.shape, dtype=np.int8)
-#    
-#        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
-#        del I, ix, ixc, aux_vals # Clean up (Don't want to leave stuff in memory)
-#        
-#        if kind == 'heads':
-#            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-#            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-#            out_pos = (sum_arr == 0) & w
-#        elif kind == 'confluences':
-#            # Confluences will be channel cells with two or givers
-#            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-#            out_pos = sum_arr > 1
-#        elif kind == 'outlets':
-#            # Outlets will be channel cells marked only as receivers (ix) but not as givers (ixc) 
-#            sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-#            out_pos = (sum_arr == 0) & w  
-#            
-#        out_pos = out_pos.reshape(self._dims)
-#        row, col = np.where(out_pos)
-#        
-#        return row, col    
-#
-#    def get_stream_order(self, threshold, kind="strahler", asgrid=True):
-#        """
-#        This function extract stream orders by using a determined area threshold
-#    
-#        Parameters:
-#        ===========
-#        threshold : *int* 
-#          Area threshold to initiate a channels (in cells)
-#        kind : *str* {'strahler', 'shreeve'}
-#        asgrid : *bool*
-#          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-#        """
-#        if kind not in ['strahler', 'shreeve']:
-#            return
-#        
-#        fac = self.get_flow_accumulation(nodata=False, asgrid=False)
-#        w = fac > threshold
-#        w = w.ravel()
-#        I   = w[self._ix]
-#        ix  = self._ix[I]
-#        ixc = self._ixc[I]
-#    
-#        str_ord = np.copy(w).astype(np.int8)
-#        visited = np.zeros(self._ncells, dtype=np.int8)
-#    
-#        if kind == 'strahler':
-#            for n in range(len(ix)):
-#                if (str_ord[ixc[n]] == str_ord[ix[n]]) & visited[ixc[n]]:
-#                    str_ord[ixc[n]] = str_ord[ixc[n]] + 1
-#                else:
-#                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
-#                    visited[ixc[n]] = True
-#        elif kind == 'shreeve':
-#            for n in range(len(ix)):
-#                if visited[ixc[n]]:
-#                    str_ord[ixc[n]] = str_ord[ixc[n]] + str_ord[ix[n]]
-#                else:
-#                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
-#                    visited[ixc[n]] = True
-#        str_ord = str_ord.reshape(self._dims)
-#        
-#        if asgrid:
-#            return self._create_output_grid(str_ord, nodata_value=0)
-#        else:
-#            return str_ord
-#
-#    def get_network(self, threshold, asgrid=True):
-#        """
-#        This function extract a drainage network by using a determined area threshold
-#
-#        Parameters:
-#        ===========
-#        threshold : *int* 
-#          Area threshold to initiate a channels (in cells)
-#        asgrid : *bool*
-#          Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
-#        """
-#        # Get the Flow Accumulation and select cells that meet the threholds
-#        fac = self.get_flow_accumulation(nodata = False, asgrid=False)
-#        w = fac > threshold
-#        w = w.astype(np.int8)
-#        if asgrid:
-#            return self._create_output_grid(w, 0)
-#        else:
-#            return w
-#        
-   
-#
-#    def _get_presills(self, flats, sills, dem):
-#        """
-#        This functions extracts the presill pixel locations (i.e. pixelimmediately 
-#        upstream to sill pixels)- Adapted from TopoToolbox matlab codes.
-#        """
-#        zvals = dem.read_array()
-#        flats_arr = flats.read_array().astype("bool")
-#        dims = zvals.shape
-#        row, col = sills.find()
-#        
-#        rowadd = np.array([-1, -1, 0, 1, 1,  1,  0, -1])
-#        coladd = np.array([ 0,  1, 1, 1, 0, -1, -1, -1])
-#        ps_rows = np.array([], dtype=np.int32)
-#        ps_cols = np.array([], dtype=np.int32)
-#        
-#        for n in range(8):
-#            rowp = row + rowadd[n]
-#            colp = col + coladd[n]
-#            # Avoid neighbors outside array (remove cells and their neighbors)
-#            valid_rc = (rowp >= 0) & (colp >= 0) & (rowp < dims[0]) & (colp < dims[1])
-#            rowp = rowp[valid_rc]
-#            colp = colp[valid_rc]
-#            # Discard cells (row-col pairs) that do not fullfill both conditions
-#            cond01 = zvals[row[valid_rc], col[valid_rc]] == zvals[rowp, colp]
-#            cond02 = flats_arr[rowp, colp]
-#            valid_pix = np.logical_and(cond01, cond02)
-#            ps_rows = np.append(ps_rows, rowp[valid_pix])
-#            ps_cols = np.append(ps_cols, colp[valid_pix])
-#      
-#        ps_pos = list(zip(ps_rows, ps_cols))
-#        return ps_pos
-#       
-#    def _get_topodiff(self, topodiff, flats):
-#        """
-#        This function calculate an auxiliar topography to sort the flats areas
-#        """
-#        tweight = 2
-#        carvemin = 0.1                       
-#        struct = np.ones((3, 3), dtype="int8")
-#        lbl_arr, nlbl = ndimage.label(flats.read_array(), structure=struct)
-#        lbls = np.arange(1, nlbl + 1)
-#        
-#        for lbl in lbls:
-#            topodiff[lbl_arr == lbl] = (topodiff[lbl_arr==lbl].max() - topodiff[lbl_arr == lbl])**tweight + carvemin
-#                    
-#        return topodiff
-#    
-#    def _get_weights(self, flats, topodiff, ps_pos):
-#        """
-#        This function calculate weights in the flats areas by doing a cost-distance analysis.
-#        It uses presill positions as seed locations, and an auxiliar topography as friction
-#        surface.
-#        """
-#        flats_arr = flats.read_array().astype("bool")
-#        flats_arr = np.invert(flats_arr)
-#        topodiff[flats_arr] = 99999
-#        if len(ps_pos) > 0:
-#            lg = graph.MCP_Geometric(topodiff)
-#            topodiff = lg.find_costs(starts=ps_pos)[0] + 1
-#        topodiff[flats_arr] = -99999
-#        
-#        return topodiff
-#    
-#    def _sort_pixels(self, dem, weights):
-#        """
-#        Sort the cells of a DEM in descending order. It uses weights for the flats areas
-#        """
-#        # Sort the flat areas
-#        rdem = dem.read_array().ravel()
-#        rweights = weights.ravel()
-#        ix_flats = np.argsort(-rweights, kind='quicksort')
-#        
-#        # Sort the rest of the pixels from the DEM
-#        ndx = np.arange(self._ncells, dtype=np.int)
-#        ndx = ndx[ix_flats]
-#        ix = ndx[np.argsort(-rdem[ndx], kind='mergesort')]
-#        
-#        return ix
-#    
-#    def _get_receivers(self, ix, dem):
-#        
-#        dem = dem.read_array()
-#        rdem = dem.ravel()
-#        
-#        pp = np.zeros(self._dims, dtype=np.int32)
-#        IX = np.arange(self._ncells, dtype=np.int32)
-#        pp = pp.ravel()
-#        pp[ix] = IX
-#        pp = pp.reshape(self._dims)
-#                
-#        # Get cardinal neighbors
-#        footprint= np.array([[0, 1, 0],
-#                             [1, 1, 1],
-#                             [0, 1, 0]], dtype=np.int)
-#        IXC1 = ndimage.morphology.grey_dilation(pp, footprint=footprint)
-#        xxx1 = np.copy(IXC1)
-#        IX = IXC1.ravel()[ix]
-#        IXC1 = ix[IX]
-#        G1   = (rdem[ix]-rdem[IXC1])/(self._cellsize)
-#        
-#        # Get diagonal neighbors
-#        footprint= np.array([[1, 0, 1],
-#                             [0, 1, 0],
-#                             [1, 0, 1]], dtype=np.int)
-#        IXC2 = ndimage.morphology.grey_dilation(pp, footprint=footprint)
-#        xxx2 = np.copy(IXC2)
-#        IX = IXC2.ravel()[ix]
-#        IXC2 = ix[IX]
-#        G2   = (rdem[ix]-rdem[IXC2])/(self._cellsize * np.sqrt(2))
-#        
-#        del IX
-#        
-#        # Get the steepest one
-#        I  = (G1<=G2) & (xxx2.ravel()[ix]>xxx1.ravel()[ix])
-#        ixc = IXC1
-#        ixc[I] = IXC2[I]
-#        
-#        return ixc
+
+
 class FlowError(Exception):
     pass
