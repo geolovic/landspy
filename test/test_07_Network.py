@@ -25,6 +25,7 @@ class NetworkClassTest(unittest.TestCase):
             dem = DEM(dem_path)
             fd = Flow(flw_path)
             thr = int(fd.get_ncells() * 0.01)
+            
             # Creamos objeto network
             net = Network(dem, fd, thr)
             net.save(net_path)

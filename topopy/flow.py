@@ -55,7 +55,7 @@ class Flow(PRaster):
             self._size = (1, 1)
             self._dims = (1, 1)
             self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = self._geot[1]
+            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = ""
             self._ncells = 1
             self._nodata_pos = np.array([], dtype=np.int32)
@@ -153,7 +153,7 @@ class Flow(PRaster):
         self._size = (raster.RasterXSize, raster.RasterYSize)
         self._dims = (raster.RasterYSize, raster.RasterXSize)
         self._geot = raster.GetGeoTransform()
-        self._cellsize = self._geot[1]
+        self._cellsize = (self._geot[1], self._geot[5])
         self._proj = raster.GetProjection()
         self._ncells = raster.RasterYSize * raster.RasterXSize
 
@@ -505,7 +505,7 @@ class Flow(PRaster):
 def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
     
     # Get DEM properties
-    cellsize = dem.get_cellsize()
+    cellsize = (dem.get_cellsize()[0] + dem.get_cellsize()[1] * -1) / 2 # Average cellsize
     nodata_val = dem.get_nodata()
     if nodata_val is None:
         nodata_val = -9999

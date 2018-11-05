@@ -68,7 +68,7 @@ class Network(PRaster):
         self._ixc = flow._ixc[I]
         
         # Get Area, Distance, and Elevations for channel cells
-        self._ax = fac.ravel()[self._ix] * self._cellsize**2 # Area in map units
+        self._ax = fac.ravel()[self._ix] * self._cellsize[0] * self._cellsize[1] * -1 # Area in map units
         self._zx = dem.read_array().ravel()[self._ix]
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
@@ -138,7 +138,7 @@ class Network(PRaster):
         data = linea.split(";")
         self._size = (int(data[0].split(",")[0][1:]), int(data[0].split(",")[1][:-1]))
         self._dims = (self._size[1], self._size[0])
-        self._cellsize = float(data[1])
+        self._cellsize = (float(data[1].split(",")[0][1:]), float(data[1].split(",")[1][:-1]))
         self._ncells = int(data[2])
         self._ksn_npoints = int(data[3])
         self._slp_npoints = int(data[4])

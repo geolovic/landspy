@@ -43,7 +43,7 @@ class PRaster():
             self._size = (banda.XSize, banda.YSize)
             self._dims = (banda.YSize, banda.XSize)
             self._geot = raster.GetGeoTransform()
-            self._cellsize = self._geot[1]
+            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = raster.GetProjection()
             self._ncells = banda.XSize * banda.YSize
         
@@ -51,7 +51,7 @@ class PRaster():
             self._size = (1, 1)
             self._dims = (1, 1)
             self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = self._geot[1]
+            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = ""
             self._ncells = 1
 
@@ -114,8 +114,8 @@ class PRaster():
         Returns a tuple (XMin, XMax, YMin, YMax) with the extension of the Grid
         """
         xmin = self._geot[0]
-        xmax = self._geot[0] + self._size[0] * self._cellsize
-        ymin = self._geot[3] - self._size[1] * self._cellsize
+        xmax = self._geot[0] + self._size[0] * self._cellsize[0]
+        ymin = self._geot[3] + self._size[1] * self._cellsize[1]
         ymax = self._geot[3]
         
         return (xmin, xmax, ymin, ymax)
@@ -151,7 +151,7 @@ class PRaster():
         """
         x = np.array(x)
         y = np.array(y)       
-        row = (self._geot[3] - y) / self._geot[1]
+        row = (self._geot[3] - y) / (self._geot[5] * -1)
         col = (x - self._geot[0]) / self._geot[1]
         return row.astype(np.int32), col.astype(np.int32)
 
@@ -172,7 +172,7 @@ class PRaster():
         row = np.array(row)
         col = np.array(col)
         x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
-        y = self._geot[3] - self._geot[1] * row - self._geot[1] / 2
+        y = self._geot[3] + self._geot[5] * row + self._geot[5] / 2
         return x, y
     
     def ind_2_cell(self, ind):
@@ -228,7 +228,7 @@ class Grid(PRaster):
             self._size = (banda.XSize, banda.YSize)
             self._dims = (banda.YSize, banda.XSize)
             self._geot = raster.GetGeoTransform()
-            self._cellsize = self._geot[1]
+            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = raster.GetProjection()
             self._ncells = banda.XSize * banda.YSize
             # New elements of Grid
@@ -240,7 +240,7 @@ class Grid(PRaster):
             self._size = (1, 1)
             self._dims = (1, 1)
             self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = self._geot[1]
+            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = ""
             self._ncells = 1
             # New elements of Grid
