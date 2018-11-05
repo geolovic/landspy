@@ -441,7 +441,6 @@ class Grid(PRaster):
             raster.GetRasterBand(1).SetNoDataValue(self._nodata)
         raster.GetRasterBand(1).WriteArray(self._array)
 
-
 class DEM(Grid):
     
     def identify_flats(self, nodata=True, as_array=False):

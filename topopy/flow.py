@@ -500,7 +500,44 @@ class Flow(PRaster):
         aux_arr[self._ixc] = 1
         return np.where(aux_arr == 0)[0]
     
-    
+
+class Basin(Grid):
+
+    def __init__(self, dem, flow, outlet, name=""):
+        """
+        
+        """
+        # Snap outlet
+        outlet = np.array(outlet).reshape(1, 2)
+        if not self.is_inside(outlet[0, 0], outlet[0, 1]):
+            raise FlowError("Outlet coordinates are outside the grid")
+        threshold = int(flow.get_ncells() * 0.001)
+        outlet = flow.snap_points(outlet, threshold, kind="channel")
+        
+        # Get basin and cut their limits
+        basin = flow.get_drainage_basins(outlets=outlet, asgrid=False)        
+        c1 = basin.max(axis=0).argmax()
+        r1 = basin.max(axis=1).argmax()
+        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
+        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
+        basin_cl = basin[r1:r2, c1:c2]
+
+        # Create Grid
+        self._size = (basin_cl.shape[1], basin_cl.shape[0])
+        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+        geot = dem._geot
+        ULx = geot[0] + geot[1] * c1
+        ULy = geot[3] + geot[5] * r1
+        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+        self._cellsize = (geot[1], geot[5])
+        self._proj = dem._proj
+        self._ncells = basin_cl.size
+        self._nodata = dem._nodata
+        self._tipo = dem._tipo
+        demarr = dem.read_array()
+        arr = np.where(basin_cl > 0, demarr, dem._nodata)
+        self._array = arr
+            
 
 def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
     
