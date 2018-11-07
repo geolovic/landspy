@@ -16,7 +16,7 @@ outfolder = "../data/out"
 
 dem = DEM(infolder + "/morocco.tif")
 fd = Flow(dem)
-net = Network(dem, fd, 1500)
+net = Network(fd, 1500)
 
 streams = net.get_streams()
 streams.save(outfolder + "/canales_orig.tif")
@@ -28,6 +28,21 @@ c1 = basin.max(axis=0).argmax()
 r1 = basin.max(axis=1).argmax()
 c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
 r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
+
+r1 -= 1
+c1 -= 1
+r2 += 1
+c2 += 1
+
+if r1 < 0:
+    r1 = 0
+if c1 < 0:
+    c1 = 0
+if c2 >= basin.shape[1]:
+    c2 = basin.shape[1] - 1
+if r2 >= basin.shape[0]:
+    r2 = basin.shape[0] - 1
+
 basin_cl = basin[r1:r2, c1:c2]
 
 nrow = basin_cl.shape[0]
@@ -76,13 +91,14 @@ nrowix = rowix - r1
 ncolix = colix - c1
 newix = outgrid.cell_2_ind(nrowix, ncolix)
 
-#rowixc, colixc = net.ind_2_cell(ixc)
-#rowixc -= r1
-#colixc -= c1
-#newixc = outgrid.cell_2_ind(rowixc, colixc)
+rowixc, colixc = net.ind_2_cell(ixc)
+rowixc -= r1
+colixc -= c1
+newixc = outgrid.cell_2_ind(rowixc, colixc)
+
 #
 w = np.zeros(basin_cl.size, dtype=np.int8)
-w[newix] = 1
+w[newixc] = 1
 #w[newixc] = 1
 w = w.reshape(outgrid._dims)
 

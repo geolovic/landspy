@@ -161,7 +161,21 @@ class Network(PRaster):
         self._r2slp = data_arr[:, 8]
         self._r2ksn = data_arr[:, 9]
         self._dd = data_arr[:, 10]
-         
+   
+    def calculate_distances(self):
+        # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
+        di = np.zeros(self._ncells)
+        self._dd = np.zeros(self._ix.shape) # Giver-Receiver distance
+        for n in np.arange(self._ix.size)[::-1]:
+            grow, gcol = self.ind_2_cell(self._ix[n])
+            rrow, rcol = self.ind_2_cell(self._ixc[n])
+            gx, gy = self.cell_2_xy(grow, gcol)
+            rx, ry = self.cell_2_xy(rrow, rcol)
+            d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2)
+            self._dd[n] = d_gr
+            di[self._ix[n]] = di[self._ixc[n]] + d_gr
+        self._dx = di[self._ix]
+     
     def calculate_chi(self, thetaref=0.45, a0=1.0):
         """
         Function that calculate chi_values for channel cells
@@ -381,9 +395,8 @@ class Network(PRaster):
         
         Parameters:
         ===========
-        array : *iterable*
-          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
-          with [x, y] columns. 
+        input_points : *numpy.ndarray*
+          2-D numpy.ndarray of two columns with the [x, y] coordinates of points.
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
             Kind of point to snap input points
         
@@ -392,6 +405,7 @@ class Network(PRaster):
         numpy.ndarray
           Numpy ndarray with two columns [xi, yi] with the snap points
         """
+        
         if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
             kind = 'channel'
         
@@ -739,8 +753,106 @@ class Network(PRaster):
         grid._tipo = str(array.dtype)
         return grid
 
-### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+
+class BNetwork(Network):
     
+    def __init__(self, net, basin, heads):
+        """
+        network : Network objetc
+        basin : numpy array with 0 and 1 (1 for basin cells)
+        heads : 2-column numpy array with X, Y coordinates for heads. The first row is considered the main head
+        """
+        c1 = basin.max(axis=0).argmax() - 1
+        r1 = basin.max(axis=1).argmax() - 1
+        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax() + 1 
+        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax() + 1
+        
+        if c1 < 0:
+            c1 = 0
+        if r1 < 0:
+            r1 = 0
+        if c2 >= basin.shape[1]:
+            c2 = basin.shape[1] - 1
+        if r2 >= basin.shape[0]:
+            r2 = basin.shape[0] - 1
+            
+        basin_cl = basin[r1:r2, c1:c2]
+        
+        # Create the new grid
+        self._size = (basin_cl.shape[1], basin_cl.shape[0])
+        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+        geot = net._geot
+        ULx = geot[0] + geot[1] * c1
+        ULy = geot[3] + geot[5] * r1
+        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+        self._cellsize = (geot[1], geot[5])
+        self._proj = net._proj
+        self._ncells = basin_cl.size
+        self._threshold = net._threshold
+        self._thetaref = net._thetaref
+        self._slp_npoints = net._slp_npoints
+        self._ksn_npoints = net._ksn_npoints
+        
+        # Get only points inside the basin
+        basin = basin.astype(np.bool).ravel()
+        I = basin[net._ix]
+        self._ax = net._ax[I]
+        self._zx = net._zx[I]
+        self._dd = net._dd[I]
+        self._dx = net._dx[I]
+        self._chi = net._chi[I]
+        self._slp = net._slp[I]
+        self._ksn = net._ksn[I]
+        self._r2slp = net._r2slp[I]
+        self._r2ksn = net._r2ksn[I]
+        
+        # Get new indices for the new grid
+        ix = net._ix[I]
+        ixc = net._ixc[I]
+        
+        rowix, colix = net.ind_2_cell(ix)
+        nrowix = rowix - r1
+        ncolix = colix - c1
+        self._ix = self.cell_2_ind(nrowix, ncolix)
+
+        rowixc, colixc = net.ind_2_cell(ixc)
+        nrowixc = rowixc - r1
+        ncolixc = colixc - c1
+        self._ixc = self.cell_2_ind(nrowixc, ncolixc)
+        row, col = self.xy_2_cell(heads[:, 0], heads[:, 1])
+        self._heads = self.cell_2_ind(row, col)
+        self._main_head = self._heads[0]
+        
+### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+    def get_main_channel(self):
+        chcells = [self._main_head]
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        nextcell = self._ixc[ixcix[self._main_head]]
+        
+        while ixcix[nextcell] != 0:
+            chcells.append(nextcell)
+            nextcell = self._ixc[ixcix[nextcell]]
+                     
+        row, col = self.ind_2_cell(chcells)
+        xi, yi = self.cell_2_xy(row, col)
+        auxarr = np.zeros(self._ncells).astype(np.bool)
+        auxarr[chcells] = True
+        I = auxarr[self._ix]
+        ai = self._ax[I]
+        zi = self._zx[I]
+        di = self._dx[I]
+        chi = self._chi[I]
+        slp = self._slp[I]
+        ksn = self._ksn[I]
+        r2slp = self._r2slp[I]
+        r2ksn = self._r2ksn[I]
+        
+#        di -= di[-1]
+#        di = di[0] - di
+        outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
+        return outarr
+
 
 
 class FlowError(Exception):
