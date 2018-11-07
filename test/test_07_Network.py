@@ -10,25 +10,22 @@ Testing suite for Network class
 
 import unittest
 import numpy as np
-from topopy import Flow, DEM, Network
+from topopy import Flow, Network
 infolder = "data/in"
 outfolder = "data/out"
 
 class NetworkClassTest(unittest.TestCase):
     
-    def test_stream_poi_01(self):
+    def test_create_network(self):
         files = ["small25", "morocco", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
-            dem_path = infolder +  "/{0}.tif".format(file)
             net_path = infolder + "/{0}_network.net".format(file)
-            dem = DEM(dem_path)
             fd = Flow(flw_path)
             thr = int(fd.get_ncells() * 0.01)
             
             # Creamos objeto network
-            net = Network(dem, fd, thr)
-            net.save(net_path)
+            net = Network(fd, thr)
 
             # Cargamos objeto network guardado
             net2 = Network(net_path)

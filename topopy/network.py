@@ -21,7 +21,7 @@ from . import Grid, PRaster
 
 class Network(PRaster):
 
-    def __init__(self, dem=None, flow=None, threshold=0, thetaref=0.45, npoints=5):
+    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -29,8 +29,6 @@ class Network(PRaster):
         
         Parameters:
         -----------
-        dem : *topopy.DEM* object or *str*
-          Digital Elevation Model instance or path to previously saved Network object
         flow : *topopy.Flow* object
           Flow direccion instance
         threshold : *int*
@@ -41,9 +39,9 @@ class Network(PRaster):
           Number of points to calculate slope and ksn in each cell. Slope and ksn values
           are calculated with a moving window of (npoints * 2 + 1) cells.
         """
-        # If dem is a str, load it
-        if type(dem)== str:
-            self._load(dem)
+        # If flow is a str, load it
+        if type(flow)== str:
+            self._load(flow)
             return
         
         # Set PRaster properties
@@ -59,7 +57,7 @@ class Network(PRaster):
             threshold = self._ncells * 0.005
         self._threshold = threshold
         
-        # Get sort Nodes for channel cells
+        # Get sort Nodes for channel cells and elevations
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
         w = w.ravel()
@@ -67,9 +65,9 @@ class Network(PRaster):
         self._ix  = flow._ix[I]
         self._ixc = flow._ixc[I]
         
-        # Get Area, Distance, and Elevations for channel cells
+        # Get Area and Elevations for channel cells
         self._ax = fac.ravel()[self._ix] * self._cellsize[0] * self._cellsize[1] * -1 # Area in map units
-        self._zx = dem.read_array().ravel()[self._ix]
+        self._zx = flow._zx[I]
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
         di = np.zeros(self._ncells)

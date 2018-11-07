@@ -61,13 +61,14 @@ class Flow(PRaster):
             self._nodata_pos = np.array([], dtype=np.int32)
             self._ix = np.array([], dtype=np.int32)
             self._ixc = np.array([], dtype=np.int32)
+            self._zx = np.array([], dtype=np.float32)
         
         elif type(dem) == str:
             # Loads the Flow object in GeoTiff format
-            try:
-                self.load_gtiff(dem)
-            except:
-                raise FlowError("Error opening the Geotiff")
+            #try:
+            self.load(dem)
+            #except:
+                #raise FlowError("Error opening the Geotiff")
         else:
             try:
                 # Set Network properties
@@ -80,12 +81,13 @@ class Flow(PRaster):
                 self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
+                self._zx = dem.read_array().ravel()[self._ix]
                 # Recalculate NoData values
                 self._nodata_pos = self._get_nodata_pos()
             except:
                 raise FlowError("Unexpected Error creating the Flow object")
     
-    def save_gtiff(self, path):
+    def save(self, path):
         """
         Saves the flow object as a geotiff. The geotiff file it wont have any
         sense if its open with GIS software.
@@ -99,30 +101,11 @@ class Flow(PRaster):
             
         * Band 1 --> Givers pixels reshaped to self._dims
         * Band 2 --> Receiver pixels reshaped to self._dims
-        * Band 3 --> Nodata band (pixels with nodata == 1, pixels with data == 0)
+        * Band 3 --> Elevation of givers reshaped to self._dims)
         """
-#        driver = gdal.GetDriverByName("GTiff")
-#        raster = driver.Create(path, self._dims[1], self._dims[0], 2, 4)
-#        raster.SetGeoTransform(self._geot)
-#        raster.SetProjection(self._proj)
-#
-#        no_cells = self._ncells - len(self._ix)
-#        miss_cells = np.zeros(no_cells, np.uint32)
-#        ix = np.append(self._ix, miss_cells)
-#        ixc = np.append(self._ixc, miss_cells)
-#        nodata_arr = np.zeros(self._dims, np.uint32)
-#        nodata_pos = np.unravel_index(self._nodata_pos, self._dims)
-#        nodata_arr[nodata_pos] = 1
-#
-#        ix = ix.reshape(self._dims)
-#        ixc = ixc.reshape(self._dims)
-#
-#        raster.GetRasterBand(1).WriteArray(ix)
-#        raster.GetRasterBand(2).WriteArray(ixc)
-#        raster.GetRasterBand(3).WriteArray(nodata_arr)
-#        raster.GetRasterBand(3).SetNoDataValue(no_cells)
+
         driver = gdal.GetDriverByName("GTiff")
-        raster = driver.Create(path, self._dims[1], self._dims[0], 2, 4)
+        raster = driver.Create(path, self._dims[1], self._dims[0], 3, gdal.GDT_Float32)
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
 
@@ -130,14 +113,17 @@ class Flow(PRaster):
         miss_cells = np.zeros(no_cells, np.uint32)
         ix = np.append(self._ix, miss_cells)
         ixc = np.append(self._ixc, miss_cells)
+        zx = np.append(self._zx, miss_cells)
         ix = ix.reshape(self._dims)
         ixc = ixc.reshape(self._dims)
+        zx = zx.reshape(self._dims)
 
         raster.GetRasterBand(1).WriteArray(ix)
         raster.GetRasterBand(2).WriteArray(ixc)
+        raster.GetRasterBand(3).WriteArray(zx)
         raster.GetRasterBand(1).SetNoDataValue(no_cells)
 
-    def load_gtiff(self, path):
+    def load(self, path):
         """
         Load a geotiff file with flow direction information. This geotiff must
         have been saved with the save_gtiff() function.
@@ -157,20 +143,17 @@ class Flow(PRaster):
         self._proj = raster.GetProjection()
         self._ncells = raster.RasterYSize * raster.RasterXSize
 
-#        # Load nodata values
-#        banda = raster.GetRasterBand(3)
-#        no_cells = banda.GetNoDataValue()
-#        arr = banda.ReadAsArray()
-#        self._nodata_pos = np.ravel_multi_index(np.where(arr==1), self._dims)
-
-        # Load ix, ixc
+        # Load ix, ixc, zx
         banda = raster.GetRasterBand(1)
         no_cells = banda.GetNoDataValue()
-        arr = banda.ReadAsArray()
+        arr = banda.ReadAsArray().astype(np.uint32)
         self._ix = arr.ravel()[0:int(self._ncells - no_cells)]
         banda = raster.GetRasterBand(2)
-        arr = banda.ReadAsArray()
+        arr = banda.ReadAsArray().astype(np.uint32)
         self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
+        banda = raster.GetRasterBand(3)
+        arr = banda.ReadAsArray().astype(np.float32)
+        self._zx = arr.ravel()[0:int(self._ncells - no_cells)]
         
         # Get NoData positions
         aux_arr = np.zeros(self._ncells, np.uint32)
