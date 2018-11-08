@@ -92,8 +92,8 @@ class Network(PRaster):
 
     def save(self, path):
         """
-        Saves the Network instance to disk. It will be saved as a numpy array in text format.
-        The first three rows will have the information of the raster
+        Saves the BNetwork instance to disk. It will be saved as text file (*.net) plus
+        a numpy binary array with the same name (*.npy) with the cell data.
         
         Parameters:
         ===========
@@ -756,73 +756,148 @@ class Network(PRaster):
 
 class BNetwork(Network):
     
-    def __init__(self, net, basin, heads):
+    def __init__(self, net, basin=None, heads=None, bid=1):
         """
-        network : Network objetc
-        basin : numpy array with 0 and 1 (1 for basin cells)
-        heads : 2-column numpy array with X, Y coordinates for heads. The first row is considered the main head
-        """
-        c1 = basin.max(axis=0).argmax() - 1
-        r1 = basin.max(axis=1).argmax() - 1
-        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax() + 1 
-        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax() + 1
+        Class to manipulate cells from a drainage network from a single basin network. 
+        This class inhereits all methods and properties of the Network class plus some 
+        new methods to manipulate the drainage network and the trunk channel. 
         
-        if c1 < 0:
-            c1 = 0
-        if r1 < 0:
-            r1 = 0
-        if c2 >= basin.shape[1]:
-            c2 = basin.shape[1] - 1
-        if r2 >= basin.shape[0]:
-            r2 = basin.shape[0] - 1
+        Parameters:
+        -----------
+        net : *topopy.Network* | *str*
+          Network instance or path to a previously saved BNetwork file
+        basin : *numpy.ndarray* | *topopy.Grid*
+          Numpy array or topopy Grid representing the drainage basin. If array or Grid have more than
+          one basin, set the basinid properly. 
+        heads : *list* or *numpy.ndarray*
+          List with xi and yi coordinates for basin main heads. If a numpy.ndarray, the first column
+          will have the xi values and the second one the yi. Heads will snap to heads of the Network.
+          The first head is considered the main head (trunk channel).
+        basinid : *int*
+          Id value that identifies the basin cells in case that basin will have more than one basin.        
+        """
+        
+        # If net is a str, load it
+        if type(net)== str:
+            self._load(net)
+            return
+        
+        try:
+            # Get basin extent
+            c1 = basin.max(axis=0).argmax() - 1
+            r1 = basin.max(axis=1).argmax() - 1
+            c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax() + 1 
+            r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax() + 1
             
-        basin_cl = basin[r1:r2, c1:c2]
+            # Check boundaries conditions
+            if c1 < 0:
+                c1 = 0
+            if r1 < 0:
+                r1 = 0
+            if c2 >= basin.shape[1]:
+                c2 = basin.shape[1] - 1
+            if r2 >= basin.shape[0]:
+                r2 = basin.shape[0] - 1
+                
+            basin_cl = basin[r1:r2, c1:c2] # clipped basin
+            
+            # Create the new grid
+            self._size = (basin_cl.shape[1], basin_cl.shape[0])
+            self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+            geot = net._geot
+            ULx = geot[0] + geot[1] * c1
+            ULy = geot[3] + geot[5] * r1
+            self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+            self._cellsize = (geot[1], geot[5])
+            self._proj = net._proj
+            self._ncells = basin_cl.size
+            self._threshold = net._threshold
+            self._thetaref = net._thetaref
+            self._slp_npoints = net._slp_npoints
+            self._ksn_npoints = net._ksn_npoints
+            
+            # Get only points inside the basin
+            basin = basin.astype(np.bool).ravel()
+            I = basin[net._ix]
+            self._ax = net._ax[I]
+            self._zx = net._zx[I]
+            self._dd = net._dd[I]
+            self._dx = net._dx[I]
+            self._chi = net._chi[I]
+            self._slp = net._slp[I]
+            self._ksn = net._ksn[I]
+            self._r2slp = net._r2slp[I]
+            self._r2ksn = net._r2ksn[I]
+            
+            # Get new indices for the new grid
+            ix = net._ix[I]
+            ixc = net._ixc[I]
+            rowix, colix = net.ind_2_cell(ix)
+            rowixc, colixc = net.ind_2_cell(ixc)
+            nrowix = rowix - r1
+            ncolix = colix - c1
+            nrowixc = rowixc - r1
+            ncolixc = colixc - c1
+            self._ix = self.cell_2_ind(nrowix, ncolix)
+            self._ixc = self.cell_2_ind(nrowixc, ncolixc)
+            
+            # Set the basin heads and sort them by elevation
+            bheads = self.get_stream_poi(coords="IND")
+            I = basin[bheads]
+            belev = self._zx[I]
+            bheads = bheads[np.argsort(belev)].tolist()
+            
+            # Snap input heads and create BNetwork sorted heads
+            if type(heads) == list:
+                heads = np.array(heads).reshape(1, 2)
+            heads = self.snap_points(heads, "heads")      
+            for hh in heads:
+                bheads.remove(hh)          
+            
+            self._heads = np.append(heads, np.array(bheads))
         
-        # Create the new grid
-        self._size = (basin_cl.shape[1], basin_cl.shape[0])
-        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
-        geot = net._geot
-        ULx = geot[0] + geot[1] * c1
-        ULy = geot[3] + geot[5] * r1
-        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
-        self._cellsize = (geot[1], geot[5])
-        self._proj = net._proj
-        self._ncells = basin_cl.size
-        self._threshold = net._threshold
-        self._thetaref = net._thetaref
-        self._slp_npoints = net._slp_npoints
-        self._ksn_npoints = net._ksn_npoints
-        
-        # Get only points inside the basin
-        basin = basin.astype(np.bool).ravel()
-        I = basin[net._ix]
-        self._ax = net._ax[I]
-        self._zx = net._zx[I]
-        self._dd = net._dd[I]
-        self._dx = net._dx[I]
-        self._chi = net._chi[I]
-        self._slp = net._slp[I]
-        self._ksn = net._ksn[I]
-        self._r2slp = net._r2slp[I]
-        self._r2ksn = net._r2ksn[I]
-        
-        # Get new indices for the new grid
-        ix = net._ix[I]
-        ixc = net._ixc[I]
-        
-        rowix, colix = net.ind_2_cell(ix)
-        nrowix = rowix - r1
-        ncolix = colix - c1
-        self._ix = self.cell_2_ind(nrowix, ncolix)
+        except:
+            raise NetworkError("Error creating the BNetwork object")
 
-        rowixc, colixc = net.ind_2_cell(ixc)
-        nrowixc = rowixc - r1
-        ncolixc = colixc - c1
-        self._ixc = self.cell_2_ind(nrowixc, ncolixc)
-        row, col = self.xy_2_cell(heads[:, 0], heads[:, 1])
-        self._heads = self.cell_2_ind(row, col)
-        self._main_head = self._heads[0]
+    def _load(self, path):
+        """
+        Loads a BNetwork instance saved in the disk.
         
+        Parameter:
+        ==========
+           Path to the saved BNetwork object (*.net file)
+        """
+        try:
+            # Call to the parent Network._load() function
+            super(BNetwork, self)._load(path)
+            
+            # Open again the *.net file to get the heads
+            fr = open(path, "r")
+            lineas = fr.readlines()
+            self._heads = np.array(lineas[3][:-1].split(";")).astype(np.int)
+            fr.close()
+        except:
+            raise NetworkError("Error loading the BNetwork object")
+            
+    def save(self, path):
+        """
+        Saves the BNetwork instance to disk. It will be saved as text file (*.net) plus
+        a numpy binary array with the same name (*.npy) with the cell data.
+        
+        Parameters:
+        ===========
+        path : *str*
+          Path to save the network object, with *.net extension
+        """
+        # Call to the parent Network.save() function
+        super(BNetwork, self)._load(path)
+        
+        # Open again the *.net file to append the heads
+        netfile = open(os.path.splitext(path)[0] + ".net", "a")
+        netfile.write("\n" + ";".join(self._heads.astype(np.str)))
+        netfile.close()
+
+
 ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
     def get_main_channel(self):
         chcells = [self._main_head]
@@ -855,5 +930,5 @@ class BNetwork(Network):
 
 
 
-class FlowError(Exception):
+class NetworkError(Exception):
     pass
