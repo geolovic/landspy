@@ -302,19 +302,19 @@ class Flow(PRaster):
         
         Parameters:
         ===========
-        outlets : *iterable*
-          List/tuple with (x, y) coordinates for the outlets, or 2-D numpy.ndarray
-          with [x, y] columns. If outlets is None, all possible outlets will be 
-          extracted
+        outlets : *list* | *np.ndarray*
+          List/tuple with (x, y) coordinates for a single outlet, or 2-D numpy.ndarray
+          with [x, y] columns. Additionaly this array can include a third column with 
+          Id values for basins. If outlets is None, all basins will be extracted
         min_area : *float*
-          Minimum area for basins to avoid very small basins. The area is given as a 
+          Minimum area for basins to avoid get very small basins. The area is given as a 
           percentage of the total number of cells (default 0.5%). Only valid if outlets is None.
         asgrid : *bool*
           Indicates if the network is returned as topopy.Grid (True) or as a numpy.ndarray (False)
 
         Return:
         =======
-        basins : *topopy.Grid* object or numpy.ndarray with the different drainage basins.
+        basins : *topopy.Grid* object or *numpy.ndarray* with the different drainage basins.
 
         Usage:
         =====
@@ -340,11 +340,18 @@ class Flow(PRaster):
         if outlets is None and min_area > 0:
             threshold = int(self._ncells * min_area)
             inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")      
+        
         elif isinstance(outlets, np.ndarray):
             if not self.is_inside(outlets[:,0], outlets[:,1]):
                 raise FlowError("Some outlets coordinates are outside the grid")                                         
             row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
-            inds = self.cell_2_ind(row, col)      
+            inds = self.cell_2_ind(row, col)
+            # Set basin ids
+            if outlets.shape[1] > 2: # There is a third column with ids
+                basin_ids = outlets[:, 2].astype(np.int)
+            else:
+                basin_ids = np.arange(1, inds.size + 1)
+        
         elif isinstance(outlets, list):
             if not self.is_inside(outlets[0], outlets[1]):
                 raise FlowError("Some outlets coordinates are outside the grid") 
@@ -384,8 +391,8 @@ class Flow(PRaster):
             if inds.size == 1:
                 basin_arr[inds] = 1
             else:
-                for n, inds in enumerate(inds):
-                    basin_arr[inds] = n + 1
+                for n, ind in enumerate(inds):
+                    basin_arr[ind] = basin_ids[n]
                 
             nix = len(temp_ix)
             # Loop by all the sorted cells

@@ -395,8 +395,9 @@ class Network(PRaster):
         
         Parameters:
         ===========
-        input_points : *numpy.ndarray*
-          2-D numpy.ndarray of two columns with the [x, y] coordinates of points.
+        input_points : *list* | *numpy.ndarray*
+          List or 2-D numpy.ndarray. The first two elements of the list or the two
+          first columns of the numpy.ndarray should contain the [x, y] coordinates of points.
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
             Kind of point to snap input points
         
@@ -405,6 +406,8 @@ class Network(PRaster):
         numpy.ndarray
           Numpy ndarray with two columns [xi, yi] with the snap points
         """
+        if type(input_points) is list:
+            input_points = np.array(input_points).reshape(1, len(input_points))
         
         if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
             kind = 'channel'
@@ -425,9 +428,11 @@ class Network(PRaster):
         
         # Calculate distances and get minimum
         di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
-        pos = np.argmin(di, axis=1)
+        poi = poi[np.argmin(di, axis=1)]
         
-        return poi[pos]
+        # Modify input points and return
+        input_points[:,:2] = poi
+        return input_points
     
     def export_2_points(self, path):
         """
@@ -782,82 +787,90 @@ class BNetwork(Network):
             self._load(net)
             return
         
-        try:
-            # Get basin extent
-            c1 = basin.max(axis=0).argmax() - 1
-            r1 = basin.max(axis=1).argmax() - 1
-            c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax() + 1 
-            r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax() + 1
-            
-            # Check boundaries conditions
-            if c1 < 0:
-                c1 = 0
-            if r1 < 0:
-                r1 = 0
-            if c2 >= basin.shape[1]:
-                c2 = basin.shape[1] - 1
-            if r2 >= basin.shape[0]:
-                r2 = basin.shape[0] - 1
-                
-            basin_cl = basin[r1:r2, c1:c2] # clipped basin
-            
-            # Create the new grid
-            self._size = (basin_cl.shape[1], basin_cl.shape[0])
-            self._dims = (basin_cl.shape[0], basin_cl.shape[1])
-            geot = net._geot
-            ULx = geot[0] + geot[1] * c1
-            ULy = geot[3] + geot[5] * r1
-            self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
-            self._cellsize = (geot[1], geot[5])
-            self._proj = net._proj
-            self._ncells = basin_cl.size
-            self._threshold = net._threshold
-            self._thetaref = net._thetaref
-            self._slp_npoints = net._slp_npoints
-            self._ksn_npoints = net._ksn_npoints
-            
-            # Get only points inside the basin
-            basin = basin.astype(np.bool).ravel()
-            I = basin[net._ix]
-            self._ax = net._ax[I]
-            self._zx = net._zx[I]
-            self._dd = net._dd[I]
-            self._dx = net._dx[I]
-            self._chi = net._chi[I]
-            self._slp = net._slp[I]
-            self._ksn = net._ksn[I]
-            self._r2slp = net._r2slp[I]
-            self._r2ksn = net._r2ksn[I]
-            
-            # Get new indices for the new grid
-            ix = net._ix[I]
-            ixc = net._ixc[I]
-            rowix, colix = net.ind_2_cell(ix)
-            rowixc, colixc = net.ind_2_cell(ixc)
-            nrowix = rowix - r1
-            ncolix = colix - c1
-            nrowixc = rowixc - r1
-            ncolixc = colixc - c1
-            self._ix = self.cell_2_ind(nrowix, ncolix)
-            self._ixc = self.cell_2_ind(nrowixc, ncolixc)
-            
-            # Set the basin heads and sort them by elevation
-            bheads = self.get_stream_poi(coords="IND")
-            I = basin[bheads]
-            belev = self._zx[I]
-            bheads = bheads[np.argsort(belev)].tolist()
-            
-            # Snap input heads and create BNetwork sorted heads
-            if type(heads) == list:
-                heads = np.array(heads).reshape(1, 2)
-            heads = self.snap_points(heads, "heads")      
-            for hh in heads:
-                bheads.remove(hh)          
-            
-            self._heads = np.append(heads, np.array(bheads))
+        #try:
+        # If basin is not a numpy array is a topopy.Grid
+        if not isinstance(basin, np.ndarray):
+            basin = basin.read_array()
         
-        except:
-            raise NetworkError("Error creating the BNetwork object")
+        # Set basin cells to 1
+        basin = np.where(basin==bid, 1, 0)
+                
+        # Get basin extent
+        c1 = basin.max(axis=0).argmax() - 1
+        r1 = basin.max(axis=1).argmax() - 1
+        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax() + 1 
+        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax() + 1
+        
+        # Check boundaries conditions
+        if c1 < 0:
+            c1 = 0
+        if r1 < 0:
+            r1 = 0
+        if c2 >= basin.shape[1]:
+            c2 = basin.shape[1] - 1
+        if r2 >= basin.shape[0]:
+            r2 = basin.shape[0] - 1
+            
+        basin_cl = basin[r1:r2, c1:c2] # clipped basin
+        
+        # Create the new grid
+        self._size = (basin_cl.shape[1], basin_cl.shape[0])
+        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+        geot = net._geot
+        ULx = geot[0] + geot[1] * c1
+        ULy = geot[3] + geot[5] * r1
+        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+        self._cellsize = (geot[1], geot[5])
+        self._proj = net._proj
+        self._ncells = basin_cl.size
+        self._threshold = net._threshold
+        self._thetaref = net._thetaref
+        self._slp_npoints = net._slp_npoints
+        self._ksn_npoints = net._ksn_npoints
+        
+        # Get only points inside the basin
+        basin = basin.astype(np.bool).ravel()
+        I = basin[net._ix]
+        self._ax = net._ax[I]
+        self._zx = net._zx[I]
+        self._dd = net._dd[I]
+        self._dx = net._dx[I]
+        self._chi = net._chi[I]
+        self._slp = net._slp[I]
+        self._ksn = net._ksn[I]
+        self._r2slp = net._r2slp[I]
+        self._r2ksn = net._r2ksn[I]
+        
+        # Get new indices for the new grid
+        ix = net._ix[I]
+        ixc = net._ixc[I]
+        rowix, colix = net.ind_2_cell(ix)
+        rowixc, colixc = net.ind_2_cell(ixc)
+        nrowix = rowix - r1
+        ncolix = colix - c1
+        nrowixc = rowixc - r1
+        ncolixc = colixc - c1
+        self._ix = self.cell_2_ind(nrowix, ncolix)
+        self._ixc = self.cell_2_ind(nrowixc, ncolixc)
+        
+#        # Set the basin heads and sort them by elevation
+#        bheads = self.get_stream_poi(coords="IND")
+#        basin_cl = basin_cl.astype(np.bool).ravel()
+#        I = basin_cl[bheads]
+#        belev = self._zx[I]
+#        bheads = bheads[np.argsort(belev)].tolist()
+#        
+#        # Snap input heads and create BNetwork sorted heads
+#        if type(heads) == list:
+#            heads = np.array(heads).reshape(1, 2)
+#        heads = self.snap_points(heads, "heads")      
+#        for hh in heads:
+#            bheads.remove(hh)          
+#        
+#        self._heads = np.append(heads, np.array(bheads))
+#        
+#        except:
+#            raise NetworkError("Error creating the BNetwork object")
 
     def _load(self, path):
         """
