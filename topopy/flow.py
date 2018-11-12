@@ -80,8 +80,8 @@ class Flow(PRaster):
                 self._ncells = dem.get_ncells()
                 self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
-                self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
-                self._zx = dem.read_array().ravel()[self._ix]
+                self._ix, self._ixc, self._zx = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
+                #self._zx = dem.read_array().ravel()[self._ix]
                 # Recalculate NoData values
                 self._nodata_pos = self._get_nodata_pos()
             except:
@@ -363,8 +363,8 @@ class Flow(PRaster):
             
         # If outlets are not specified, all the basins will be extracted
         if inds.size == 0:
-            temp_ix = self._ix
-            temp_ixc = self._ixc
+            temp_ix = np.copy(self._ix)
+            temp_ixc = np.copy(self._ixc)
             nbasins = 0
             basin_arr = np.zeros(self._ncells, np.int)
             nix = len(temp_ix)
@@ -384,8 +384,8 @@ class Flow(PRaster):
             xi, yi = self.cell_2_xy(row, col)
             if not self.is_inside(xi, yi):
                 raise FlowError("Some outlets coordinates are outside the grid")
-            temp_ix = self._ix
-            temp_ixc = self._ixc
+            temp_ix = np.copy(self._ix)
+            temp_ixc = np.copy(self._ixc)
             basin_arr = np.zeros(self._ncells, np.int)
 
             # Change basin array outlets by the basin id (starting to 1)
@@ -559,7 +559,7 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     
     # 02 Get flats and sills
     flats, sills = fill.identify_flats(as_array=True)
-    del(fill)
+    # del(fill)
     if verbose:
         verb_func("2/7 - Flats and sills identified")
     
@@ -607,7 +607,9 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     ix  = ix[I]
     ixc = ixc[I]
     
-    return ix, ixc
+    # 10 Get channel elevations (from filled DEM)
+    zx = fill.read_array().ravel()[ix]
+    return ix, ixc, zx
 
 
 def get_presills(filldem, flats, sills, as_positions=True):

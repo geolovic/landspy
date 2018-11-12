@@ -409,7 +409,7 @@ class Network(PRaster):
           Numpy ndarray with two columns [xi, yi] with the snap points
         """
         if type(input_points) is list:
-            input_points = np.array(input_points).reshape(1, len(input_points))
+            input_points = np.array(input_points).reshape(1, 2)
         
         if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
             kind = 'channel'
@@ -432,9 +432,10 @@ class Network(PRaster):
         di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
         poi = poi[np.argmin(di, axis=1)]
         
-        # Modify input points and return
-        input_points[:,:2] = poi
-        return input_points
+        # Create output points and return
+        output_points = np.copy(input_points)
+        output_points[:,:2] = poi
+        return output_points
     
     def export_2_points(self, path):
         """
@@ -857,22 +858,19 @@ class BNetwork(Network):
         
         # Set the basin heads and sort them by elevation
         bheads = self.get_stream_poi(coords="IND")
-        basin_cl = basin_cl.astype(np.bool).ravel()
-        I = basin_cl[bheads]
-        belev = self._zx[I]
+        aux_z = np.zeros(self._ncells)
+        aux_z[self._ix] = self._zx
+        belev = aux_z[bheads]
         bheads = bheads[np.argsort(belev)].tolist()
-#        
-#        # Snap input heads and create BNetwork sorted heads
-#        if type(heads) == list:
-#            heads = np.array(heads).reshape(1, 2)
-#        heads = self.snap_points(heads, "heads")      
-#        for hh in heads:
-#            bheads.remove(hh)          
-#        
-#        self._heads = np.append(heads, np.array(bheads))
-#        
-#        except:
-#            raise NetworkError("Error creating the BNetwork object")
+       
+        # Snap user heads to Network heads
+        heads = self.snap_points(heads, kind="heads")
+        row, col = self.xy_2_cell(heads[:, 0], heads[:, 1])
+        heads = self.cell_2_ind(row, col)
+        
+        for head in heads:
+            bheads.remove(head)
+        self._heads = np.append(heads, np.array(bheads))
 
     def _load(self, path):
         """
@@ -882,17 +880,17 @@ class BNetwork(Network):
         ==========
            Path to the saved BNetwork object (*.net file)
         """
-        try:
+#        try:
             # Call to the parent Network._load() function
-            super(BNetwork, self)._load(path)
-            
-            # Open again the *.net file to get the heads
-            fr = open(path, "r")
-            lineas = fr.readlines()
-            self._heads = np.array(lineas[3][:-1].split(";")).astype(np.int)
-            fr.close()
-        except:
-            raise NetworkError("Error loading the BNetwork object")
+        super()._load(path)
+        
+        # Open again the *.net file to get the heads
+        fr = open(path, "r")
+        lineas = fr.readlines()
+        self._heads = np.array(lineas[3].split(";")).astype(np.int)
+        fr.close()
+#        except:
+#            raise NetworkError("Error loading the BNetwork object")
             
     def save(self, path):
         """
@@ -905,20 +903,19 @@ class BNetwork(Network):
           Path to save the network object, with *.net extension
         """
         # Call to the parent Network.save() function
-        super(BNetwork, self)._load(path)
+        super().save(path)
         
         # Open again the *.net file to append the heads
         netfile = open(os.path.splitext(path)[0] + ".net", "a")
         netfile.write("\n" + ";".join(self._heads.astype(np.str)))
         netfile.close()
 
-
 ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
     def get_main_channel(self):
-        chcells = [self._main_head]
+        chcells = [self._heads[0]]
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
-        nextcell = self._ixc[ixcix[self._main_head]]
+        nextcell = self._ixc[ixcix[self._heads[0]]]
         
         while ixcix[nextcell] != 0:
             chcells.append(nextcell)
@@ -937,13 +934,57 @@ class BNetwork(Network):
         ksn = self._ksn[I]
         r2slp = self._r2slp[I]
         r2ksn = self._r2ksn[I]
-        
-#        di -= di[-1]
-#        di = di[0] - di
+        length = di[0] - di[-1]
+        di -= di[-1]
+        di = length - di
+
         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
         return outarr
 
-
-
+    def get_channels(self):
+        aux_arr = np.zeros(self._ncells, np.bool)
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        canales = []
+        
+        for head in self._heads:
+            chcells = [head]
+            aux_arr[head] = True
+            nextcell = self._ixc[ixcix[head]]
+            aux_arr[nextcell] = True
+            while ixcix[nextcell] != 0:
+                chcells.append(nextcell)
+                nextcell = self._ixc[ixcix[nextcell]]
+                if aux_arr[nextcell]==False:
+                    aux_arr[nextcell] = True
+                else:
+                    chcells.append(nextcell)
+                    break
+            
+            row, col = self.ind_2_cell(chcells)
+            xi, yi = self.cell_2_xy(row, col)
+            auxarr = np.zeros(self._ncells).astype(np.bool)
+            auxarr[chcells] = True
+            I = auxarr[self._ix]
+            ai = self._ax[I]
+            zi = self._zx[I]
+            di = self._dx[I]
+            chi = self._chi[I]
+            slp = self._slp[I]
+            ksn = self._ksn[I]
+            r2slp = self._r2slp[I]
+            r2ksn = self._r2ksn[I]
+            length = di[0] - di[-1]
+            di -= di[-1]
+            di = length - di
+            chandata = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
+            canales.append(chandata)
+        
+        return canales
+     
 class NetworkError(Exception):
     pass
+
+
+
+

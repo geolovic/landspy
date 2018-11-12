@@ -10,38 +10,39 @@ import numpy as np
 import ogr
 import matplotlib.pyplot as plt
 
-# Get network
-dem = DEM("/Users/vicen/Desktop/Tunez/gisdata/srtm30_dem.tif")
+basedir = "C:/Users/Usuario/Desktop/tunez/gisdata"
+
+# Get DEM, Flow and Network and save them
+dem = DEM(basedir + "/srtm30_dem.tif")
 fld = Flow (dem, verbose=True)
-#fld = Flow("/Users/vicen/Desktop/Tunez/gisdata/srtm30_fd.tif")
-net = Network("/Users/vicen/Desktop/Tunez/gisdata/network_4k.net")
+fld.save(basedir + "/srtm30_fd.tif")
+net = Network(fld, 4000)
+net.save(basedir + "/net_4k.net")
+fac = fld.get_flow_accumulation()
+fac.save(basedir + "/srtm30_fac.tif")
+net.export_to_shp(basedir + "/network.shp", con=True)
+streams = net.get_stream_order()
+streams.save(basedir + "/red_strahler.tif")
+
+## Load Flow and Network
+#fld = Flow(basedir + "/srtm30_fd.tif")
+#net = Network(basedir + "/net_4k.net")
 #
-# Open outlets
-driver = ogr.GetDriverByName("ESRI Shapefile")
-dataset = driver.Open("/Users/vicen/Desktop/Tunez/gisdata/outlets.shp")
-layer = dataset.GetLayer()
-outlets = []
-for feat in layer:
-    geom = feat.GetGeometryRef()
-    idx = feat.GetField("id")
-    outlets.append((geom.GetX(), geom.GetY(), idx))
-dataset = None
-layer = None
-
-## Snap outlets and get drainage basins
-outlets = net.snap_points(np.array(outlets))
-outlets = np.array(outlets)
-basins = fld.get_drainage_basins(outlets)
-basins.save("/Users/vicen/Desktop/Tunez/gisdata/cuencas.tif")
-
-
-#bnet = BNetwork(net, basins, heads, 5)
-
-
-#dem = DEM("C:/Users/Usuario/Desktop/tunez/srtm30_dem.tif")
-#fld = Flow(dem, True)
-#fld.save("C:/Users/Usuario/Desktop/tunez/srtm30_fd.tif")
-#fac = fld.get_flow_accumulation()
-#fac.save("C:/Users/Usuario/Desktop/tunez/srtm30_fac.tif")
-#net = Network(fld, 4000, 0.45, 25)
-#net.save("C:/Users/Usuario/Desktop/tunez/network_4k.net")
+#
+#
+#
+#
+## Open outlets and snap them
+#driver = ogr.GetDriverByName("ESRI Shapefile")
+#dataset = driver.Open(basedir + "/outlets.shp")
+#layer = dataset.GetLayer()
+#outlets = []
+#for feat in layer:
+#    geom = feat.GetGeometryRef()
+#    idx = feat.GetField("id")
+#    outlets.append((geom.GetX(), geom.GetY(), idx))
+#dataset = None
+#layer = None
+#outlets = net.snap_points(np.array(outlets))
+#basins = fld.get_drainage_basins(outlets)
+#basins.save(basedir + "/basins.tif")

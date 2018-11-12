@@ -31,8 +31,8 @@ class NetworkClassTest(unittest.TestCase):
             net2 = Network(net_path)
             
             # Comparamos propiedades,
-            prop_net = [net._size, net._dims, net._geot, net._cellsize, net._ncells, net._proj]
-            prop_net2 = [net2._size, net2._dims, net2._geot, net2._cellsize, net2._ncells, net2._proj]
+            prop_net = [net._size, net._dims, net._geot, net._cellsize, net._ncells, net._proj, net._threshold]
+            prop_net2 = [net2._size, net2._dims, net2._geot, net2._cellsize, net2._ncells, net2._proj, net._threshold]
             self.assertEqual(prop_net, prop_net2)
             
             # Comparamos los datos
