@@ -339,7 +339,8 @@ class Flow(PRaster):
         # Sino especificamos outlets pero si área mínima, extraemos outlets con ese area mínima
         if outlets is None and min_area > 0:
             threshold = int(self._ncells * min_area)
-            inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")      
+            inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")
+            basin_ids = np.arange(1, inds.size + 1)
         
         elif isinstance(outlets, np.ndarray):
             if not self.is_inside(outlets[:,0], outlets[:,1]):

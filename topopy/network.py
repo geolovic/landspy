@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 
 # network.py
 # Jose Vicente Perez Pena
@@ -39,7 +39,7 @@ class Network(PRaster):
           Number of points to calculate slope and ksn in each cell. Slope and ksn values
           are calculated with a moving window of (npoints * 2 + 1) cells.
         """
-        # If flow is a str, load it
+        # If the first argument is a str, load the network object
         if type(flow)== str:
             self._load(flow)
             return
@@ -62,12 +62,12 @@ class Network(PRaster):
         w = fac > threshold
         w = w.ravel()
         I   = w[flow._ix]
-        self._ix  = flow._ix[I]
-        self._ixc = flow._ixc[I]
+        self._ix  = np.copy(flow._ix[I])
+        self._ixc = np.copy(flow._ixc[I])
         
         # Get Area and Elevations for channel cells
         self._ax = fac.ravel()[self._ix] * self._cellsize[0] * self._cellsize[1] * -1 # Area in map units
-        self._zx = flow._zx[I]
+        self._zx = np.copy(flow._zx[I])
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
         di = np.zeros(self._ncells)
@@ -105,7 +105,8 @@ class Network(PRaster):
             
         # Create *.net file with properties
         netfile = open(path + ".net", "w")
-        params = [self._size, self._cellsize, self._ncells, self._ksn_npoints, self._slp_npoints, self._thetaref] 
+        params = [self._size, self._cellsize, self._ncells, self._ksn_npoints, 
+                  self._slp_npoints, self._thetaref, self._threshold] 
         linea = ";".join([str(param) for param in params]) + "\n"
         netfile.write(linea)
         linea = ";".join([str(elem) for elem in self._geot]) + "\n"
@@ -141,6 +142,7 @@ class Network(PRaster):
         self._ksn_npoints = int(data[3])
         self._slp_npoints = int(data[4])
         self._thetaref = float(data[5])
+        self._threshold = int(data[6])
         linea = fr.readline()[:-1]
         self._geot = tuple([float(n) for n in linea.split(";")])
         linea = fr.readline()
@@ -775,9 +777,9 @@ class BNetwork(Network):
           Numpy array or topopy Grid representing the drainage basin. If array or Grid have more than
           one basin, set the basinid properly. 
         heads : *list* or *numpy.ndarray*
-          List with xi and yi coordinates for basin main heads. If a numpy.ndarray, the first column
-          will have the xi values and the second one the yi. Heads will snap to heads of the Network.
-          The first head is considered the main head (trunk channel).
+          List with [x, y] coordinates for basin the main head or 2 column numpy.ndarray with head(s) 
+          coordinate(s). If more than one, the first one is considered the main head (trunk channel). 
+          Head(s) will snap to Network heads.
         basinid : *int*
           Id value that identifies the basin cells in case that basin will have more than one basin.        
         """
@@ -853,12 +855,12 @@ class BNetwork(Network):
         self._ix = self.cell_2_ind(nrowix, ncolix)
         self._ixc = self.cell_2_ind(nrowixc, ncolixc)
         
-#        # Set the basin heads and sort them by elevation
-#        bheads = self.get_stream_poi(coords="IND")
-#        basin_cl = basin_cl.astype(np.bool).ravel()
-#        I = basin_cl[bheads]
-#        belev = self._zx[I]
-#        bheads = bheads[np.argsort(belev)].tolist()
+        # Set the basin heads and sort them by elevation
+        bheads = self.get_stream_poi(coords="IND")
+        basin_cl = basin_cl.astype(np.bool).ravel()
+        I = basin_cl[bheads]
+        belev = self._zx[I]
+        bheads = bheads[np.argsort(belev)].tolist()
 #        
 #        # Snap input heads and create BNetwork sorted heads
 #        if type(heads) == list:

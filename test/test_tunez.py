@@ -10,12 +10,15 @@ import numpy as np
 import ogr
 import matplotlib.pyplot as plt
 
-## Get network
-fld = Flow("C:/Users/Usuario/Desktop/tunez/srtm30_fd.tif")
-net = Network("C:/Users/Usuario/Desktop/tunez/network_4k.net")
+# Get network
+dem = DEM("/Users/vicen/Desktop/Tunez/gisdata/srtm30_dem.tif")
+fld = Flow (dem, verbose=True)
+#fld = Flow("/Users/vicen/Desktop/Tunez/gisdata/srtm30_fd.tif")
+net = Network("/Users/vicen/Desktop/Tunez/gisdata/network_4k.net")
+#
 # Open outlets
 driver = ogr.GetDriverByName("ESRI Shapefile")
-dataset = driver.Open("C:/Users/Usuario/Desktop/tunez/outlets.shp")
+dataset = driver.Open("/Users/vicen/Desktop/Tunez/gisdata/outlets.shp")
 layer = dataset.GetLayer()
 outlets = []
 for feat in layer:
@@ -24,28 +27,14 @@ for feat in layer:
     outlets.append((geom.GetX(), geom.GetY(), idx))
 dataset = None
 layer = None
-#
-## Open heads and sort them
-#driver = ogr.GetDriverByName("ESRI Shapefile")
-#dataset = driver.Open("data/in/heads.shp")
-#layer = dataset.GetLayer()
-#heads = []
-#for feat in layer:
-#    geom = feat.GetGeometryRef()
-#    idx = feat.GetField("id")
-#    heads.append((geom.GetX(), geom.GetY(), idx))
-#heads = np.array(heads)
-#heads = heads[np.argsort(heads[:,2])]
-#dataset = None
-#layer = None
-#
+
+## Snap outlets and get drainage basins
 outlets = net.snap_points(np.array(outlets))
 outlets = np.array(outlets)
-
-outlets = outlets[:2, :]
 basins = fld.get_drainage_basins(outlets)
-basins.save("C:/Users/Usuario/Desktop/tunez/cuencas.tif")
-#
+basins.save("/Users/vicen/Desktop/Tunez/gisdata/cuencas.tif")
+
+
 #bnet = BNetwork(net, basins, heads, 5)
 
 
