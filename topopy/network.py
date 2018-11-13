@@ -934,9 +934,9 @@ class BNetwork(Network):
         ksn = self._ksn[I]
         r2slp = self._r2slp[I]
         r2ksn = self._r2ksn[I]
-        length = di[0] - di[-1]
-        di -= di[-1]
-        di = length - di
+#        length = di[0] - di[-1]
+#        di -= di[-1]
+#        di = length - di
 
         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
         return outarr
@@ -974,9 +974,6 @@ class BNetwork(Network):
             ksn = self._ksn[I]
             r2slp = self._r2slp[I]
             r2ksn = self._r2ksn[I]
-            length = di[0] - di[-1]
-            di -= di[-1]
-            di = length - di
             chandata = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
             canales.append(chandata)
         

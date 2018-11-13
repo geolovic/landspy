@@ -10,8 +10,17 @@ import numpy as np
 import ogr
 import matplotlib.pyplot as plt
 
-# Get network and basins
+# INPUT PARAMETERS
 basedir = "C:/Users/Usuario/Desktop/tunez/gisdata"
+
+# Parameters from "tunez_02_thetaref_analysis.py
+r2 = [0.923, 0.941, 0.912]
+mn = [0.2, 0.3, 0.4]
+
+#########################################################
+#########################################################
+
+# Get network and basins
 net = Network(basedir + "/net_4k.net")
 basins = Grid(basedir + "/medjerda_basin.tif")
 
@@ -35,10 +44,7 @@ bnet.save(basedir + "/chi_analysis/bnet_medjerda.net")
 fig = plt.figure()
 n = 1
 
-# Sacados de thetaref_analysis_01.py
-r2 = [0.923, 0.941, 0.912]
-
-for thetaref in [0.2, 0.3, 0.4]:
+for thetaref in mn:
     bnet.calculate_chi(thetaref)
     main_ch = bnet.get_main_channel()
     ax = fig.add_subplot(1, 3, n)

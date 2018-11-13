@@ -11,8 +11,14 @@ import ogr
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-# Get network and basins
+
+# INPUT PARAMETERS
 basedir = "C:/Users/Usuario/Desktop/tunez/gisdata"
+
+#########################################################
+#########################################################
+
+# Get network and basins
 net = Network(basedir + "/net_4k.net")
 basins = Grid(basedir + "/medjerda_basin.tif")
 
