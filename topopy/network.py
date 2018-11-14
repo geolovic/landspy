@@ -194,7 +194,125 @@ class Network(PRaster):
             chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)            
         self._chi = chi[self._ix]
         self._thetaref = thetaref
-      
+    
+    def smooth(self, winsize):
+        """
+        This function calculates gradients (slope or ksn) for all channel cells. 
+        Gradients of each cell are calculated by linear regression using a number
+        of points (npoints) up and downstream.
+        
+        Parameters:
+        ===========
+        npoints : *int*
+          Window to analyze slopes. Slopes are calculated by linear regression using a window
+          of npoints * 2 + 1 pixel (using the central pixel)
+          
+        kind : *str* {'slp', 'ksn'}
+        """
+        # Get number of points
+        npoints = winsize / ((self._cellsize[0] - self._cellsize[1]) / 2)
+        npoints = int(npoints / 2)
+        
+        # Get elevation array
+        z_arr = np.copy(self._zx)
+        
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        
+        # Get heads and sorted them by elevation
+        heads = self.get_stream_poi("heads", "IND")
+        elev = self._zx[ixcix[heads]]
+        spos = np.argsort(-elev)
+        heads = heads[spos]
+        winlen = npoints * 2 + 1
+        meanzi = np.zeros(self._ncells)
+        
+#        # Get dictionary with confluences
+#        confs = self.get_stream_poi("confluences", "IND")
+#        confs_d = {}
+#        for conf in confs:
+#            confs_d[conf] = []
+            
+        
+        # Taking sequentally all the heads and compute downstream flow
+        for head in heads:
+            processing = True
+            lcell = head
+            mcell = self._ixc[ixcix[head]]
+            fcell = self._ixc[ixcix[mcell]]
+        
+            if ixcix[fcell] == 0 or ixcix[self._ixc[ixcix[fcell]]] == 0:
+                continue
+            
+            # Obtenemos datos de elevacion
+            win = [fcell, mcell, lcell]
+            zi = z_arr[ixcix[win]]
+            # Calculamos altura media
+            zmean = zi.mean()
+            meanzi[mcell] = zmean
+            meanzi[fcell] = z_arr[ixcix[fcell]] # Dejamos first cell igual
+            
+#            if mcell in confs_d.keys():
+#                confs_d[mcell].append(zmean) 
+#           
+            print(win)
+            break
+            while processing:
+                # Cogemos la siguiente celda del canal (next_cell)
+                fcell = win[0]
+                next_cell = self._ixc[ixcix[fcell]]
+                
+                # Comprobamos la siguiente celda del canal
+                # Si la siguiente celda del canal no es cero
+                if ixcix[next_cell] != 0:
+                    # Añadimos siguiente celda
+                    win.insert(0, next_cell)
+                    fcell = win[0]
+                    # Movemos celda central
+                    mcell = self._ixc[ixcix[mcell]]
+        
+                    if len(win) < winlen:
+                        # Si estamos al principio del canal, win crece
+                        next_cell = self._ixc[ixcix[fcell]]
+                        win.insert(0, next_cell)
+                        fcell = win[0]
+                    else:
+                        # Si no estamos al principio, eliminamos celda final
+                        win.pop()
+                # Si la siguiente celda es cero, no añadimos celdas, sino que win decrece
+                else:
+                    mcell = self._ixc[ixcix[mcell]]
+                    win.pop()
+                    win.pop()
+                    if len(win) == 3:
+                        processing = False
+                        meanzi[fcell] = z_arr[ixcix[fcell]] # Dejamos first cell igual
+       
+                # Obtenemos datos de elevacion
+                zi = z_arr[ixcix[win]]
+                # Calculamos altura media
+                zmean = zi.mean()
+                
+                if meanzi[mcell] == 0: # Celda no ha sido procesada
+                    meanzi[mcell] = zmean
+#                    # Si es una confluencia no procesada guardamos también su valor
+#                    if mcell in confs_d.keys():
+#                        confs_d[mcell].append(zmean)  
+                    
+                else: # Celda ha sido procesada, por lo tanto también es una confluencia
+#                    if mcell in confs_d.keys():
+#                        confs_d[mcell].append(zmean)  
+                    processing = False
+        
+#        # Procesamos valores de confluencias y modificamos alturas de Network
+#        for conf in confs_d.keys():
+#            print(confs_d[conf])
+#            meanzi[conf] = np.array(confs_d[conf]).mean()
+            
+#        self._zx = meanzi[self._ix]
+
+    
     def calculate_gradients(self, npoints, kind='slp'):
         """
         This function calculates gradients (slope or ksn) for all channel cells. 
@@ -247,7 +365,7 @@ class Network(PRaster):
             win = [fcell, mcell, lcell]
             xi = x_arr[ixcix[win]]
             yi = y_arr[ixcix[win]]
-            
+            print(win)
             # Calculamos pendiente de celda central por regresion
             poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
             # To avoid issues with horizontal colinear points
@@ -291,7 +409,7 @@ class Network(PRaster):
                         processing = False
                         gi[fcell] = 0.00001
                         r2[fcell] = 0.00001
-                        
+                print(win)        
                 # Obtenemos datos de elevacion y distancias
                 xi = x_arr[ixcix[win]]
                 yi = y_arr[ixcix[win]]

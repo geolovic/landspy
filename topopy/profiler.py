@@ -135,6 +135,10 @@ class TProfile:
         self._data = np.copy(chandata)
         # Set raw elevations as 11th column
         self._data = np.append(self._data, self._data[:, 2].reshape(self.n_points, 1), axis=1)
+        
+        # List for knickpoints and regressions
+        self._knickpoints = [] # Tuples of (pos, type)
+        self._regressions = [] # Tuples of (pos1, pos2, ksn)
 
 
     def get_projection(self):
