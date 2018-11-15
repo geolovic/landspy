@@ -42,6 +42,7 @@ if not os.path.exists(basedir):
     os.mkdir(basedir)
 perfiles = np.load(basedir + "/perfiles_tunez.npy")
 
+
 # Disable some keymap characters that interfere with graph key events
 plt.rcParams["keymap.xscale"] = [""]
 plt.rcParams["keymap.yscale"] = [""]
@@ -117,7 +118,11 @@ class ProfilerApp:
         li = perfil.get_l() / 1000.
         zi = perfil.get_z()
         self.ax.set_xlabel("Distance [km]")
-        self.ax.set_ylabel("Elevation [m]")
+        if perfil._smoothpoints > 0:
+            self.ax.set_ylabel("Elevation [m] (smoothed {0} points)".format(perfil._smoothpoints))
+        else:
+            self.ax.set_ylabel("Elevation [m]")
+        
         self.ax.set_title(perfil.name)
         self.ax.plot(li, zi, c="b", lw=0.7, picker=4)
         
@@ -155,7 +160,10 @@ class ProfilerApp:
         chi = perfil.get_chi()
         zi = perfil.get_z()
         self.ax.set_xlabel("Chi [m]")
-        self.ax.set_ylabel("Elevation [m]")
+        if perfil._smoothpoints > 0:
+            self.ax.set_ylabel("Elevation [m] (smoothed {0} points)".format(perfil._smoothpoints))
+        else:
+            self.ax.set_ylabel("Elevation [m]")
         self.ax.set_title(perfil.name)
         self.ax.plot(chi, zi, c="b", lw=0.7, picker=4)
 
@@ -231,6 +239,8 @@ class ProfilerApp:
             Z: Reset profile elevations (in case of removed dams)
         """
         key = event.key.upper()
+        perfil = self.profiles[self.active]
+        
         if key in ["1", "2", "3", "4"]:
             self.g_type = int(key)
             self.draw()
@@ -257,11 +267,16 @@ class ProfilerApp:
             self.draw_map()
             
         elif key == "Z":
-            self.profiles[self.active].reset_elevations()
+            perfil.reset_elevations()
             self.draw()
             
         elif key == "P":
             self.print_all(4, 3)
+            
+        elif key == "+" and self.g_type == 1:
+            perfil._smoothpoints += 1
+            perfil.smooth(perfil._smoothpoints)
+            self.draw()
 
     def change_knickpoint_type(self):
         if self.mode == "K" and len(self.profiles[self.active]._knickpoints) > 0:

@@ -5,7 +5,7 @@ Created on Wed Nov  7 17:36:31 2018
 @author: Usuario
 """
 
-from topopy import Flow, DEM, Network, BNetwork, Grid
+from topopy import Network, BNetwork, Grid
 import numpy as np
 import ogr
 import matplotlib.pyplot as plt

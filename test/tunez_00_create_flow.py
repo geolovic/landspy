@@ -15,11 +15,11 @@ basedir = "C:/Users/Usuario/Desktop/tunez/gisdata"
 dem = DEM(basedir + "/srtm30_dem.tif")
 fld = Flow (dem, verbose=True)
 fld.save(basedir + "/srtm30_fd.tif")
-net = Network(fld, 4000)
+net = Network(fld, 4000, 0.45, 5)
 net.save(basedir + "/net_4k.net")
 fac = fld.get_flow_accumulation()
 fac.save(basedir + "/srtm30_fac.tif")
-net.export_to_shp(basedir + "/network.shp", con=True)
+net.export_to_shp(basedir + "/network.shp", con=False)
 streams = net.get_stream_order()
 streams.save(basedir + "/red_strahler.tif")
 

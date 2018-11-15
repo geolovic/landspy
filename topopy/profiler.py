@@ -46,7 +46,7 @@ def canal_2_profile(canal, bnet, bid=0):
     di -= di[-1]
     di = length - di
     canal[:, 3] = di
-    mcellsize = (bnet._cellsize[0] + bnet._cellsize[1]) # Mean cellsize
+    mcellsize = (bnet._cellsize[0] - bnet._cellsize[1]) / 2 # Mean cellsize
     perfil = TProfile(canal, mcellsize, rid = bid, thetaref = bnet._thetaref, chi0 = canal[-1, 5], 
                   reg_points = bnet._slp_npoints, srs=bnet._proj, mouthdist=mouthdist)
 
@@ -139,6 +139,7 @@ class TProfile:
         # List for knickpoints and regressions
         self._knickpoints = [] # Tuples of (pos, type)
         self._regressions = [] # Tuples of (pos1, pos2, ksn)
+        self._smoothpoints = 0
 
 
     def get_projection(self):
@@ -364,12 +365,12 @@ class TProfile:
         else:
             return chi_values[::-1]
 
-    def smooth(self, window=0):
+    def smooth(self, npoints = 0):
         """
         Smooths the elevations of the profile with a movil mean of window size. It also removes peaks and flat segments
         from the profile (to avoid problems when calculating slopes)
 
-        :param window: Window size (in profile units) to smooth the elevations of the river profile
+        :param window: Number of points (at each side) to smooth the elevations of the river profile
         :return: None
         """
         # Remove peaks and flat segments
@@ -378,11 +379,10 @@ class TProfile:
                 self._data[n + 1, 2] = float(self._data[n, 2]) - 0.001
 
         # Smooth elevations if window distance > 0
-        if window > 0:
-            n_cells = int(int((window / self.dem_res) + 0.5) / 2)
+        if npoints > 0:
             for ind in range(len(self._data)):
-                low = ind - n_cells
-                high = ind + n_cells + 1
+                low = ind - npoints
+                high = ind + npoints + 1
                 if low < 0:
                     low = 0
 

@@ -256,8 +256,7 @@ class Network(PRaster):
 #            if mcell in confs_d.keys():
 #                confs_d[mcell].append(zmean) 
 #           
-            print(win)
-            break
+
             while processing:
                 # Cogemos la siguiente celda del canal (next_cell)
                 fcell = win[0]
@@ -365,7 +364,6 @@ class Network(PRaster):
             win = [fcell, mcell, lcell]
             xi = x_arr[ixcix[win]]
             yi = y_arr[ixcix[win]]
-            print(win)
             # Calculamos pendiente de celda central por regresion
             poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
             # To avoid issues with horizontal colinear points
@@ -408,8 +406,7 @@ class Network(PRaster):
                     if len(win) == 3:
                         processing = False
                         gi[fcell] = 0.00001
-                        r2[fcell] = 0.00001
-                print(win)        
+                        r2[fcell] = 0.00001   
                 # Obtenemos datos de elevacion y distancias
                 xi = x_arr[ixcix[win]]
                 yi = y_arr[ixcix[win]]

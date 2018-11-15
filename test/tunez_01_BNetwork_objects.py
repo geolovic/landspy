@@ -21,33 +21,35 @@ med_basin = Grid(basedir + "/medjerda_basin.tif")
 driver = ogr.GetDriverByName("ESRI Shapefile")
 dataset = driver.Open(basedir + "/heads.shp")
 layer = dataset.GetLayer()
-heads = []
+main_heads = []
 for feat in layer:
     geom = feat.GetGeometryRef()
     idx = feat.GetField("id")
-    heads.append((geom.GetX(), geom.GetY(), idx))
-heads = np.array(heads)
+    main_heads.append((geom.GetX(), geom.GetY(), idx))
+main_heads = np.array(main_heads)
 
 # Get medjerda heads
 dataset = driver.Open(basedir + "/medjerda_head.shp")
 layer = dataset.GetLayer()
-heads = []
+med_heads = []
 for feat in layer:
     geom = feat.GetGeometryRef()
     idx = feat.GetField("id")
-    heads.append((geom.GetX(), geom.GetY(), idx))
-med_heads = np.array(heads)
-
+    med_heads.append((geom.GetX(), geom.GetY(), idx))
+med_heads = np.array(med_heads)
 
 # Create main BNetwork objects and save them
-if not os.path.exsits(basedir + "/chi_analysis"):
-    os.mkdir(basedir + "/chi_analysis")
+if not os.path.exists(basedir + "/BNetworks"):
+    os.mkdir(basedir + "/BNetworks")
     
 bids = np.unique(main_basins.read_array())[1:] # To skip zero
 for bid in bids:
-    bnet = BNetwork(net, main_basins, heads, bid)
-    bnet.save(basedir + "/chi_analysis/bnet_{0:02}.net".format(bid))
+    pos = np.where(main_heads[:,2] == bid)
+    head = main_heads[pos]
+    bnet = BNetwork(net, main_basins, head, bid)
+    bnet.save(basedir + "/BNetworks/bnet_{0:02}.net".format(bid))
     
-# Create Medjerda BNetwork object and save it   
+# Create Medjerda BNetwork object and save it
+med_heads = med_heads[np.argsort(med_heads[:, 2])]
 bnet = BNetwork(net, med_basin, med_heads, 1)
-bnet.save(basedir + "/chi_analysis/bnet_medjerda.net")
+bnet.save(basedir + "/BNetworks/bnet_medjerda.net")
