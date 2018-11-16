@@ -373,6 +373,7 @@ class TProfile:
         :param window: Number of points (at each side) to smooth the elevations of the river profile
         :return: None
         """
+
         # Remove peaks and flat segments
         for n in range(len(self._data) - 1):
             if self._data[n + 1, 2] >= self._data[n, 2]:
@@ -389,16 +390,14 @@ class TProfile:
                 elevations = self._data[low:high, 10]
                 self._data[ind, 2] = np.mean(elevations)
 
-    def reset_elevations(self, raw=False):
+    def reset_elevations(self):
         """
         Reset smooth elevations. When reset, smooth elevations will equal to raw elevations
         """
+        self._smoothpoints = 0
         for n in range(len(self._data)):
             self._data[n, 2] = np.copy(self._data[n, 10])
         
-        if not raw:
-            self.smooth(self._smooth_win)
-
     def calculate_chi(self, a0=1, chi0=0.0):
         """
         This function creates the chi data array. Chi data will be calculated for each vertex of the river profile and

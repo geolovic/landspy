@@ -40,7 +40,7 @@ heads = np.array(heads)
 heads = heads[np.argsort(heads[:, 2])]
 
 bnet = BNetwork(net, basins, heads)
-bnet.save(basedir + "/chi_analysis/bnet_medjerda.net")
+bnet.save(basedir + "/BNetworks/bnet_medjerda.net")
 fig = plt.figure()
 n = 1
 
@@ -48,7 +48,7 @@ for thetaref in mn:
     bnet.calculate_chi(thetaref)
     main_ch = bnet.get_main_channel()
     ax = fig.add_subplot(1, 3, n)
-#    ax.plot(bnet._chi, bnet._zx, color="0.75", ls="None", marker=".", ms=1)
+    ax.plot(bnet._chi, bnet._zx, color="0.75", ls="None", marker=".", ms=1)
     ax.plot(main_ch[:, 5], main_ch[:, 2], ls="-", c="0.3", lw=1)
     ax.set_xlim(xmin=0)
     ax.set_ylim(ymin=0)

@@ -1056,13 +1056,18 @@ class BNetwork(Network):
         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
         return outarr
 
-    def get_channels(self):
+    def get_channels(self, nchannels=0):
         aux_arr = np.zeros(self._ncells, np.bool)
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         canales = []
         
-        for head in self._heads:
+        if nchannels == 0:
+            heads = self._heads
+        else:
+            heads = self._heads[:nchannels + 1]
+        
+        for head in heads:
             chcells = [head]
             aux_arr[head] = True
             nextcell = self._ixc[ixcix[head]]

@@ -37,11 +37,12 @@ import osr
 import os
 from topopy import TProfile
 
-basedir = "C:/Users/Usuario/Desktop/tunez/gisdata/chi_analysis/reg_data"
+basedir = "C:/Users/Usuario/Desktop/tunez/gisdata/BNetworks"
 if not os.path.exists(basedir):
     os.mkdir(basedir)
-perfiles = np.load(basedir + "/perfiles_tunez.npy")
 
+#perfiles = np.load(basedir + "/perfiles_tunez.npy")
+perfiles = np.load(basedir + "/out_files/perfiles.npy")
 
 # Disable some keymap characters that interfere with graph key events
 plt.rcParams["keymap.xscale"] = [""]
@@ -58,7 +59,7 @@ class ProfilerApp:
     """
     gr_types = {1: 'longitudinal', 2: "area-slope", 3: "chi", 4: "ksn"}
     
-    def __init__(self, figure, profiles, basedir=""):
+    def __init__(self, figure, profiles, basedir="", min_ksn = 0):
         """
         :param figure: Matplotlib.Figure to draw graphics
         :param profiles: numpy.array with TProfiles objects
@@ -74,7 +75,7 @@ class ProfilerApp:
         
         if not os.path.exists(self.basedir):
             os.mkdir(self.basedir)
-        
+        self._min_ksn = min_ksn
         self.figure = figure
         self.ax = figure.add_subplot(111)
         self.g_type = 1
@@ -195,6 +196,12 @@ class ProfilerApp:
         self.ax.set_title(perfil.name)
         self.ax.plot(li, ksn, c="b", lw=0.7, picker=4)
 
+        # Draw auxiliary line
+        if self._min_ksn > 0:
+            maxksn = ksn.max()
+            if maxksn > self._min_ksn - (self._min_ksn * 0.1):
+                self.ax.plot([li[0], li[-1]], [self._min_ksn, self._min_ksn], c="0.7", lw=0.7, ls="--")
+
         # Draw knickpoints
         if len(perfil._knickpoints) > 0:
             for k in perfil._knickpoints:
@@ -276,6 +283,8 @@ class ProfilerApp:
         elif key == "+" and self.g_type == 1:
             perfil._smoothpoints += 1
             perfil.smooth(perfil._smoothpoints)
+            perfil.calculate_ksn(perfil.ksn_reg_points)
+            perfil.calculate_slope(perfil.slope_reg_points)
             self.draw()
 
     def change_knickpoint_type(self):
@@ -542,11 +551,11 @@ class ProfilerApp:
          
         # Save the regressions
         for perfil in self.profiles:
-            for reg in perfil.regressions:
+            for reg in perfil._regressions:
                 xi = perfil.get_x()[reg[0]:reg[1]]
                 yi = perfil.get_y()[reg[0]:reg[1]]
                 feat = ogr.Feature(layer.GetLayerDefn())
-                feat.SetField("ksn", reg[2])
+                feat.SetField("ksn", reg[2][0])
                 feat.SetField("r2", reg[3])
 
                 # Creamos geometria
@@ -577,7 +586,7 @@ class ProfilerApp:
         
         # Save knickpoints
         for perfil in self.profiles:
-            for kp in perfil.knickpoints:
+            for kp in perfil._knickpoints:
                 xi = perfil.get_x()[kp[0]]
                 yi = perfil.get_y()[kp[0]]
                 ksn = perfil.get_ksn()[kp[0]]
@@ -655,4 +664,4 @@ class ProfilerApp:
         plt.close()    
 
 fig = plt.figure()
-myapp = ProfilerApp(fig, perfiles, basedir=basedir)
+myapp = ProfilerApp(fig, perfiles, basedir=basedir, min_ksn = 2.5)
