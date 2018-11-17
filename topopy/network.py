@@ -1065,7 +1065,7 @@ class BNetwork(Network):
         if nchannels == 0:
             heads = self._heads
         else:
-            heads = self._heads[:nchannels + 1]
+            heads = self._heads[:nchannels]
         
         for head in heads:
             chcells = [head]
