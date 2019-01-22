@@ -105,15 +105,15 @@ class Flow(PRaster):
         """
 
         driver = gdal.GetDriverByName("GTiff")
-        raster = driver.Create(path, self._dims[1], self._dims[0], 3, gdal.GDT_Float32)
+        raster = driver.Create(path, self._dims[1], self._dims[0], 3, gdal.GDT_UInt32)
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
 
         no_cells = self._ncells - len(self._ix)
         miss_cells = np.zeros(no_cells, np.uint32)
-        ix = np.append(self._ix, miss_cells)
-        ixc = np.append(self._ixc, miss_cells)
-        zx = np.append(self._zx, miss_cells)
+        ix = np.append(self._ix, miss_cells).astype(np.uint32)
+        ixc = np.append(self._ixc, miss_cells).astype(np.uint32)
+        zx = np.append(self._zx * 1000, miss_cells).astype(np.uint32)
         ix = ix.reshape(self._dims)
         ixc = ixc.reshape(self._dims)
         zx = zx.reshape(self._dims)
@@ -154,6 +154,7 @@ class Flow(PRaster):
         banda = raster.GetRasterBand(3)
         arr = banda.ReadAsArray().astype(np.float32)
         self._zx = arr.ravel()[0:int(self._ncells - no_cells)]
+        self._zx = self._zx / 1000
         
         # Get NoData positions
         aux_arr = np.zeros(self._ncells, np.uint32)
