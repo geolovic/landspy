@@ -234,6 +234,7 @@ class Network(PRaster):
             
             # Calculamos pendiente de celda central por regresion
             poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
+            
             # To avoid issues with horizontal colinear points
             if yi.size * yi.var() == 0:
                 R2 = 1
@@ -381,9 +382,8 @@ class Network(PRaster):
         
         Parameters:
         ===========
-        array : *iterable*
-          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
-          with [x, y] columns. 
+        array : *numpy.ndarray*
+          Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
             Kind of point to snap input points
         

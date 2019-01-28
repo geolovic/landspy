@@ -639,4 +639,36 @@ class DEM(Grid):
         return filled_dem
 
  
-    
+class Basin(DEM):
+
+    def __init__(self, dem, basin, id=1):
+        """
+        
+        """
+        basin = np.where(basin.read_array()==id, 1, 0)
+        
+        # Get limits for the input basin
+        c1 = basin.max(axis=0).argmax()
+        r1 = basin.max(axis=1).argmax()
+        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
+        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
+        
+        # Cut basin and dem by those limits
+        basin_cl = basin[r1:r2, c1:c2]
+        dem_cl = dem.read_array()[r1:r2, c1:c2]
+
+        # Create Grid
+        self._size = (basin_cl.shape[1], basin_cl.shape[0])
+        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+        geot = dem._geot
+        ULx = geot[0] + geot[1] * c1
+        ULy = geot[3] + geot[5] * r1
+        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+        self._cellsize = (geot[1], geot[5])
+        self._proj = dem._proj
+        self._ncells = basin_cl.size
+        self._nodata = dem._nodata
+        self._tipo = dem._tipo
+        arr = np.where(basin_cl > 0, dem_cl, dem._nodata)
+        self._array = arr
+                

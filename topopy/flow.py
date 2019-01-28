@@ -21,7 +21,7 @@ from . import Grid, PRaster
 
 class Flow(PRaster):
     
-    def __init__(self, dem="", auxtopo=False, filled=False, verbose=False, verb_func=print):
+    def __init__(self, dem="", auxtopo=False, filled=False, raw_z=True, verbose=False, verb_func=print):
         """
         Class that define a network object (topologically sorted giver-receiver cells)
         
@@ -30,15 +30,18 @@ class Flow(PRaster):
         dem : *DEM object* or *str*
           topopy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
           parameter is an empty string, it will create an empty Flow instance.
-        filled : boolean
-          Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
-          althoug fast, consumes a lot of memory. In some cases could be necessary fill the DEM with alternative GIS tools.
         auxtopo : boolean
           Boolean to determine if a auxiliar topography is used (much slower). The auxiliar topography is calculated with 
           elevation differences between filled and un-filled dem. If filled is True, auxtopo is ignored (cannot compute differences)
+        filled : boolean
+          Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
+          althoug fast, consumes a lot of memory. In some cases could be necessary fill the DEM with alternative GIS tools.
+        raw_z : boolean
+          Boolean to set if elevations are taken directly from the DEM (True) or from the filled DEM (False)
         verbose : boolean
           Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
-        
+        verb_func : str
+          Function to output verbose messages (only needed if topopy is embeded in other application)
         References:
         -----------
         The algoritm to created the topologically sorted network has been adapted to Python from FLOWobj.m 
@@ -59,9 +62,9 @@ class Flow(PRaster):
             self._proj = ""
             self._ncells = 1
             self._nodata_pos = np.array([], dtype=np.int32)
-            self._ix = np.array([], dtype=np.int32)
-            self._ixc = np.array([], dtype=np.int32)
-            self._zx = np.array([], dtype=np.float32)
+            self._ix = np.array([], dtype=np.uint32)
+            self._ixc = np.array([], dtype=np.uint32)
+            self._zx = np.array([], dtype=np.uint32)
         
         elif type(dem) == str:
             # Loads the Flow object in GeoTiff format
@@ -81,7 +84,10 @@ class Flow(PRaster):
                 self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
-                self._zx = dem.read_array().ravel()[self._ix]
+                if raw_z:
+                    self._zx = dem.read_array().ravel()[self._ix]
+                else:
+                    self._zx = dem.fill_sinks(True).ravel()[self._ix]
                 # Recalculate NoData values
                 self._nodata_pos = self._get_nodata_pos()
             except:
@@ -346,7 +352,7 @@ class Flow(PRaster):
                 raise FlowError("Some outlets coordinates are outside the grid")                                         
             row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
             inds = self.cell_2_ind(row, col)      
-        elif isinstance(outlets, list):
+        elif isinstance(outlets, list) or isinstance(outlets, tuple):
             if not self.is_inside(outlets[0], outlets[1]):
                 raise FlowError("Some outlets coordinates are outside the grid") 
             row, col = self.xy_2_cell(outlets[0], outlets[1])
@@ -410,9 +416,8 @@ class Flow(PRaster):
         
         Parameters:
         ===========
-        array : *iterable*
-          List/tuple with (x, y) coordinates for the point, or 2-D numpy.ndarray
-          with [x, y] columns. 
+        array : *numpy.ndarray*
+          Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         threshold : *int*
           Flow accumulation threshold (in number of cells) to extract channel cells or stream POI 
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
@@ -428,14 +433,13 @@ class Flow(PRaster):
         
         # Extract a numpy array with the coordinate to snap the points
         if kind in ['heads', 'confluences', 'outlets']:
-            poi = self.get_stream_poi(threshold, kind, "XY")
-            
+            poi = self.get_stream_poi(threshold, kind, "XY")         
         else:
             fac = self.get_flow_accumulation(nodata=False, asgrid=False)
             row, col = np.where(fac >= threshold)
             x, y = self.cell_2_xy(row, col)
             poi = np.array((x, y)).T
-        
+              
         # Get array reshaped for the calculation
         xi = input_points[:, 0].reshape((input_points.shape[0], 1))
         yi = input_points[:, 1].reshape((input_points.shape[0], 1))
@@ -485,44 +489,6 @@ class Flow(PRaster):
         return np.where(aux_arr == 0)[0]
     
 
-class Basin(Grid):
-
-    def __init__(self, dem, flow, outlet, name=""):
-        """
-        
-        """
-        # Snap outlet
-        outlet = np.array(outlet).reshape(1, 2)
-        if not self.is_inside(outlet[0, 0], outlet[0, 1]):
-            raise FlowError("Outlet coordinates are outside the grid")
-        threshold = int(flow.get_ncells() * 0.001)
-        outlet = flow.snap_points(outlet, threshold, kind="channel")
-        
-        # Get basin and cut their limits
-        basin = flow.get_drainage_basins(outlets=outlet, asgrid=False)        
-        c1 = basin.max(axis=0).argmax()
-        r1 = basin.max(axis=1).argmax()
-        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
-        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
-        basin_cl = basin[r1:r2, c1:c2]
-
-        # Create Grid
-        self._size = (basin_cl.shape[1], basin_cl.shape[0])
-        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
-        geot = dem._geot
-        ULx = geot[0] + geot[1] * c1
-        ULy = geot[3] + geot[5] * r1
-        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
-        self._cellsize = (geot[1], geot[5])
-        self._proj = dem._proj
-        self._ncells = basin_cl.size
-        self._nodata = dem._nodata
-        self._tipo = dem._tipo
-        demarr = dem.read_array()
-        arr = np.where(basin_cl > 0, demarr, dem._nodata)
-        self._array = arr
-            
-
 def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
     
     # Get DEM properties
@@ -535,6 +501,9 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
         
     # 01 Fill sinks
     # If filled is True, input DEM was previously pit-filled
+    if verbose:
+        verb_func("Flow algoritm started")
+        verb_func("Filling DEM ...")
     if filled:
         fill = dem
         dem_arr = fill.read_array()
@@ -551,27 +520,34 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
         verb_func("1/7 - DEM filled")
     
     # 02 Get flats and sills
+    if verbose:
+        verb_func("Identifiying flats and sills ...")
     flats, sills = fill.identify_flats(as_array=True)
     del(fill)
     if verbose:
         verb_func("2/7 - Flats and sills identified")
     
     # 03 Get presills (i.e. pixels immediately upstream to sill pixels)
+    if verbose:
+        verb_func("Identifiying presills ...")
     presills_pos = get_presills(dem_arr, flats, sills)
     if verbose:
         verb_func("3/7 - Presills identified")
     
     # 04 Get the auxiliar topography for the flats areas
     if auxtopo:
+        if verbose:
+            verb_func("Generating auxiliar topography ...")
         topodiff = get_aux_topography(topodiff.astype(np.float32), flats.astype(np.int8))
+        if verbose:
+            verb_func("4/7 - Auxiliar topography generated")
     else:
         topodiff = np.zeros(dem_arr.shape, dtype=np.int8)
         topodiff[flats] = 1
-        
-    if verbose:
-        verb_func("4/7 - Auxiliar topography generated")
-    
+   
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
+    if verbose:
+        verb_func("Calculating weights ...")
     weights = get_weights(flats, topodiff, presills_pos)
     if verbose:
         verb_func("5/7 - Weights calculated")
@@ -579,15 +555,21 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     del flats, sills, presills_pos, topodiff
 
     # 06 Sort pixels (givers)
+    if verbose:
+        verb_func("Sorting pixels ...")
     ix = sort_dem(dem_arr, weights)
     if verbose:
         verb_func("6/7 - Pixels sorted")
     
     # 07 Get receivers
+    if verbose:
+        verb_func("Calculating receivers ...")
     ixc = get_receivers(ix, dem_arr, cellsize)
     if verbose:
         verb_func("7/7 - Receivers calculated")
 
+    if verbose:
+        verb_func("Finishing ...")
     # 08 Remove givers==receivers
     ind = np.invert(ixc == ix) # givers == receivers
     ix = ix[ind]
@@ -763,7 +745,7 @@ def sort_dem(dem_arr, weights, order="C"):
     ndx = ndx[ix_flats]
     ix = ndx[np.argsort(-rdem[ndx], kind='mergesort')]
     
-    return ix
+    return ix.astype(np.uint32)
 
 
 def get_receivers(ix, dem_arr, cellsize, order="C"):
@@ -836,7 +818,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     ixc = IXC1
     ixc[I] = IXC2[I]
     
-    return ixc
+    return ixc.astype(np.uint32)
 
 
 class FlowError(Exception):
