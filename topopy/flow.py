@@ -85,9 +85,9 @@ class Flow(PRaster):
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
                 if raw_z:
-                    self._zx = dem.read_array().ravel()[self._ix]
+                    self._zx = dem.read_array().ravel()[self._ix].astype(np.float)
                 else:
-                    self._zx = dem.fill_sinks(True).ravel()[self._ix]
+                    self._zx = dem.fill_sinks(True).ravel()[self._ix].astype(np.float)
                 # Recalculate NoData values
                 self._nodata_pos = self._get_nodata_pos()
             except:

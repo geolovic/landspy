@@ -21,7 +21,7 @@ from . import Grid, PRaster
 
 class Network(PRaster):
 
-    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5):
+    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -87,8 +87,16 @@ class Network(PRaster):
         self.calculate_chi(thetaref)
         
         # Calculate slopes and ksn
-        self.calculate_gradients(npoints, 'slp')
-        self.calculate_gradients(npoints, 'ksn')
+        if gradients:
+            self.calculate_gradients(npoints, 'slp')
+            self.calculate_gradients(npoints, 'ksn')
+        else:
+            self._slp = np.zeros(self._ix.size)
+            self._r2slp = np.zeros(self._ix.size)
+            self._slp_npoints = 0
+            self._ksn = np.zeros(self._ix.size)
+            self._r2ksn = np.zeros(self._ix.size)
+            self._ksn_npoints = 0
 
     def save(self, path):
         """
@@ -147,7 +155,7 @@ class Network(PRaster):
         self._proj = linea
         fr.close()
         
-        # Load data array from array file *.npy
+        # Load array data from the auxiliar array file *.npy
         arrfile = os.path.splitext(netfile)[0] + ".npy"
         data_arr = np.load(arrfile)
         self._ix = data_arr[:, 0].astype(np.int)
@@ -422,12 +430,12 @@ class Network(PRaster):
         path : str
           Path for the output text file
         """
-        cab = "x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
+        cab = "x;y;z;distance;area;chi"#";slope;ksn;r2_slope;r2_ksn"
         row, col = self.ind_2_cell(self._ix)
         x, y = self.cell_2_xy(row, col)
         
-        out_arr = np.array((x, y, self._zx, self._dx, self._ax, self._chi, 
-                            self._slp, self._ksn, self._r2slp, self._r2ksn)).T
+        out_arr = np.array((x, y, self._zx, self._dx, self._ax, self._chi)).T#, 
+                            #self._slp, self._ksn, self._r2slp, self._r2ksn)).T
         np.savetxt(path, out_arr, delimiter=";", header=cab, comments="")
     
     def get_streams(self, asgrid=True):
