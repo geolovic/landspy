@@ -83,56 +83,89 @@ if kind == 'slp':
 elif kind == 'ksn':
     x_arr = self._chi
     y_arr = self._zx
-    
-# Get ixcix auxiliar array
-ixcix = np.zeros(self._ncells, np.int)
-ixcix[self._ix] = np.arange(self._ix.size)
 
-# Get heads and sorted them by elevation
-heads = self.get_stream_poi("heads", "IND")
-elev = self._zx[ixcix[heads]]
-spos = np.argsort(-elev)
-heads = heads[spos]
-
-# Get dictionary with confluences
-confs = net.get_stream_poi("confluences", "IND")
-outlets = net.get_stream_poi("outlets", "IND")
-dconfs = {conf:[] for conf in confs }
-
-# Get window size and prepare gradient and R2 arrays
-winlen = npoints * 2 + 1
 gi = np.zeros(self._ncells)
 r2 = np.zeros(self._ncells)
 
-for head in heads:
-    printing = False
-    # Hacemos ventana con 3 primeras celdas
-    lcell = head
-    mcell = self._ixc[ixcix[head]]
-    fcell = self._ixc[ixcix[mcell]]
-    win = [fcell, mcell, lcell]
-    if (fcell in outlets) or (mcell in outlets) or (head in outlets):
-        continue
-    print(win)
-    processing = True
-    
-    while processing:
-        # Movemos celda central
-        mcell = self._ixc[ixcix[mcell]]
-        next_cell = self._ixc[ixcix[fcell]]
-        if fcell in outlets:
-            win.pop()
-            win.pop()
-            if len(win) <= 3:
-                processing=False                
-        elif len(win) < winlen:
-            win.insert(0, next_cell)
-            win.insert(0, self._ixc[ixcix[next_cell]])     
-        else:
-            win.insert(0, next_cell)
-            win.pop()
-        fcell = win[0]        
+def walk_network(self, npoints, kind):
+    if kind not in ['slp', 'ksn']:
+        kind = 'slp'
 
+    # Get arrays depending on type
+    if kind == 'slp':
+        x_arr = self._dx
+        y_arr = self._zx
+    elif kind == 'ksn':
+        x_arr = self._chi
+        y_arr = self._zx
+    
+    # Preare arrays for gradients
+    gi = np.zeros(self._ncells)
+    r2 = np.zeros(self._ncells)
+        
+    # Get ixcix auxiliar array
+    ixcix = np.zeros(self._ncells, np.int)
+    ixcix[self._ix] = np.arange(self._ix.size)
+    
+    # Get heads and sorted them by elevation
+    heads = self.get_stream_poi("heads", "IND")
+    elev = self._zx[ixcix[heads]]
+    spos = np.argsort(-elev)
+    heads = heads[spos]
+    
+    # Get outlets
+    outlets = net.get_stream_poi("outlets", "IND")
+    
+    # Get window size
+    winlen = npoints * 2 + 1
+    
+    # Loop trhough all the heads
+    for head in heads:
+        # Hacemos ventana con 3 primeras celdas
+        lcell = head
+        mcell = self._ixc[ixcix[head]]
+        fcell = self._ixc[ixcix[mcell]]
+        win = [fcell, mcell, lcell]
+    
+        # Si canal tiene solo 2 o menos celdas, no es válido, se toma siguiente head
+        if (mcell in outlets) or (lcell in outlets):
+            continue
+        # Si canal tiene 3 o 4 celdas solamente, se calculan los valores
+        elif (fcell in outlets) or (self._ixc[ixcix[fcell]] in outlets):
+            # Get slope of central cell by linear regression
+            xi = x_arr[ixcix[win]]
+            yi = y_arr[ixcix[win]]
+            poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
+            if yi.size * yi.var() == 0:
+                R2 = 1
+            else:
+                R2 = float(1 - SCR/(yi.size * yi.var()))
+            
+            continue
+            
+        # Comenzamos el procesado de los canales válidos
+        processing = True
+        while processing:
+            # Movemos celda central y tomamos celda siguiente
+            mcell = self._ixc[ixcix[mcell]]
+            next_cell = self._ixc[ixcix[fcell]]            
+            if fcell in outlets:
+                win.pop()
+                win.pop()
+                if len(win) <= 3:
+                    processing=False                                
+            elif len(win) < winlen:
+                win.insert(0, next_cell)
+                win.insert(0, self._ixc[ixcix[next_cell]])                 
+            else:
+                win.insert(0, next_cell)
+                win.pop()
+            fcell = win[0]        
+            yield win
+
+for win in walk_network(net, npoints):
+    mcell = win[int(len(win)/2)]
+    print(win, mcell)
 
 # Taking sequentally all the heads and compute downstream flow
 #for head in heads:
