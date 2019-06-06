@@ -353,8 +353,14 @@ class Grid(PRaster):
         """
         Sets the nodata value for the Grid
         """
-        self._nodata = value
-    
+        if self._nodata is None:
+            self._nodata = value
+        elif value is None:
+            self._nodata = None
+        else:
+            self._array[self.get_nodata_pos()] = value
+            self._nodata = value
+            
     def get_nodata_pos(self):
         """
         Return the position of the NoData values as a tuple of two arrays (rows, columns)
@@ -443,6 +449,14 @@ class Grid(PRaster):
 
 class DEM(Grid):
     
+    def __init__(self, path="", band=1):
+        
+        # Call to Grid.__init__ method
+        super(DEM, self).__init__(path=path, band=band)
+        # Change NoData values to -9999.
+        self.set_nodata(-9999.)
+        
+        
     def identify_flats(self, nodata=True, as_array=False):
         """
         This functions returns two topopy.Grids (or numpy.ndarrays) with flats and sills. 
@@ -542,17 +556,12 @@ class DEM(Grid):
         # Get the seed to start the fill process
         seed = np.copy(self._array)
         seed[1:-1, 1:-1] = self._array.max()
-        
-        # Here we modified the inner array to save memory (instead of working with a copy)
+
+        # Fill the DEM        
         nodata_pos = self.get_nodata_pos()
-        self._array[nodata_pos] = -9999.
-        
         filled = reconstruction(seed, self._array, method='erosion')
         filled = filled.astype(self._array.dtype)
-        # Put back nodata values and change type
-        if self._nodata:
-            self._array[nodata_pos] = self._nodata
-            filled[nodata_pos] = self._nodata
+        filled[nodata_pos] = self._nodata
         
         if as_array:
             # Return filled DEM as numpy.ndarray
