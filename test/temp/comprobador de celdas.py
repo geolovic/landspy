@@ -11,7 +11,7 @@ from topopy import DEM, Flow, Network
 import numpy as np
 
 threshold = 250
-celdas = [248581, 178025, 168315, 247404, 98686, 44155, 108239]
+celdas = [44156, 98235, 108690, 168765, 178475, 223650, 231749, 247854, 248582, 254339]
 
 dem = DEM("../data/in/morocco.tif")
 fld = Flow(dem)

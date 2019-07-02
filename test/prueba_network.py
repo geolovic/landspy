@@ -9,9 +9,9 @@ Created on Thu Apr 25 11:10:26 2019
 from topopy import DEM, Flow, Network
 import numpy as np
 
-dem = DEM("data/in/morocco.tif")
+dem = DEM("data/in/tunez.tif")
 flw = Flow(dem)
-net = Network(flw, 250)
+net = Network(flw, 1000)
 
 celdas = []
 
@@ -150,15 +150,33 @@ for head in heads:
         else:
             # Si ha sido procesada, es una confluencia 
             processing = False
-            proc_value = gi[mid_cell]
-            new_value = g
-            upcell = win[win.index(mid_cell) + 1]
-            new_ord = orders[upcell]
-            cells = self._ix[np.where(self._ixc == mid_cell)]
+            value_01 = gi[mid_cell]
+            value_02 = g
+#            if len(confs[mid_cell]) == 0:
+#                confs[mid_cell].extend((value_01, value_02))
+#            else:
+#                confs[mid_cell].append(value_02)
+            up_cell = win[win.index(mid_cell) + 1]
+            ord_02 = orders[up_cell]
+            cells = list(self._ix[np.where(self._ixc == mid_cell)])
+            cells.remove(up_cell)
+            if len(cells) > 1:
+                for cell in cells:
+                    if gi[cell] != 0:
+                        print(cells, cell)
+                        continue
+            else:
+                print(cells[0])
+#            for cell in cells:
+#                if cell != up_cell and gi[cell]!= 0:
+#                    ord_01 = orders[cell]
+#                else:
+#                    ord_01 = 999
+#                    
+#            print(value_01, ord_01, value_02, ord_02)
+#                    
             
-            
-            
-            print(v1, o1, v2, cells, mid_cell, win[win.index(mid_cell) + 1])
+
 #            
 #            if mid_cell in confs.keys():
 #                confs[mid_cell].append((g, win[win.index(mid_cell) - 1]))
