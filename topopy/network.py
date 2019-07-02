@@ -59,7 +59,7 @@ class Network(PRaster):
         
         # Get sort Nodes for channel cells and elevations
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
-        w = fac > threshold
+        w = fac >= threshold
         w = w.ravel()
         I   = w[flow._ix]
         self._ix  = flow._ix[I]
@@ -493,7 +493,7 @@ class Network(PRaster):
         else:
             return seg_arr
         
-    def get_stream_order(self, kind="strahler", asgrid=True):
+    def get_stream_orders(self, kind="strahler", asgrid=True):
         """
         This function extract streams orderded by strahler or shreeve. Cell values
         will have a value acording with the order of the segment they belong
