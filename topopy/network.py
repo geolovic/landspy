@@ -52,9 +52,9 @@ class Network(PRaster):
         self._proj = flow.get_projection()
         self._ncells = flow.get_ncells()
       
-        # Get a threshold if not specified (Default 0.5% of the total number of cells)
+        # Get a threshold if not specified (Default 0.25% of the total number of cells)
         if threshold == 0:
-            threshold = self._ncells * 0.005
+            threshold = self._ncells * 0.0025
         self._threshold = threshold
         
         # Get sort Nodes for channel cells and elevations
@@ -203,6 +203,7 @@ class Network(PRaster):
         """
         if kind not in ['slp', 'ksn']:
             kind = 'slp'
+        winlen = npoints * 2 + 1
         
         # Get arrays depending on type
         if kind == 'slp':
@@ -216,96 +217,123 @@ class Network(PRaster):
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         
-        # Get heads and sorted them by elevation
+        # Get heads array and confluences dictionary
         heads = self.get_stream_poi("heads", "IND")
+        confs = {conf:[] for conf in self.get_stream_poi("confluences", "IND")}
+        
+        # Sort heads by elevation
         elev = self._zx[ixcix[heads]]
         spos = np.argsort(-elev)
         heads = heads[spos]
-        winlen = npoints * 2 + 1
+        
+        # Prepare auxiliary arrays
         gi = np.zeros(self._ncells)
         r2 = np.zeros(self._ncells)
         
         # Taking sequentally all the heads and compute downstream flow
         for head in heads:
             processing = True
-            lcell = head
-            mcell = self._ixc[ixcix[head]]
-            fcell = self._ixc[ixcix[mcell]]
+            head_cell = head
+            mid_cell = self._ixc[ixcix[head_cell]]
+            mouth_cell = self._ixc[ixcix[mid_cell]]
         
-            if ixcix[fcell] == 0 or ixcix[self._ixc[ixcix[fcell]]] == 0:
+            if ixcix[mid_cell] == 0:
+                # Channel type 2 (mid_cell is an outlet)
                 continue
+            elif ixcix[mouth_cell]== 0:
+                # Channel type 3 (mouth_cell is an outlet)
+                processing = False
             
             # Obtenemos datos de elevacion y distancias
-            win = [fcell, mcell, lcell]
+            win = [mouth_cell, mid_cell, head_cell]
             xi = x_arr[ixcix[win]]
             yi = y_arr[ixcix[win]]
-            
+           
             # Calculamos pendiente de celda central por regresion
             poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
             
-            # To avoid issues with horizontal colinear points
+            # Calculamos gradient y R2
             if yi.size * yi.var() == 0:
-                R2 = 1
+                R2 = 1 # Puntos colineares
             else:
                 R2 = float(1 - SCR/(yi.size * yi.var()))
+            g = poli[0]    
             
-            g = poli[0]
-            gi[mcell] = g
-            r2[mcell] = R2
+            # Check si cabecera es una confluencia de solo dos celdas
+            if gi[mid_cell] != 0:
+                processing = False
+                # Añadimos celda a diccionario de confluencias
+                if len(confs[mid_cell]) == 0:
+                    confs[mid_cell].append(gi[mid_cell])
+                    confs[mid_cell].append(g)
+                else:
+                    confs[mid_cell].append(g)
+            else:
+                # Llenamos matrices auxiliares
+                gi[mid_cell] = g
+                r2[mid_cell] = R2
             
             while processing:
-                # Cogemos la siguiente celda del canal (next_cell)
-                fcell = win[0]
-                next_cell = self._ixc[ixcix[fcell]]
-                
-                # Comprobamos la siguiente celda del canal
-                # Si la siguiente celda del canal no es cero
-                if ixcix[next_cell] != 0:
-                    # Añadimos siguiente celda
-                    win.insert(0, next_cell)
-                    fcell = win[0]
-                    # Movemos celda central
-                    mcell = self._ixc[ixcix[mcell]]
-        
-                    if len(win) < winlen:
-                        # Si estamos al principio del canal, win crece
-                        next_cell = self._ixc[ixcix[fcell]]
-                        win.insert(0, next_cell)
-                        fcell = win[0]
-                    else:
-                        # Si no estamos al principio, eliminamos celda final
-                        win.pop()
-                # Si la siguiente celda es cero, no añadimos celdas, sino que win decrece
+                # Tomamos siguiente celda del canal (next_cell)   
+                if ixcix[mouth_cell]==0:
+                    next_cell = mouth_cell
                 else:
-                    mcell = self._ixc[ixcix[mcell]]
+                    next_cell = self._ixc[ixcix[mouth_cell]]
+        
+                if ixcix[mouth_cell] == 0:
+                    # Si estamos al final del canal, win decrece (elimina celda final - head_cell)
                     win.pop()
                     win.pop()
-                    if len(win) == 3:
-                        processing = False
-                        gi[fcell] = 0.00001
-                        r2[fcell] = 0.00001
-                        
-                # Obtenemos datos de elevacion y distancias
+                elif ixcix[next_cell] == 0:
+                    # Cuando next_cell llega al final del canal
+                    # Se inserta la nueva celda y se elimina la celda de cabecera
+                    win.insert(0, next_cell)
+                    win.pop()
+                elif head_cell == head and len(win)< winlen:
+                    # Si estamos a principio del canal, win crece
+                    win.insert(0, next_cell)
+                    next_cell = self._ixc[ixcix[next_cell]]
+                    win.insert(0, next_cell)
+                else:
+                    # Se inserta la nueva celda y se elimina la celda de cabecera
+                    win.insert(0, next_cell)
+                    win.pop()
+                    
+                head_cell = win[-1]
+                mid_cell = self._ixc[ixcix[mid_cell]]
+                mouth_cell = win[0]
+                
+                if len(win) == 3:
+                    processing = False
+                 
+                # Obtenemos datos de elevacion y distancias para calcular pendientes
                 xi = x_arr[ixcix[win]]
                 yi = y_arr[ixcix[win]]
-                
-                # Calculamos pendiente de celda central por regresion
                 poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
-                
-                # To avoid issues with horizontal colinear points
+                g = poli[0]
                 if yi.size * yi.var() == 0:
                     R2 = 1
                 else:
                     R2 = float(1 - SCR/(yi.size * yi.var()))
-            
-                g = poli[0]
-                    
-                if gi[mcell] == 0:
-                    gi[mcell] = g
-                    r2[mcell] = R2
+          
+                # Comprobamos si celda central ha sido procesada
+                if gi[mid_cell] == 0:
+                    gi[mid_cell] = g
+                    r2[mid_cell] = R2
                 else:
+                    # Si ha sido procesada, es una confluencia 
                     processing = False
+                    if len(confs[mid_cell]) == 0:
+                        confs[mid_cell].append(gi[mid_cell])
+                        confs[mid_cell].append(g)
+                    else:
+                        confs[mid_cell].append(g)
+                        
+        # Calculamos valores medios en confluencias                
+        for cell in confs.keys():
+            gi[cell] = np.mean(np.array(confs[cell]))
         
+        # Llenamos array del objeto Network
         if kind == 'slp':
             self._slp = gi[self._ix]
             self._r2slp = r2[self._ix]
@@ -313,7 +341,7 @@ class Network(PRaster):
         elif kind == 'ksn':
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
-            self._ksn_npoints = npoints
+            self._ksn_npoints = npoints   
     
     def get_stream_poi(self, kind="heads", coords="CELL"):
             """
@@ -430,12 +458,12 @@ class Network(PRaster):
         path : str
           Path for the output text file
         """
-        cab = "x;y;z;distance;area;chi"#";slope;ksn;r2_slope;r2_ksn"
+        cab = "x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
         row, col = self.ind_2_cell(self._ix)
         x, y = self.cell_2_xy(row, col)
         
-        out_arr = np.array((x, y, self._zx, self._dx, self._ax, self._chi)).T#, 
-                            #self._slp, self._ksn, self._r2slp, self._r2ksn)).T
+        out_arr = np.array((x, y, self._zx, self._dx, self._ax, self._chi, 
+                            self._slp, self._ksn, self._r2slp, self._r2ksn)).T
         np.savetxt(path, out_arr, delimiter=";", header=cab, comments="")
     
     def get_streams(self, asgrid=True):

@@ -22,28 +22,28 @@ class NetworkClassTest(unittest.TestCase):
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             net_path = infolder + "/{0}_network.net".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
             
             # Creamos objeto network
-            net = Network(fd, thr)
+            net = Network(fd, gradients=True)
+            net.export_2_points(outfolder + "/{0}_points.txt".format(file))
 
-            # Cargamos objeto network guardado
-            net2 = Network(net_path)
-            
-            # Comparamos propiedades,
-            prop_net = [net._size, net._dims, net._geot, net._cellsize, net._ncells, net._proj]
-            prop_net2 = [net2._size, net2._dims, net2._geot, net2._cellsize, net2._ncells, net2._proj]
-            self.assertEqual(prop_net, prop_net2)
-            
-            # Comparamos los datos
-            arr1 = np.array((net._ix, net._ixc, net._ax, net._dx, net._zx,
-                             net._chi, net._slp, net._ksn, net._r2slp, 
-                             net._r2ksn, net._dd))
-            arr2 = np.array((net2._ix, net2._ixc, net2._ax, net2._dx, net2._zx,
-                             net2._chi, net2._slp, net2._ksn, net2._r2slp, 
-                             net2._r2ksn, net2._dd))            
-            res = np.array_equal(arr1, arr2)
-            self.assertEqual(res, True)
+#            # Cargamos objeto network guardado
+#            net2 = Network(net_path)
+#            
+#            # Comparamos propiedades,
+#            prop_net = [net._size, net._dims, net._geot, net._cellsize, net._ncells, net._proj]
+#            prop_net2 = [net2._size, net2._dims, net2._geot, net2._cellsize, net2._ncells, net2._proj]
+#            self.assertEqual(prop_net, prop_net2)
+#            
+#            # Comparamos los datos
+#            arr1 = np.array((net._ix, net._ixc, net._ax, net._dx, net._zx,
+#                             net._chi, net._slp, net._ksn, net._r2slp, 
+#                             net._r2ksn, net._dd))
+#            arr2 = np.array((net2._ix, net2._ixc, net2._ax, net2._dx, net2._zx,
+#                             net2._chi, net2._slp, net2._ksn, net2._r2slp, 
+#                             net2._r2ksn, net2._dd))            
+#            res = np.array_equal(arr1, arr2)
+#            self.assertEqual(res, True)
 
 
 if __name__ == "__main__":
