@@ -655,97 +655,64 @@ class Network(PRaster):
         sp = osr.SpatialReference()
         sp.ImportFromWkt(self._proj)
         layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
-        layer.CreateField(ogr.FieldDefn("segid", ogr.OFTInteger))
         layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
-        layer.CreateField(ogr.FieldDefn("flowto", ogr.OFTInteger))
-    
-        # Get heads and confluences
-        heads = self.get_stream_poi(kind="heads", coords="IND")
-        confs = self.get_stream_poi(kind="confluences", coords="IND")
         
-        # Get channel orders
-        ch_ord = self.get_stream_orders(asgrid=False).ravel()
-        ch_ord = ch_ord[self._ix]
-        
-        # Remove confluences of different orders
-        confs_to_remove = []
-        for conf in confs:
-            givs = ch_ord[np.where(self._ixc == conf)]
-            if np.unique(givs).size > 1 and givs.size < 3:
-                confs_to_remove.append(conf)    
-        confs = confs.tolist()
-        for conf in confs_to_remove:
-            confs.remove(conf)     
-        confs = np.array(confs)
-    
-        # Merge heads and confluences
-        confs = np.append(heads, confs)
-    
         # Get ixcix auxiliar array
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
-    
-        # Auxiliar array to record segment ids
-        seg_arr = np.zeros(self._ncells, np.int)
-        segid = 1
         
-#        # Iterate confluences -- BAK
-#        channels = []
-#        for conf in confs:
-#            row, col = self.ind_2_cell(conf)
-#            x, y = self.cell_2_xy(row, col)
-#            ch_idx = [conf]
-#            order = ch_ord[ixcix[conf]]
-#            next_cell = conf
-#            while ixcix[next_cell] != 0:
-#                seg_arr[next_cell] = segid
-#                next_cell = self._ixc[ixcix[next_cell]]
-#                ch_idx.append(next_cell)
-#                if ch_ord[ixcix[next_cell]] > order:
-#                    break
-#            channels.append([ch_idx, segid, order])
-#            segid += 1
+        # Get heads, confluences and orders
+        heads = self.get_stream_poi("heads", "IND")
+        confs = self.get_stream_poi("confluences", "IND")
+        ch_ord = self.get_stream_orders(asgrid=False).ravel()
         
-        # Iterate confluences
-        channels = []
+        # Get confluences where strahler index increases
+        strahler_confs = []
         for conf in confs:
-            row, col = self.ind_2_cell(conf)
-            x, y = self.cell_2_xy(row, col)
-            ch_idx = [conf]
-            order = ch_ord[ixcix[conf]]
-            seg_arr[conf] = segid
-            # Skip if a confluence is also an outlet (and not the first cell of ix array)
-            if ixcix[conf] == 0 and conf != self._ix[0]:
-                continue
-            next_cell = self._ixc[ixcix[conf]]
-            while ixcix[next_cell] != 0:
-                seg_arr[next_cell] = segid
-                ch_idx.append(next_cell)
-                next_cell = self._ixc[ixcix[next_cell]]
-                if ch_ord[ixcix[next_cell]] > order:
-                    break
-            ch_idx.append(next_cell) # Add last cell
-            channels.append([ch_idx, segid, order])
-            segid += 1
-    
-        # Establish segment conectivity and create features
-        for ch in channels:
-            flowto = seg_arr[ch[0][-1]]
+            conf_order = ch_ord[conf]
+            givers = self._ix[np.where(self._ixc==conf)]
+            giv_orders = ch_ord[givers]
+            if giv_orders.max() < conf_order:
+                strahler_confs.append(conf)
+                
+        # Append strahler confluences to heads
+        heads = np.append(heads, np.array(strahler_confs))    
+        
+        # Iterate heads
+        for head in heads:
+            cell = head
+            river_data = [cell]
+            processing = True
+            while processing:
+                next_cell = self._ixc[ixcix[cell]]
+                river_data.append(next_cell)
+                if next_cell in confs:
+                    if ch_ord[next_cell] > ch_ord[cell]:
+                        processing = False
+                    else:
+                        river_data.append(next_cell)
+                        cell = next_cell
+                elif ixcix[next_cell] == 0:
+                    processing = False
+                else:
+                    river_data.append(next_cell)
+                    cell = next_cell    
+                            
+            # Add feature
             feat = ogr.Feature(layer.GetLayerDefn())
-            feat.SetField("segid", int(ch[1]))
-            feat.SetField("order", int(ch[2]))
-            feat.SetField("flowto", int(flowto))
-            row, col = self.ind_2_cell(ch[0])
+            row, col = self.ind_2_cell(river_data)
             xi, yi = self.cell_2_xy(row, col)
             geom = ogr.Geometry(ogr.wkbLineString)
             for n in range(xi.size):
                 geom.AddPoint(xi[n], yi[n])
-            
+                
             feat.SetGeometry(geom)
+            chanorder = ch_ord[cell]
+            feat.SetField("order", int(chanorder))
             layer.CreateFeature(feat)
-
+           
         layer = None
-        dataset = None    
+        dataset = None
 
     def _create_output_grid(self, array, nodata_value=None):
         """

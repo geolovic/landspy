@@ -12,13 +12,13 @@ import ogr, osr
 
 infolder = "data/in"
 outfolder = "data/out"
-file = "tunez"
+file = "jebja30"
 
 dem = DEM(infolder + "/{0}.tif".format(file))
 flw = Flow(dem)
 net = Network(flw)
 self = net
-path = "data/out/tunez_streams.shp"
+path = "data/out/jebja30_streams.shp"
 
 
 #def _get_segmented_shp(self, path=""):
@@ -34,45 +34,60 @@ dataset = driver.CreateDataSource(path)
 sp = osr.SpatialReference()
 sp.ImportFromWkt(self._proj)
 layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
+layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
 
 # Get ixcix auxiliar array
 ixcix = np.zeros(self._ncells, np.int)
 ixcix[self._ix] = np.arange(self._ix.size)
 
-# Get heads and sort them by elevation
+# Get heads, confluences and orders
 heads = self.get_stream_poi("heads", "IND")
-elev = self._zx[ixcix[heads]]
-spos = np.argsort(-elev)
-heads = heads[spos]
-aux_arr = np.zeros(self._ncells, dtype = np.bool)
+confs = self.get_stream_poi("confluences", "IND")
+ch_ord = self.get_stream_orders(asgrid=False).ravel()
 
+# Get confluences where strahler index increases
+strahler_confs = []
+for conf in confs:
+    conf_order = ch_ord[conf]
+    givers = self._ix[np.where(self._ixc==conf)]
+    giv_orders = ch_ord[givers]
+    if giv_orders.max() < conf_order:
+        strahler_confs.append(conf)
+        
+# Append strahler confluences to heads
+heads = np.append(heads, np.array(strahler_confs))    
+
+# Iterate heads
 for head in heads:
     cell = head
     river_data = [cell]
-    aux_arr[cell] == True
     processing = True
     while processing:
         next_cell = self._ixc[ixcix[cell]]
         river_data.append(next_cell)
-        if ixcix[next_cell] == 0 or aux_arr[next_cell]==True:
+        if next_cell in confs:
+            if ch_ord[next_cell] > ch_ord[cell]:
+                processing = False
+            else:
+                river_data.append(next_cell)
+                cell = next_cell
+        elif ixcix[next_cell] == 0:
             processing = False
         else:
             river_data.append(next_cell)
-            cell = next_cell
-            aux_arr[cell] = True
-        
+            cell = next_cell    
                     
     # Add feature
     feat = ogr.Feature(layer.GetLayerDefn())
     row, col = self.ind_2_cell(river_data)
     xi, yi = self.cell_2_xy(row, col)
-    
     geom = ogr.Geometry(ogr.wkbLineString)
-    
     for n in range(xi.size):
         geom.AddPoint(xi[n], yi[n])
         
     feat.SetGeometry(geom)
+    chanorder = ch_ord[cell]
+    feat.SetField("order", int(chanorder))
     layer.CreateFeature(feat)
    
 layer = None
