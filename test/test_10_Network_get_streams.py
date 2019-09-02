@@ -27,7 +27,7 @@ class NetworkGetStreams(unittest.TestCase):
             streams.save(outfolder + "/{0}_streams.tif".format(file))
             segments = net.get_stream_segments()
             segments.save(outfolder + "/{0}_segments.tif".format(file))
-            orders = net.get_stream_order()
+            orders = net.get_stream_orders()
             orders.save(outfolder + "/{0}_ord.tif".format(file))
 
 if __name__ == "__main__":

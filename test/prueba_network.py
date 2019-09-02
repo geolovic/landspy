@@ -10,7 +10,7 @@ from topopy import DEM, Flow, Network
 import numpy as np
 
 infolder = "data/in"
-file = "jebja30"
+file = "tunez"
 dem_path = infolder + "/{0}.tif".format(file)
 dem = DEM(dem_path)
 flw = Flow(dem)
@@ -59,10 +59,6 @@ elev = self._zx[ixcix[heads]]
 spos = np.argsort(-elev)
 heads = heads[spos]
 
-########################################
-heads = np.array([157318, 70186])
-########################################
-
 # Prepare auxiliary arrays
 gi = np.zeros(self._ncells)
 r2 = np.zeros(self._ncells)
@@ -92,6 +88,9 @@ for head in heads:
     # Calculamos pendiente de celda central por regresion
     poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
     g = poli[0]
+    if g == 0: 
+        g = 0.000001
+
     # Calculamos gradient y R2
     if yi.size * yi.var() == 0:
         R2 = 1 # Puntos colineares
@@ -106,43 +105,30 @@ for head in heads:
         if not ixcix[mouth_cell]==0:
             # Si mouth_cell no es un outlet, cogemos siguiente celda
             next_cell = self._ixc[ixcix[mouth_cell]]
+            # Si la siguiente celda es el final, 
+            # añadimos una celda y eliminamos la cabecera
+            if ixcix[next_cell]==0:
+                win.insert(0, next_cell)
+                win.pop()
+            # Si longitud de ventana < winlen, se añaden dos celdas 
+            elif len(win) < winlen:
+                win.insert(0, next_cell)
+                aux_cell = self._ixc[ixcix[next_cell]]
+                win.insert(0, aux_cell)
+            else:
+                win.insert(0, next_cell)
+                win.pop() 
         else:
             # Si mouth_cell es un outlet, no se coge siguiente celda
             next_cell = mouth_cell
-            
-            
-        if ixcix[mouth_cell] == 0:
-            # Si estamos al final del canal, win decrece (elimina celda final - head_cell)
             win.pop()
             win.pop()
-        elif ixcix[next_cell] == 0:
-            # Si next_cell llega al final del canal
-            # Se inserta la nueva celda y se elimina la celda de cabecera
-            win.insert(0, next_cell)
-            win.pop()
-        elif head_cell == head and len(win)< winlen:
-            # Si estamos a principio del canal (pero mouth_cell no es un outlet), win crece
-            win.insert(0, next_cell)
-            aux_cell = self._ixc[ixcix[next_cell]]
-            win.insert(0, aux_cell)
-        else:
-            # En cualquier otro caso, se añade sigiuente celda a win
-            win.insert(0, next_cell)
-            win.pop()
-        
-        #######################################################
-        if mid_cell==12430:
-            print(head, mid_cell)
-            
-        if mid_cell==10988:
-            print(head, mid_cell)
-        #######################################################
         
         head_cell = win[-1]
         mid_cell = self._ixc[ixcix[mid_cell]]
         mouth_cell = win[0]
         
-        if len(win) == 3:
+        if len(win) <= 3:
             processing = False
             
         # Obtenemos datos de elevacion y distancias para calcular pendientes
@@ -150,11 +136,14 @@ for head in heads:
         yi = y_arr[ixcix[win]]
         poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
         g = poli[0]
+        if g == 0: 
+            g = 0.000001
+        
         if yi.size * yi.var() == 0:
             R2 = 1
         else:
             R2 = float(1 - SCR/(yi.size * yi.var()))
-  
+                    
         # Comprobamos si celda central ha sido procesada
         if gi[mid_cell] == 0:
             gi[mid_cell] = g
@@ -170,7 +159,8 @@ for head in heads:
                 
 # Calculamos valores medios en confluencias                
 for cell in confs.keys():
-    gi[cell] = np.mean(np.array(confs[cell]))
+    if len(confs[cell]) > 0:
+        gi[cell] = np.mean(np.array(confs[cell]))
 
 # Llenamos array del objeto Network
 if kind == 'slp':
@@ -181,16 +171,3 @@ elif kind == 'ksn':
     self._ksn = gi[self._ix]
     self._r2ksn = r2[self._ix]
     self._ksn_npoints = npoints
-
-#infolder = "data/in"
-#files = ["jebja30"]
-#for file in files:
-#    dem_path = infolder + "/{0}.tif".format(file)
-#    dem = DEM(dem_path)
-#    flw = Flow(dem)
-#    net = Network(flw)
-#    npoints = 4
-#    kind = 'slp'        
-#    print("Procesando {}".format(file))
-#    calculate_gradients(net, npoints, kind)
-#    print("{} procesado...".format(file))

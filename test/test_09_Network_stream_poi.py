@@ -17,6 +17,7 @@ from topopy import Network
 infolder = "data/in"
 outfolder = "data/out"
 
+
 class StreamPoiTest(unittest.TestCase):
     
     def test_stream_poi_01(self):

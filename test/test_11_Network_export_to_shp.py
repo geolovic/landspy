@@ -24,7 +24,7 @@ class NetworkExportToShp(unittest.TestCase):
             
             # Exportamos canales a shapefile
             out_shp = outfolder +  "/{0}_str.shp".format(file)
-            out_con_shp = outfolder +  "/{0}_strc.shp".format(file)
+            out_con_shp = outfolder +  "/{0}_strcon.shp".format(file)
             net.export_to_shp(out_shp)
             net.export_to_shp(out_con_shp, True)
             

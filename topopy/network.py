@@ -243,6 +243,9 @@ class Network(PRaster):
             elif ixcix[mouth_cell]== 0:
                 # Channel type 3 (mouth_cell is an outlet)
                 processing = False
+            # Check si cabecera es una confluencia de solo dos celdas
+            elif gi[mid_cell] != 0:
+                processing = False
             
             # Obtenemos datos de elevacion y distancias
             win = [mouth_cell, mid_cell, head_cell]
@@ -251,71 +254,63 @@ class Network(PRaster):
            
             # Calculamos pendiente de celda central por regresion
             poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
-            
+            g = poli[0]
+            if g == 0: 
+                g = 0.000001
+        
             # Calculamos gradient y R2
             if yi.size * yi.var() == 0:
                 R2 = 1 # Puntos colineares
             else:
                 R2 = float(1 - SCR/(yi.size * yi.var()))
-            g = poli[0]    
-            
-            # Check si cabecera es una confluencia de solo dos celdas
-            if gi[mid_cell] != 0:
-                processing = False
-                # Añadimos celda a diccionario de confluencias
-                if len(confs[mid_cell]) == 0:
-                    confs[mid_cell].append(gi[mid_cell])
-                    confs[mid_cell].append(g)
-                else:
-                    confs[mid_cell].append(g)
-            else:
-                # Llenamos matrices auxiliares
-                gi[mid_cell] = g
-                r2[mid_cell] = R2
-            
-            while processing:
-                # Tomamos siguiente celda del canal (next_cell)   
-                if ixcix[mouth_cell]==0:
-                    next_cell = mouth_cell
-                else:
-                    next_cell = self._ixc[ixcix[mouth_cell]]
         
-                if ixcix[mouth_cell] == 0:
-                    # Si estamos al final del canal, win decrece (elimina celda final - head_cell)
-                    win.pop()
-                    win.pop()
-                elif ixcix[next_cell] == 0:
-                    # Cuando next_cell llega al final del canal
-                    # Se inserta la nueva celda y se elimina la celda de cabecera
-                    win.insert(0, next_cell)
-                    win.pop()
-                elif head_cell == head and len(win)< winlen:
-                    # Si estamos a principio del canal, win crece
-                    win.insert(0, next_cell)
-                    next_cell = self._ixc[ixcix[next_cell]]
-                    win.insert(0, next_cell)
-                else:
-                    # Se inserta la nueva celda y se elimina la celda de cabecera
-                    win.insert(0, next_cell)
-                    win.pop()
+            gi[mid_cell] = g
+            r2[mid_cell] = R2
                     
+            while processing:
+                # Verificamos si estamos al final (en un outlet)  
+                if not ixcix[mouth_cell]==0:
+                    # Si mouth_cell no es un outlet, cogemos siguiente celda
+                    next_cell = self._ixc[ixcix[mouth_cell]]
+                    # Si la siguiente celda es el final, 
+                    # añadimos una celda y eliminamos la cabecera
+                    if ixcix[next_cell]==0:
+                        win.insert(0, next_cell)
+                        win.pop()
+                    # Si longitud de ventana < winlen, se añaden dos celdas 
+                    elif len(win) < winlen:
+                        win.insert(0, next_cell)
+                        aux_cell = self._ixc[ixcix[next_cell]]
+                        win.insert(0, aux_cell)
+                    else:
+                        win.insert(0, next_cell)
+                        win.pop() 
+                else:
+                    # Si mouth_cell es un outlet, no se coge siguiente celda
+                    next_cell = mouth_cell
+                    win.pop()
+                    win.pop()
+                
                 head_cell = win[-1]
                 mid_cell = self._ixc[ixcix[mid_cell]]
                 mouth_cell = win[0]
                 
-                if len(win) == 3:
+                if len(win) <= 3:
                     processing = False
-                 
+                    
                 # Obtenemos datos de elevacion y distancias para calcular pendientes
                 xi = x_arr[ixcix[win]]
                 yi = y_arr[ixcix[win]]
                 poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
                 g = poli[0]
+                if g == 0: 
+                    g = 0.000001
+                
                 if yi.size * yi.var() == 0:
                     R2 = 1
                 else:
                     R2 = float(1 - SCR/(yi.size * yi.var()))
-          
+                            
                 # Comprobamos si celda central ha sido procesada
                 if gi[mid_cell] == 0:
                     gi[mid_cell] = g
@@ -331,7 +326,8 @@ class Network(PRaster):
                         
         # Calculamos valores medios en confluencias                
         for cell in confs.keys():
-            gi[cell] = np.mean(np.array(confs[cell]))
+            if len(confs[cell]) > 0:
+                gi[cell] = np.mean(np.array(confs[cell]))
         
         # Llenamos array del objeto Network
         if kind == 'slp':
@@ -341,8 +337,8 @@ class Network(PRaster):
         elif kind == 'ksn':
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
-            self._ksn_npoints = npoints   
-    
+            self._ksn_npoints = npoints
+        
     def get_stream_poi(self, kind="heads", coords="CELL"):
             """
             This function finds points of interest of the drainage network. These points of interest
@@ -458,11 +454,11 @@ class Network(PRaster):
         path : str
           Path for the output text file
         """
-        cab = "x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
+        cab = "id;x;y;z;distance;area;chi;slope;ksn;r2_slope;r2_ksn"
         row, col = self.ind_2_cell(self._ix)
         x, y = self.cell_2_xy(row, col)
         
-        out_arr = np.array((x, y, self._zx, self._dx, self._ax, self._chi, 
+        out_arr = np.array((self._ix, x, y, self._zx, self._dx, self._ax, self._chi, 
                             self._slp, self._ksn, self._r2slp, self._r2ksn)).T
         np.savetxt(path, out_arr, delimiter=";", header=cab, comments="")
     
@@ -596,7 +592,7 @@ class Network(PRaster):
         
         # Get channel segments and orders
         ch_seg = self.get_stream_segments(False).ravel()
-        ch_ord = self.get_stream_order(asgrid=False).ravel()
+        ch_ord = self.get_stream_orders(asgrid=False).ravel()
         ch_seg = ch_seg[self._ix]
         ch_ord = ch_ord[self._ix]
         
@@ -668,14 +664,14 @@ class Network(PRaster):
         confs = self.get_stream_poi(kind="confluences", coords="IND")
         
         # Get channel orders
-        ch_ord = self.get_stream_order(asgrid=False).ravel()
+        ch_ord = self.get_stream_orders(asgrid=False).ravel()
         ch_ord = ch_ord[self._ix]
         
         # Remove confluences of different orders
         confs_to_remove = []
         for conf in confs:
             givs = ch_ord[np.where(self._ixc == conf)]
-            if np.unique(givs).size > 1:
+            if np.unique(givs).size > 1 and givs.size < 3:
                 confs_to_remove.append(conf)    
         confs = confs.tolist()
         for conf in confs_to_remove:
