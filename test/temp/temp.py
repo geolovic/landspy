@@ -4,14 +4,14 @@ Editor de Spyder
 
 Este es un archivo temporal
 """
-import numpy as np
-from topopy import DEM, Flow, Network
-import matplotlib.pyplot as plt
-import gdal, ogr, osr
 
-dem = DEM("../data/in/jebja30.tif")
-fd = Flow("../data/in/jebja30_fd.tif")
-net = Network(dem, fd, 2000)
-path = "../data/out/jebja_streams.shp"
+class A(object):     # deriving from 'object' declares A as a 'new-style-class'
+    def foo(self):
+        print("foo")
 
-net.export_to_shapefile(path)
+class B(A):
+    def foo(self):
+        super(B, self).foo()   # calls 'A.foo()'
+
+myB = B()
+myB.foo()
