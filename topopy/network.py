@@ -21,7 +21,7 @@ from . import Grid, PRaster
 
 class Network(PRaster):
 
-    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False):
+    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=True):
         """
         Class to manipulate cells from a Network, which is defined by applying
         a threshold to a flow accumulation raster derived from a topological 
@@ -738,9 +738,231 @@ class Network(PRaster):
         grid._tipo = str(array.dtype)
         return grid
 
-### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+
+class BNetwork(Network):
     
+    def __init__(self, net, basin=None, heads=None, bid=1):
+        """
+        Class to manipulate cells from a drainage network from a single basin network. 
+        This class inhereits all methods and properties of the Network class plus some 
+        new methods to manipulate the drainage network and the trunk channel. 
+        
+        Parameters:
+        -----------
+        net : *topopy.Network* | *str*
+          Network instance or path to a previously saved BNetwork file
+        basin : *numpy.ndarray* | *topopy.Grid*
+          Numpy array or topopy Grid representing the drainage basin. If array or Grid have more than
+          one basin, set the basinid properly. 
+        heads : *list* or *numpy.ndarray*
+          List with [x, y] coordinates for basin the main head or 2 column numpy.ndarray with head(s) 
+          coordinate(s). If more than one, the first one is considered the main head (trunk channel). 
+          Head(s) will snap to Network heads.
+        basinid : *int*
+          Id value that identifies the basin cells in case that basin will have more than one basin.        
+        """
+        
+        # If net is a str, load it
+        if type(net)== str:
+            self._load(net)
+            return
+        
+        #try:
+        # If basin is not a numpy array is a topopy.Grid
+        if not isinstance(basin, np.ndarray):
+            basin = basin.read_array()
+        
+        # Set basin cells to 1
+        basin = np.where(basin==bid, 1, 0)
+                
+        # Get basin extent
+        c1 = basin.max(axis=0).argmax() - 1
+        r1 = basin.max(axis=1).argmax() - 1
+        c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax() + 1 
+        r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax() + 1
+        
+        # Check boundary conditions
+        if c1 < 0:
+            c1 = 0
+        if r1 < 0:
+            r1 = 0
+        if c2 >= basin.shape[1]:
+            c2 = basin.shape[1] - 1
+        if r2 >= basin.shape[0]:
+            r2 = basin.shape[0] - 1
+            
+        basin_cl = basin[r1:r2, c1:c2] # clipped basin
+        
+        # Create the new grid
+        self._size = (basin_cl.shape[1], basin_cl.shape[0])
+        self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+        geot = net._geot
+        ULx = geot[0] + geot[1] * c1
+        ULy = geot[3] + geot[5] * r1
+        self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+        self._cellsize = (geot[1], geot[5])
+        self._proj = net._proj
+        self._ncells = basin_cl.size
+        self._threshold = net._threshold
+        self._thetaref = net._thetaref
+        self._slp_npoints = net._slp_npoints
+        self._ksn_npoints = net._ksn_npoints
+        
+        # Get only points inside the basin
+        basin = basin.astype(np.bool).ravel()
+        I = basin[net._ix]
+        self._ax = net._ax[I]
+        self._zx = net._zx[I]
+        self._dd = net._dd[I]
+        self._dx = net._dx[I]
+        self._chi = net._chi[I]
+        self._slp = net._slp[I]
+        self._ksn = net._ksn[I]
+        self._r2slp = net._r2slp[I]
+        self._r2ksn = net._r2ksn[I]
+        
+        # Get new indices for the new grid
+        ix = net._ix[I]
+        ixc = net._ixc[I]
+        rowix, colix = net.ind_2_cell(ix)
+        rowixc, colixc = net.ind_2_cell(ixc)
+        nrowix = rowix - r1
+        ncolix = colix - c1
+        nrowixc = rowixc - r1
+        ncolixc = colixc - c1
+        self._ix = self.cell_2_ind(nrowix, ncolix)
+        self._ixc = self.cell_2_ind(nrowixc, ncolixc)
+        
+        # Set the basin heads and sort them by elevation
+        bheads = self.get_stream_poi(kind="heads", coords="IND")
+        aux_z = np.zeros(self._ncells)
+        aux_z[self._ix] = self._zx
+        belev = aux_z[bheads]
+        bheads = bheads[np.argsort(belev)].tolist()
+       
+        if heads is None:
+            self._heads = np.array(bheads)
+        else:
+            # Snap user heads to Network heads
+            heads = self.snap_points(heads, kind="heads")
+            row, col = self.xy_2_cell(heads[:, 0], heads[:, 1])
+            heads = self.cell_2_ind(row, col)   
+            for head in heads:
+                bheads.remove(head)
+                
+            self._heads = np.append(heads, np.array(bheads))
 
+    def _load(self, path):
+        """
+        Loads a BNetwork instance saved in the disk.
+        
+        Parameter:
+        ==========
+           Path to the saved BNetwork object (*.net file)
+        """
+        try:
+            # Call to the parent Network._load() function
+            super()._load(path)
+            
+            # Open again the *.net file to get the heads
+            fr = open(path, "r")
+            lineas = fr.readlines()
+            self._heads = np.array(lineas[3].split(";")).astype(np.int)
+            fr.close()
+        except:
+            raise NetworkError("Error loading the BNetwork object")
+            
+    def save(self, path):
+        """
+        Saves the BNetwork instance to disk. It will be saved as text file (*.net) plus
+        a numpy binary array with the same name (*.npy) with the cell data.
+        
+        Parameters:
+        ===========
+        path : *str*
+          Path to save the network object, with *.net extension
+        """
+        # Call to the parent Network.save() function
+        super().save(path)
+        
+        # Open again the *.net file to append the heads
+        netfile = open(os.path.splitext(path)[0] + ".net", "a")
+        netfile.write("\n" + ";".join(self._heads.astype(np.str)))
+        netfile.close()
 
-class FlowError(Exception):
+### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+    def get_main_channel(self):
+        chcells = [self._heads[0]]
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        nextcell = self._ixc[ixcix[self._heads[0]]]
+        
+        while ixcix[nextcell] != 0:
+            chcells.append(nextcell)
+            nextcell = self._ixc[ixcix[nextcell]]
+                     
+        row, col = self.ind_2_cell(chcells)
+        xi, yi = self.cell_2_xy(row, col)
+        auxarr = np.zeros(self._ncells).astype(np.bool)
+        auxarr[chcells] = True
+        I = auxarr[self._ix]
+        ai = self._ax[I]
+        zi = self._zx[I]
+        di = self._dx[I]
+        chi = self._chi[I]
+        slp = self._slp[I]
+        ksn = self._ksn[I]
+        r2slp = self._r2slp[I]
+        r2ksn = self._r2ksn[I]
+#        length = di[0] - di[-1]
+#        di -= di[-1]
+#        di = length - di
+
+        outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
+        return outarr
+
+    def get_channels(self, nchannels=0):
+        aux_arr = np.zeros(self._ncells, np.bool)
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        canales = []
+        
+        if nchannels == 0:
+            heads = self._heads
+        else:
+            heads = self._heads[:nchannels]
+        
+        for head in heads:
+            chcells = [head]
+            aux_arr[head] = True
+            nextcell = self._ixc[ixcix[head]]
+            aux_arr[nextcell] = True
+            while ixcix[nextcell] != 0:
+                chcells.append(nextcell)
+                nextcell = self._ixc[ixcix[nextcell]]
+                if aux_arr[nextcell]==False:
+                    aux_arr[nextcell] = True
+                else:
+                    chcells.append(nextcell)
+                    break
+            
+            row, col = self.ind_2_cell(chcells)
+            xi, yi = self.cell_2_xy(row, col)
+            auxarr = np.zeros(self._ncells).astype(np.bool)
+            auxarr[chcells] = True
+            I = auxarr[self._ix]
+            ai = self._ax[I]
+            zi = self._zx[I]
+            di = self._dx[I]
+            chi = self._chi[I]
+            slp = self._slp[I]
+            ksn = self._ksn[I]
+            r2slp = self._r2slp[I]
+            r2ksn = self._r2ksn[I]
+            chandata = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
+            canales.append(chandata)
+        
+        return canales
+     
+class NetworkError(Exception):
     pass
