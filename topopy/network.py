@@ -17,7 +17,14 @@ import os
 import ogr, osr
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster
-  
+
+# This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
+# If matplotlib is not imported, BNetwork.chi_plot() will not work.
+try: 
+    import matplotlib.pyplot as plt
+    PLT = True
+except Exception as e:
+    PLT = False
 
 class Network(PRaster):
 
@@ -447,7 +454,7 @@ class Network(PRaster):
         
         return poi[pos]
     
-    def export_2_points(self, path):
+    def export_to_points(self, path):
         """
         Export channel points to a semicolon-delimited text file
         
@@ -834,12 +841,13 @@ class BNetwork(Network):
         self._ixc = self.cell_2_ind(nrowixc, ncolixc)
         
         # Set the basin heads and sort them by elevation
+        ixcix = np.zeros(self._ncells, np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
         bheads = self.get_stream_poi(kind="heads", coords="IND")
-        aux_z = np.zeros(self._ncells)
-        aux_z[self._ix] = self._zx
-        belev = aux_z[bheads]
-        bheads = bheads[np.argsort(belev)].tolist()
-       
+        elev = self._zx[ixcix[bheads]]
+        spos = np.argsort(-elev)
+        bheads = bheads[spos].tolist()
+        
         if heads is None:
             self._heads = np.array(bheads)
         else:
@@ -860,17 +868,17 @@ class BNetwork(Network):
         ==========
            Path to the saved BNetwork object (*.net file)
         """
-        try:
-            # Call to the parent Network._load() function
-            super()._load(path)
-            
-            # Open again the *.net file to get the heads
-            fr = open(path, "r")
-            lineas = fr.readlines()
-            self._heads = np.array(lineas[3].split(";")).astype(np.int)
-            fr.close()
-        except:
-            raise NetworkError("Error loading the BNetwork object")
+#        try:
+        # Call to the parent Network._load() function
+        super()._load(path)
+        
+        # Open again the *.net file to get the heads
+        fr = open(path, "r")
+        lineas = fr.readlines()
+        self._heads = np.array(lineas[3].split(";")).astype(np.int)
+        fr.close()
+#        except:
+#            raise NetworkError("Error loading the BNetwork object")
             
     def save(self, path):
         """
@@ -889,6 +897,27 @@ class BNetwork(Network):
         netfile = open(os.path.splitext(path)[0] + ".net", "a")
         netfile.write("\n" + ";".join(self._heads.astype(np.str)))
         netfile.close()
+
+    def chi_plot(self, ax=None):
+           
+        if not PLT:
+            return
+
+        if ax is None:
+            fig, ax = plt.subplots()
+            
+        main_ch = self.get_main_channel()
+        ax.plot(self._chi, self._zx, color="0.75", ls="None", marker=".", ms=1)
+        ax.plot(main_ch[:, 5], main_ch[:, 2], ls="-", c="0.3", lw=1)
+        ax.set_xlim(xmin=0)
+        ax.set_ylim(ymin=0)
+        
+        ax.set_xlabel("Chi [m]")
+        ax.set_ylabel("Elevation [m]")
+        ax.set_title("Chi plot (m/n = {0:.2f})".format(self._thetaref))
+   
+    def chi_analysis(self, draw=False):
+        pass
 
 ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
     def get_main_channel(self):
