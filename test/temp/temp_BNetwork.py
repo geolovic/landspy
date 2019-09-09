@@ -26,44 +26,61 @@ canales = bnet.get_streams()
 #    bnet.calculate_chi(value)
 #    ax = fig.add_subplot(2, 4, n+1)
 #    bnet.chi_plot(ax)
+
+def chi_analysis(self, start=0, stop=1, step=0.01, graphic=True):
+    """
+    This function perform a Chi analysis by using different thetaref values. It returns
+    the thetaref that yield the minimum dispersion (lower R2) for all basin channels.
     
-
-desv = []
-
-for thetaref in np.arange(0, 1, 0.01):
-    bnet.calculate_chi(thetaref)
-    chi = bnet._chi
-    zi = bnet._zx
-    poli, SCR = np.polyfit(chi, zi, deg = 1, full = True)[:2]
-    r2 = float(1 - SCR/(zi.size * zi.var()))
-    desv.append((thetaref, r2))
+    Parameters:
+    ============
+    start : First thetaref value to try
+    stop : Last thetaref value to try
+    step : Step to try different thetaref values
+    graphic : *bool* If true, this function will draw a graphic with the results. 
     
-desv = np.array(desv)
+    Return:
+    ============
+    (best_theta, R2) : Tuple with the best theta and its R2 coefficient. 
+    """
 
-fig, ax = plt.subplots()
-
-
-ax.set_xlabel("$m/n$")
-ax.set_ylabel("$R^2$")
-
-ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
-ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.1))
-ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
-ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.1))
-
-# Get maximum R2
-pos = np.argmax(desv[:,1])
-
-mindesv = desv[pos, 0]
-mintheta = desv[pos, 1]
-miny = np.floor(np.min(desv[:,1]) * 10) / 10
-
-ax.set_xlim(xmin=0)
-ax.set_ylim(ymin=miny)
-
-ax.plot([0, mindesv, mindesv], [mintheta, mintheta, miny], linestyle="-", c="orange", lw=0.8)
-#ax.plot([ax.get_xlim()[0], desv[pos, 0], desv[pos, 0]], [desv[pos, 1], desv[pos, 1], ax.get_ylim()[0]], linestyle="-", c="orange", lw=0.8)
-ax.grid(True, which='major', axis="both", linestyle ="--", c="0.7", lw=0.5)
-ax.plot(desv[:,0], desv[:, 1])
-
-print(mindesv, desv[pos,1])
+    desv = []
+    
+    for thetaref in np.arange(start, stop, step):
+        bnet.calculate_chi(thetaref)
+        chi = bnet._chi
+        zi = bnet._zx
+        poli, SCR = np.polyfit(chi, zi, deg = 1, full = True)[:2]
+        r2 = float(1 - SCR/(zi.size * zi.var()))
+        desv.append((thetaref, r2))
+        
+    desv = np.array(desv)
+    
+    if graphic:
+        fig, ax = plt.subplots()
+        
+        
+        ax.set_xlabel("$m/n$")
+        ax.set_ylabel("$R^2$")
+        
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.1))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.1))
+        
+        # Get maximum R2
+        pos = np.argmax(desv[:,1])
+        
+        mindesv = desv[pos, 0]
+        mintheta = desv[pos, 1]
+        miny = np.floor(np.min(desv[:,1]) * 10) / 10
+        
+        ax.set_xlim(xmin=0)
+        ax.set_ylim(ymin=miny)
+        
+        ax.plot([0, mindesv, mindesv], [mintheta, mintheta, miny], linestyle="-", c="orange", lw=0.8)
+        ax.grid(True, which='major', axis="both", linestyle ="--", c="0.7", lw=0.5)
+        ax.plot(desv[:,0], desv[:, 1])
+        
+    return (mindesv, desv[pos,1])
+        
+        
+chi_analysis(bnet)

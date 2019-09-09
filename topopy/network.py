@@ -899,7 +899,15 @@ class BNetwork(Network):
         netfile.close()
 
     def chi_plot(self, ax=None):
-           
+        """
+        This function plot the Chi-elevation graphic for all the channels of the basin. 
+        
+        Parameters:
+        ===========
+        ax : matplotlib.Axe
+          If is not defined, the function will create a new Figure and Axe
+        """
+        
         if not PLT:
             return
 
