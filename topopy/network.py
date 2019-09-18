@@ -62,7 +62,7 @@ class Network(PRaster):
         # Get a threshold if not specified (Default 0.25% of the total number of cells)
         if threshold == 0:
             threshold = self._ncells * 0.0025
-        self._threshold = threshold
+        self._threshold = int(threshold)
         
         # Get sort Nodes for channel cells and elevations
         fac = flow.get_flow_accumulation(nodata=False, asgrid=False)
@@ -120,7 +120,8 @@ class Network(PRaster):
             
         # Create *.net file with properties
         netfile = open(path + ".net", "w")
-        params = [self._size, self._cellsize, self._ncells, self._ksn_npoints, self._slp_npoints, self._thetaref] 
+        params = [self._size, self._cellsize, self._ncells, self._ksn_npoints, 
+                  self._slp_npoints, self._thetaref, self._threshold] 
         linea = ";".join([str(param) for param in params]) + "\n"
         netfile.write(linea)
         linea = ";".join([str(elem) for elem in self._geot]) + "\n"
@@ -156,6 +157,7 @@ class Network(PRaster):
         self._ksn_npoints = int(data[3])
         self._slp_npoints = int(data[4])
         self._thetaref = float(data[5])
+        self._threshold = int(data[6])
         linea = fr.readline()[:-1]
         self._geot = tuple([float(n) for n in linea.split(";")])
         linea = fr.readline()
@@ -849,16 +851,21 @@ class BNetwork(Network):
         bheads = bheads[spos].tolist()
         
         if heads is None:
+            self._nheads = 1
             self._heads = np.array(bheads)
         else:
             # Snap user heads to Network heads
             heads = self.snap_points(heads, kind="heads")
+            self._nheads = heads.shape[0]
             row, col = self.xy_2_cell(heads[:, 0], heads[:, 1])
-            heads = self.cell_2_ind(row, col)   
+            heads = self.cell_2_ind(row, col)
+            heads_in = []
             for head in heads:
-                bheads.remove(head)
+                if head in bheads:
+                    heads_in.append(head)
+                    bheads.remove(head)
                 
-            self._heads = np.append(heads, np.array(bheads))
+            self._heads = np.append(np.array(heads_in), np.array(bheads))
 
     def _load(self, path):
         """
@@ -876,6 +883,8 @@ class BNetwork(Network):
         fr = open(path, "r")
         lineas = fr.readlines()
         self._heads = np.array(lineas[3].split(";")).astype(np.int)
+        self._nheads = self._heads[0]
+        self._heads = self._heads[1:]
         fr.close()
 #        except:
 #            raise NetworkError("Error loading the BNetwork object")
@@ -895,7 +904,8 @@ class BNetwork(Network):
         
         # Open again the *.net file to append the heads
         netfile = open(os.path.splitext(path)[0] + ".net", "a")
-        netfile.write("\n" + ";".join(self._heads.astype(np.str)))
+        heads = ";".join(self._heads.astype(np.str))
+        netfile.write("\n" + str(self._nheads) + ";" + heads)
         netfile.close()
 
     def chi_plot(self, ax=None):

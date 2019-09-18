@@ -29,12 +29,15 @@ class DrainageBasinTest(unittest.TestCase):
             # Creamos 10 cuencas aleatorias 
             ri = np.random.randint(0, fd._dims[0], 10)
             ci = np.random.randint(0, fd._dims[1], 10)
+            rdn_ids = np.random.randint(100, 700, 10)
             xi, yi = fd.cell_2_xy(ri, ci)
             # Extract basins
-            outlets = np.array((xi, yi)).T
+            outlets = np.array((xi, yi, rdn_ids)).T
             threshold = int(fd.get_ncells() * 0.05)
             snap_outlets = fd.snap_points(outlets, threshold, kind="channel")
-            basins = fd.get_drainage_basins(snap_outlets)
+            snap = np.append(snap_outlets, rdn_ids.reshape(rdn_ids.size, 1), 1)
+            basins = fd.get_drainage_basins(snap)
+            
             basins.save(outfolder + "/rnd_snap_basins_{0}.tif".format(file))
     
     def test_drainage_basins_01(self):
@@ -44,12 +47,13 @@ class DrainageBasinTest(unittest.TestCase):
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
             
-            # Creamos 10 cuencas aleatorias 
+            # Creamos 10 cuencas aleatorias con 10 ids aleatorios
             ri = np.random.randint(0, fd._dims[0], 10)
             ci = np.random.randint(0, fd._dims[1], 10)
+            rdn_ids = np.random.randint(100, 700, 10)
             xi, yi = fd.cell_2_xy(ri, ci)
             # Extract basins
-            outlets = np.array((xi, yi)).T
+            outlets = np.array((xi, yi, rdn_ids)).T
             basins = fd.get_drainage_basins(outlets)
             basins.save(outfolder + "/rnd_basins_{0}.tif".format(file))
 

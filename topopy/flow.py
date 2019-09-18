@@ -346,17 +346,23 @@ class Flow(PRaster):
         # Sino especificamos outlets pero si área mínima, extraemos outlets con ese area mínima
         if outlets is None and min_area > 0:
             threshold = int(self._ncells * min_area)
-            inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")      
+            inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")
+            basin_ids = np.arange(inds.size) + 1
         elif isinstance(outlets, np.ndarray):
             if not self.is_inside(outlets[:,0], outlets[:,1]):
                 raise FlowError("Some outlets coordinates are outside the grid")                                         
             row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
-            inds = self.cell_2_ind(row, col)      
+            inds = self.cell_2_ind(row, col)
+            if outlets.shape[1] > 2:
+                basin_ids = outlets[:, 2]
+            else:
+                basin_ids = np.arange(inds.size) + 1
         elif isinstance(outlets, list) or isinstance(outlets, tuple):
             if not self.is_inside(outlets[0], outlets[1]):
                 raise FlowError("Some outlets coordinates are outside the grid") 
             row, col = self.xy_2_cell(outlets[0], outlets[1])
             inds = self.cell_2_ind(row, col)
+            basin_ids = np.arange(inds.size) + 1
         else:
             inds = np.array([])
             
@@ -372,7 +378,6 @@ class Flow(PRaster):
                 if basin_arr[temp_ixc[n]] == 0:
                     nbasins += 1
                     basin_arr[temp_ixc[n]] = nbasins
-                
                 # Mark basin giver with the id of the basin receiver
                 basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
             
@@ -381,8 +386,6 @@ class Flow(PRaster):
             # Check if all outlets are inside the grid
             row, col = self.ind_2_cell(inds)
             xi, yi = self.cell_2_xy(row, col)
-            if not self.is_inside(xi, yi):
-                raise FlowError("Some outlets coordinates are outside the grid")
             temp_ix = self._ix
             temp_ixc = self._ixc
             basin_arr = np.zeros(self._ncells, np.int)
@@ -391,8 +394,8 @@ class Flow(PRaster):
             if inds.size == 1:
                 basin_arr[inds] = 1
             else:
-                for n, inds in enumerate(inds):
-                    basin_arr[inds] = n + 1
+                for n in range(inds.size):
+                    basin_arr[inds[n]] = basin_ids[n]
                 
             nix = len(temp_ix)
             # Loop by all the sorted cells
