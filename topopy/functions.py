@@ -10,16 +10,11 @@
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified September 25, 2018
+# Last modified January 15, 2020
 
 import numpy as np
 import ogr
 
-
-path = "C:/Users/Usuario/Desktop/heads/heads.shp"
-idfield = "id"
-    
-   
 def extract_points(path, idfield=""):
     """
     Extract coordinates from a point shapefile
@@ -64,5 +59,3 @@ def extract_points(path, idfield=""):
         points = points[pos]
     
     return points
-    
-res = extract_points(path)
