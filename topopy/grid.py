@@ -650,11 +650,18 @@ class DEM(Grid):
  
 class Basin(DEM):
 
-    def __init__(self, dem, basin, id=1):
+    def __init__(self, dem, basin, idx=1):
         """
         
         """
-        basin = np.where(basin.read_array()==id, 1, 0)
+        if type(dem) == str:
+            # Call to Grid.__init__ method
+            super(Basin, self).__init__(path=dem, band=1)
+            # Change NoData values to -9999.
+            self.set_nodata(-9999.)
+            return
+        
+        basin = np.where(basin.read_array()==idx, 1, 0)
         
         # Get limits for the input basin
         c1 = basin.max(axis=0).argmax()

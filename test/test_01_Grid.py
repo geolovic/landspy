@@ -72,8 +72,8 @@ class TestGrid01(unittest.TestCase):
           
     def test_save(self):
         dem = Grid(infolder + "/small25.tif")
-        dem.save(outfolder + "/dummy_dem.tif")
-        dem2 = Grid(outfolder + "/dummy_dem.tif")
+        dem.save(outfolder + "/a_dummy_dem.tif")
+        dem2 = Grid(outfolder + "/a_dummy_dem.tif")
         expected = dem.get_value([20, 30, 40, 50], [20, 30, 40, 50])
         computed = dem2.get_value([20, 30, 40, 50], [20, 30, 40, 50])
         self.assertEqual(np.array_equal(computed, expected), True)
@@ -86,9 +86,9 @@ class TestGrid01(unittest.TestCase):
         arr[np.where(arr%5==0)] = 0
         dem.set_array(arr)
         dem.set_nodata(0)
-        dem.save(outfolder + "/dummy_dem2.tif")
+        dem.save(outfolder + "/a_dummy_dem2.tif")
         # Open with gdal
-        raster = gdal.Open(outfolder + "/dummy_dem2.tif")
+        raster = gdal.Open(outfolder + "/a_dummy_dem2.tif")
         banda = raster.GetRasterBand(1)
         nodata = banda.GetNoDataValue()
         self.assertEqual(nodata, 0)

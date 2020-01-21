@@ -35,7 +35,7 @@ This method export network data to a shapelife. It calculates segments of a give
 distance and calculate chi, ksn, slope, etc. for the segment. The shapefile will 
 have the following fields:
     id_profile : Profile identifier. Profiles are calculated from heads until outlets or
-    L : Lenght from the segment mouth to profile head
+    L : Lenght from the segment middle point to the head
     area_e6 : Drainage area in the segment mouth (divided by E6, to avoide large numbers)
     z : Elevation of the middle point of the segment
     chi : Mean chi of the segment
@@ -82,7 +82,7 @@ for head in heads:
     cell = head
     segment_cells = [cell]
     segment_distance = 0
-    profile_distance = 0
+    profile_length = self._dx[ixcix[head]]
     
     while processing:
         add_segment = False
@@ -90,7 +90,6 @@ for head in heads:
         next_cell = self._ixc[ixcix[cell]]
         segment_cells.append(next_cell)
         segment_distance += self._dd[ixcix[cell]]
-        profile_distance += self._dd[ixcix[cell]]
 
         if segment_distance >= distance:
             # If segment distance is reached, add the current segment
@@ -117,7 +116,7 @@ for head in heads:
             zx = self._zx[pos]
             chi = self._chi[pos]
             area = self._ax[mouth_cell]
-            lenght = profile_distance
+            lenght = profile_length - self._dx[mid_cell]
             mid_z = self._zx[mid_cell]
             mid_chi = self._chi[mid_cell]      
             

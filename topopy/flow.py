@@ -17,7 +17,7 @@ import gdal
 from scipy import ndimage
 from skimage import graph
 from scipy.sparse import csc_matrix
-from . import Grid, PRaster
+from . import Grid, PRaster, DEM
 
 class Flow(PRaster):
     
@@ -491,7 +491,7 @@ class Flow(PRaster):
         aux_arr[self._ixc] = 1
         return np.where(aux_arr == 0)[0]
     
-
+    
 def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
     
     # Get DEM properties

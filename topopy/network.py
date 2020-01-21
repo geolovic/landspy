@@ -753,7 +753,7 @@ class Network(PRaster):
         distance and calculate chi, ksn, slope, etc. for the segment. The shapefile will 
         have the following fields:
             id_profile : Profile identifier. Profiles are calculated from heads until outlets or
-            L : Lenght from the segment mouth to profile head
+            L : Lenght from the middle point of the segment to the profile head
             area_e6 : Drainage area in the segment mouth (divided by E6, to avoide large numbers)
             z : Elevation of the middle point of the segment
             chi : Mean chi of the segment
@@ -800,7 +800,7 @@ class Network(PRaster):
             cell = head
             segment_cells = [cell]
             segment_distance = 0
-            profile_distance = 0
+            profile_length = self._dx[ixcix[head]]
             
             while processing:
                 add_segment = False
@@ -808,8 +808,7 @@ class Network(PRaster):
                 next_cell = self._ixc[ixcix[cell]]
                 segment_cells.append(next_cell)
                 segment_distance += self._dd[ixcix[cell]]
-                profile_distance += self._dd[ixcix[cell]]
-        
+
                 if segment_distance >= distance:
                     # If segment distance is reached, add the current segment
                     add_segment = True            
@@ -835,7 +834,7 @@ class Network(PRaster):
                     zx = self._zx[pos]
                     chi = self._chi[pos]
                     area = self._ax[mouth_cell]
-                    lenght = profile_distance
+                    lenght = profile_length - self._dx[mid_cell]
                     mid_z = self._zx[mid_cell]
                     mid_chi = self._chi[mid_cell]      
                     
@@ -904,7 +903,7 @@ class BNetwork(Network):
         heads : *list* or *numpy.ndarray*
           List with [x, y] coordinates for basin the main head or 2 column numpy.ndarray with head(s) 
           coordinate(s). If more than one, the first one is considered the main head (trunk channel). 
-          Head(s) will snap to Network heads.
+          Head(s) will be snapped to Network heads.
         basinid : *int*
           Id value that identifies the basin cells in case that basin will have more than one basin.        
         """

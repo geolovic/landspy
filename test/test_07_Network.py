@@ -18,6 +18,7 @@ class NetworkClassTest(unittest.TestCase):
     
     def test_create_network(self):
         files = ["small25", "morocco", "tunez", "jebja30"]
+
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             net_path = infolder + "/{0}_network.net".format(file)
@@ -35,11 +36,9 @@ class NetworkClassTest(unittest.TestCase):
             
             # Comparamos los datos
             arr1 = np.array((net._ix, net._ixc, net._ax, net._dx, net._zx,
-                             net._chi, net._slp, net._ksn, net._r2slp, 
-                             net._r2ksn, net._dd))
+                             net._chi, net._slp, net._ksn, net._dd))
             arr2 = np.array((net2._ix, net2._ixc, net2._ax, net2._dx, net2._zx,
-                             net2._chi, net2._slp, net2._ksn, net2._r2slp, 
-                             net2._r2ksn, net2._dd))            
+                             net2._chi, net2._slp, net2._ksn, net2._dd))            
             res = np.array_equal(arr1, arr2)
             self.assertEqual(res, True)
 
