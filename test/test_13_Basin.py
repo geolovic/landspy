@@ -24,12 +24,11 @@ class GridBasinClassTest(unittest.TestCase):
             basin_path = outfolder +  "/all_basins-minarea_{0}.tif".format(file)
             basins = Grid(basin_path)
             dem_path = infolder +  "/{0}.tif".format(file)
-            dem = DEM(dem_path)
             basin_ids = basin_idx[n]
             
             for n, idbasin in enumerate(basin_ids):
                 # Extract basins
-                basin = Basin(dem, basins, idbasin)
+                basin = Basin(dem_path, basins, idbasin)
                 out_path = outfolder +  "/{0}_basin{1}.tif".format(file, n)
                 basin.save(out_path)
             

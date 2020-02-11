@@ -650,19 +650,37 @@ class DEM(Grid):
  
 class Basin(DEM):
 
-    def __init__(self, dem, basin, idx=1):
+    def __init__(self, dem, basin=None, idx=1):
         """
+        Class to manipulate drainage basins. The object is basically a DEM with NoData
+        values in cells outside the drainage basin. 
         
+        dem : str
+          Path to the Digital Elevation Model (ráster).
+        basin : None, str, Grid
+          Drainage basin. If None, DEM is loaded as a basin. Needs to have the same
+          dimensions and cellsize than the input DEM. 
+        idx : int
+          Value of the basin cells
         """
-        if type(dem) == str:
-            # Call to Grid.__init__ method
+        # If basin is None, the DEM is already a basin and we load it
+        if basin is None:
+            # Call to DEM.__init__ method
             super(Basin, self).__init__(path=dem, band=1)
             # Change NoData values to -9999.
             self.set_nodata(-9999.)
             return
+        elif type(basin) is str:
+            basingrid = Grid(basin)           
+        elif type(basin) is Grid:
+            basingrid = basin
         
-        basin = np.where(basin.read_array()==idx, 1, 0)
+        dem = DEM(dem, 1)
+        basin = np.where(basingrid.read_array()==idx, 1, 0)
         
+        if (basingrid.get_geotransform() != dem.get_geotransform()) or (basingrid.get_size() != dem.get_size()):
+            raise GridError("DEM and basin grids do not coincide")
+
         # Get limits for the input basin
         c1 = basin.max(axis=0).argmax()
         r1 = basin.max(axis=1).argmax()
@@ -687,4 +705,6 @@ class Basin(DEM):
         self._tipo = dem._tipo
         arr = np.where(basin_cl > 0, dem_cl, dem._nodata)
         self._array = arr
-                
+
+class GridError(Exception):
+    pass               
