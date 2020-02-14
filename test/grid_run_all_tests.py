@@ -12,12 +12,14 @@ import unittest
 from test_00_PRaster import TestPRaster00, TestPRaster01
 from test_01_Grid import TestGrid01
 from test_02_DEM import DEMFillTest, DEMFlatTest
+from test_13_Basin import BasinClassTest
 
 suite1 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(TestGrid01)
 suite4 = unittest.TestLoader().loadTestsFromTestCase(DEMFillTest)
 suite5 = unittest.TestLoader().loadTestsFromTestCase(DEMFlatTest)
+suite6 = unittest.TestLoader().loadTestsFromTestCase(BasinClassTest)
 
-suite = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5])
+suite = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5, suite6])
 unittest.TextTestRunner(verbosity=2).run(suite)

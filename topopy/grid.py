@@ -678,8 +678,8 @@ class Basin(DEM):
         dem = DEM(dem, 1)
         basin = np.where(basingrid.read_array()==idx, 1, 0)
         
-        if (basingrid.get_geotransform() != dem.get_geotransform()) or (basingrid.get_size() != dem.get_size()):
-            raise GridError("DEM and basin grids do not coincide")
+        if basingrid.get_size() != dem.get_size():
+            raise GridError("ERROR. DEM and basin grids have different dimensions!")
 
         # Get limits for the input basin
         c1 = basin.max(axis=0).argmax()

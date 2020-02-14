@@ -1,37 +1,45 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on 21 January, 2020
+Created on 11 February, 2020
 Testing suite for Network.get_chi_shapefile() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
-@date: 21 January, 2020
+@date: 11 February, 2020
 """
 
 import unittest
-from topopy import DEM, Grid, Basin
+from topopy import Grid, Basin
 infolder = "data/in"
 outfolder = "data/out"
 
-class GridBasinClassTest(unittest.TestCase):
+class BasinClassTest(unittest.TestCase):
     
-    def test_BasinClass(self):
-        files = ["small25", "morocco", "tunez", "jebja30"]
-        basin_idx = [(3, 5, 8, 6), (4, 10, 12, 21), (3, 12, 13, 14), (3, 4, 6, 12)]
+    def test_BasinClass01(self):
+        dem_path = infolder + "/jebja30.tif"
+        basin_path = infolder + "/jebja30_basins.tif"
         
-        for n, file in enumerate(files):
-            # Cargamos cuencas y DEM
-            basin_path = outfolder +  "/all_basins-minarea_{0}.tif".format(file)
-            basins = Grid(basin_path)
-            dem_path = infolder +  "/{0}.tif".format(file)
-            basin_ids = basin_idx[n]
-            
-            for n, idbasin in enumerate(basin_ids):
-                # Extract basins
-                basin = Basin(dem_path, basins, idbasin)
-                out_path = outfolder +  "/{0}_basin{1}.tif".format(file, n)
-                basin.save(out_path)
-            
+        basin = Basin(dem_path, basin_path)
+        basin.save(outfolder + "/jebja30_basin01.tif")
+        
+    def test_BasinClass02(self):
+        dem_path = infolder + "/jebja30.tif"
+        basin_path = infolder + "/jebja30_basins.tif"
+        
+        basingrid = Grid(basin_path)   
+        basin = Basin(dem_path, basingrid)
+        basin.save(outfolder + "/jebja30_basin02.tif")
+       
+    def test_BasinClass03(self):
+        dem_path = infolder + "/jebja30_basin.tif"  
+        basin = Basin(dem_path)
+        basin.save(outfolder + "/jebja30_basin03.tif")
+        
+    def test_BasinClass04(self):
+        dem_path = infolder + "/tunez.tif"
+        basin_path = infolder + "/tunez_basins.tif"
+        basin = Basin(dem_path, basin_path, idx=15)
+        basin.save(outfolder + "/tunez_basin01.tif")
             
 if __name__ == "__main__":
     unittest.main()

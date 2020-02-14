@@ -27,6 +27,7 @@ class NetworkClassTest(unittest.TestCase):
             # Creamos objeto network
             net = Network(fd, gradients=True)
             # Cargamos objeto network guardado
+            net.save(net_path)
             net2 = Network(net_path)
             
             # Comparamos propiedades,
