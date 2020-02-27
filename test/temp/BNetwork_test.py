@@ -6,43 +6,23 @@ Created on Fri Feb 21 11:15:55 2020
 @author: vicen
 """
 
-from topopy import Grid, DEM, Flow, Network
+from topopy import Grid, DEM, Flow, Network, BNetwork
 import ogr
 import numpy as np
+import matplotlib.pyplot as plt
 
-basin_path = "../data/in/jebja30_basins.tif"
-myheads_path = "../data/in/jebja30_myheads.shp"
+dem_path = "../data/in/jebja30.tif"
 
-# Cargamos xy de cabeceras
-dataset = ogr.Open(myheads_path)
-layer = dataset.GetLayer()
-xy = []
-for feat in layer:
-    geom = feat.geometry()
-    xy.append([geom.GetX(), geom.GetY(), feat["id"]])
-    
-xy = np.array(xy)
-if xy.shape[1] > 2:
-    pos = np.argsort(xy[:, 2])
-    xy = xy[pos]
+dem = DEM(dem_path)
+fd = Flow(dem)
+basins = fd.get_drainage_basins()
+net = Network(fd)
+canales = net.get_streams()
 
-# Objeto network
-net = Network("../data/in/jebja30_network.net")
-# Objeto basin
-basin = Grid(basin_path)
-# Cabeceras
-heads = xy
-# Id
-bid = 1
+basins.save("C:/Users/Usuario/Desktop/temp/cuencas.tif")
+canales.save("C:/Users/Usuario/Desktop/temp/canales.tif")
 
-# Get heads inside the basin
 
-# Sort heads
-# If "id" field is present
-
-# If there is not "id" field, head by elevation
-
-# Snap heads to network heads
 
 
 

@@ -99,15 +99,19 @@ class PRaster():
         """
         return self._geot
     
-    def is_inside(self, x, y):
+    def is_inside(self, x, y, coords="XY"):
         """
         Check if one point is inside the raster
         """
-        row, col = self.xy_2_cell(x, y)
+        if coords == "XY":
+            row, col = self.xy_2_cell(x, y)
+        else:
+            row, col = x, y
+        
         rowinside = np.logical_and(row >= 0, row < self._dims[0])
         colinside = np.logical_and(col >= 0, col < self._dims[1])
         inside = np.logical_and(rowinside, colinside)
-        return np.all(inside)
+        return inside
     
     def get_extent(self):
         """
@@ -271,7 +275,7 @@ class Grid(PRaster):
             self._tipo = str(self._array.dtype)
         else:
             return 0
-        
+       
     def read_array(self, ascopy=False):
         """
         Reads the internal array of the Grid instace

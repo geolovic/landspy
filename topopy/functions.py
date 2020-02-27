@@ -10,7 +10,7 @@
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified January 15, 2020
+# Last modified February 24, 2020
 
 import numpy as np
 import ogr
@@ -29,7 +29,7 @@ def extract_points(path, idfield=""):
     Return:
     ================
     coords : np.dnarray
-      Numpy array with 2 or 3 columns with points X and Y (Thrid column will contain point ids
+      Numpy array with 2 or 3 columns with points X and Y (thrid column will contain point ids
       if idfield was specified)
     """
     driver = ogr.GetDriverByName("ESRI Shapefile")
@@ -52,10 +52,5 @@ def extract_points(path, idfield=""):
             points.append((geom.GetX(), geom.GetY(), int(idx)))
         else:
             points.append((geom.GetX(), geom.GetY()))
-     
-    points = np.array(points)
-    if points.shape[1] > 2:
-        pos = np.argsort(points[:, 2])
-        points = points[pos]
-    
-    return points
+
+    return np.array(points)

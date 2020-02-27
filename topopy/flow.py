@@ -349,7 +349,7 @@ class Flow(PRaster):
             inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")
             basin_ids = np.arange(inds.size) + 1
         elif isinstance(outlets, np.ndarray):
-            if not self.is_inside(outlets[:,0], outlets[:,1]):
+            if not np.all(self.is_inside(outlets[:,0], outlets[:,1])):
                 raise FlowError("Some outlets coordinates are outside the grid")                                         
             row, col = self.xy_2_cell(outlets[:,0], outlets[:,1])
             inds = self.cell_2_ind(row, col)
