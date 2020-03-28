@@ -21,7 +21,7 @@ class StreamPoiTest(unittest.TestCase):
     
     def test_stream_poi_01(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -34,7 +34,7 @@ class StreamPoiTest(unittest.TestCase):
 
     def test_stream_poi_02(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -49,7 +49,7 @@ class StreamPoiTest(unittest.TestCase):
                 
     def test_stream_poi_03(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)

@@ -21,7 +21,7 @@ class DrainageBasinTest(unittest.TestCase):
     
     def test_drainage_basins_00(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -42,7 +42,7 @@ class DrainageBasinTest(unittest.TestCase):
     
     def test_drainage_basins_01(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -59,7 +59,7 @@ class DrainageBasinTest(unittest.TestCase):
 
     def test_drainage_basins_02(self):
         # Test extracting the biggest basin and input as a list [x, y]
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -76,7 +76,7 @@ class DrainageBasinTest(unittest.TestCase):
 
     def test_drainage_basins_03(self):
         # Test extracting the biggest basin and input as a list [x, y]
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -92,7 +92,7 @@ class DrainageBasinTest(unittest.TestCase):
             
     def test_drainage_basins_04(self):
         # Test extracting all basins (min_area = 10%)
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
@@ -102,7 +102,7 @@ class DrainageBasinTest(unittest.TestCase):
 
     def test_drainage_basins_05(self):
         # Test extracting all basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)

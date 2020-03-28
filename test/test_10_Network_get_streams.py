@@ -16,7 +16,7 @@ outfolder = "data/out"
 class NetworkGetStreams(unittest.TestCase):
     
     def test_get_streams(self):
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
             net_path = infolder +  "/{0}_network.net".format(file)

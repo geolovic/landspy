@@ -21,7 +21,7 @@ outfolder = "data/out"
 class StreamPoiTest(unittest.TestCase):
     
     def test_stream_poi_01(self):
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             net_path = infolder +  "/{0}_network.net".format(file)
             net = Network(net_path)
@@ -32,7 +32,7 @@ class StreamPoiTest(unittest.TestCase):
                 self.assertEqual(compare, True)
 
     def test_stream_poi_02(self):    
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             net_path = infolder +  "/{0}_network.net".format(file)
             net = Network(net_path)
@@ -45,7 +45,7 @@ class StreamPoiTest(unittest.TestCase):
                 self.assertEqual(compare, True)
     
     def test_stream_poi_03(self):                 
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             net_path = infolder +  "/{0}_network.net".format(file)
             net = Network(net_path)

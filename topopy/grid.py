@@ -659,8 +659,9 @@ class Basin(DEM):
         Class to manipulate drainage basins. The object is basically a DEM with NoData
         values in cells outside the drainage basin. 
         
-        dem : str
-          Path to the Digital Elevation Model (ráster).
+        dem : str, DEM
+          Digital Elevation Model (DEM instance). If dem is a string and basin=None, 
+          the Basin will load from this string path.
         basin : None, str, Grid
           Drainage basin. If None, DEM is loaded as a basin. Needs to have the same
           dimensions and cellsize than the input DEM. 
@@ -679,7 +680,7 @@ class Basin(DEM):
         elif type(basin) is Grid:
             basingrid = basin
         
-        dem = DEM(dem, 1)
+        #dem = DEM(dem, 1)
         basin = np.where(basingrid.read_array()==idx, 1, 0)
         
         if basingrid.get_size() != dem.get_size():

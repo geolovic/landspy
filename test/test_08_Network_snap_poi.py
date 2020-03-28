@@ -21,7 +21,7 @@ class SnapPoiTest(unittest.TestCase):
     
     def test_snap_poi_01(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
             net_path = infolder +  "/{0}_network.net".format(file)
@@ -44,7 +44,7 @@ class SnapPoiTest(unittest.TestCase):
 
     def test_snap_poi_02(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
             net_path = infolder +  "/{0}_network.net".format(file)

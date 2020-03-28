@@ -12,7 +12,7 @@ import unittest
 from test_00_PRaster import TestPRaster00, TestPRaster01
 from test_01_Grid import TestGrid01
 from test_02_DEM import DEMFillTest, DEMFlatTest
-from test_13_Basin import BasinClassTest
+from test_02b_Basin import BasinClassTest
 
 suite1 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)

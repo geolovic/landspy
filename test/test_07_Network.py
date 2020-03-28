@@ -17,7 +17,7 @@ outfolder = "data/out"
 class NetworkClassTest(unittest.TestCase):
     
     def test_create_network(self):
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
 
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
