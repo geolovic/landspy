@@ -742,8 +742,200 @@ class Network(PRaster):
         return grid
 
 ### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
-    
 
+    def get_klargestconncomps(self, k=1, asgrid=True):
+        """
+        This function return k largest connected components in an instance of *Stream*
+        =========== 
+        Parameters
+        
+        k : *Int*, number of largest connected components 
+        asgrid : *Boolean*, indicates if the network is returned as *TopoGrid* (True) or as a *np.ndarray* (False)
+        ===========   
+        Returns
+        
+        cc_arr : *TopoGrid* or numpy.ndarray with the k largest connected components
+        cc_id  : *Numpy.array*, The id or ids of the connected components
+        ===========   
+        References
+        
+        This function functions similarly with the klargestconncomps.m @STREAMobj from Topotoolbox 
+        matlab codes developed by Wolfgang Schwanghart (version of 17. August, 2017), but uses different method.
+        """
+        temp_ix = self._ix
+        temp_ixc = self._ixc
+        ncc = 0
+        cc_arr = np.zeros(self._ncells, np.int)
+        nix = len(temp_ix)
+        for n in range(nix-1,-1,-1):
+            # If receiver is zero, add a new cc
+            if cc_arr[temp_ixc[n]] == 0:
+                ncc += 1
+                cc_arr[temp_ixc[n]] = ncc  
+            # Mark cc giver with the id of the cc receiver
+            cc_arr[temp_ix[n]] = cc_arr[temp_ixc[n]]
+        del temp_ix,temp_ixc
+        cc_k = cc_arr.max() 
+        if k > cc_k:
+            k = cc_k
+            print('There are only %d connected components in the stream network' % k)
+        cc_size = np.zeros((cc_k,2))    
+        for i in range(0,cc_k):
+            cc_id = i+1
+            cc_size[i,0] = cc_id
+            cc_size[i,1] = np.sum(cc_arr == cc_id)
+        cc_size = cc_size[np.lexsort(-cc_size.T)]
+        cc_size = cc_size[0:k]
+        # del the smaller cc
+        for i in range(0,cc_k):
+            cc_id = i+1
+            if cc_id not in cc_size[:,0]:
+                cc_arr[np.where(cc_arr == cc_id)]=0
+                
+        # Reshape and return
+        cc_arr = cc_arr.reshape(self._dims)  
+        
+        if asgrid:
+            return self._create_output_grid(cc_arr, 0), cc_size[:,0].astype(int)
+        else:
+            return cc_arr, cc_size[:,0].astype(int)        
+
+    def get_trunck(self,ccs_arr,ccs_id):
+        """
+        This function extract trunk stream (longest stream) of the connected component (cc),
+        by Strahler stream order and the size of stream nodes number
+        =========== 
+        Parameters
+        
+        cc_arr : *Numpy.ndarray*, array indicate the k largest connected components with value = cc_id
+        cc_id  : *Numpy.array*, The IDs of the connected components
+        ===========   
+        Returns
+
+        trunk_arr : *Numpy.ndarray*, array indicate the trunk with value = 1
+        =========== 
+        Example
+    
+        stream = Stream(dem=topo, flow=flow, threshold=threshold, verbose=False, thetaref=0.45, npoints=5)
+        ccs_arr,ccs_id = stream.get_klargestconncomps(k=5,asgrid=False)
+        trunk_arr = stream.get_trunck(ccs_arr,ccs_id)
+        ===========     
+        References
+        
+        This function functions similarly with the trunk.m @STREAMobj from Topotoolbox 
+        matlab codes developed by Wolfgang Schwanghart (version of 17. August, 2017), but uses different method.
+        Their algorithm identifies the trunk by sequently tracing the maximum downstream distance in upstream direction. 
+        """ 
+        ncells = self._ncells
+        trunk_arr =  np.zeros(ncells, dtype=np.int8)
+        for k in range(0,len(ccs_id)):
+            cc_id = ccs_id[k]
+        
+            w = ccs_arr == cc_id
+            w = w.ravel()
+            I   = w[self._ix]
+            ixc = self._ixc[I]     # ixc of this cc
+            ix = self._ix[I]       # ixc of this cc
+ 
+            # 1. calculate the strahler stream order of this cc
+            str_ord = np.zeros(ncells, dtype=np.int8)
+            str_ord[ix] = 1
+            str_ord[ixc] = 1
+            visited = np.zeros(ncells, dtype=np.int8)
+    
+            for n in range(len(ix)):
+                if (str_ord[ixc[n]] == str_ord[ix[n]]) & visited[ixc[n]]:
+                    str_ord[ixc[n]] = str_ord[ixc[n]] + 1 
+                else:
+                    str_ord[ixc[n]] = max(str_ord[ix[n]], str_ord[ixc[n]])
+                    visited[ixc[n]] = True    
+        
+            norder =  str_ord.max()
+            l_norder = []
+            for n in range(len(ix)):
+                if str_ord[ix[n]] == norder:
+                    l_norder.append(n)  
+        
+            if norder == 1:
+                l_trunk = l_norder
+            else:
+                l_trunk = l_norder
+                for iorder in range(norder,1,-1):                
+                    l_lssiorder = get_largerpart_lssorder(ncells, ix, ixc ,iorder,l_norder, str_ord)
+                    l_norder = l_lssiorder
+                    l_trunk = l_lssiorder + l_trunk
+                
+            trunk_arr[ix[l_trunk]] = 1      
+        trunk_arr = trunk_arr.reshape(self._dims)   
+        return trunk_arr        
+        
+def get_largerpart_lssorder(ncells, ix, ixc ,iorder,l_iorder, str_ord):
+    """
+    This function gets the part with strahler stream order (i-1) in the trunck,
+    by comparing the nodes number of all less i-order streams in the connected component (cc)
+    =========== 
+    Parameters
+        
+    ncells : *Int*, number of cells in grid
+    ix  : *Numpy.array*, ix of this cc
+    ixc : *Numpy.array*, ixc of this cc
+    iorder : *Int*, the strahler stream order number
+    l_iorder : *List*, the index in ix of the part with order i in the trunck
+    str_ord : *Numpy.ndarray*, stream order of the grid nodes
+    ===========   
+    Returns
+
+    l_lssi : *List*, the index in ix of the part with order (i-1) in the trunck
+    """     
+    head_id = ix[l_iorder[0]]
+    
+    # 2. Find the indexs (in ix) of parts with all smaller orders 
+    # and these parts' outlet is the head found above
+    tem_arr =  np.zeros(ncells, np.int)
+    tem_arr[head_id] = 1
+    nix = len(ix)
+    l_lssi_all = []
+    for n in range(nix-1,-1,-1):
+        # If the stream receiver is not zero and stream giver is zero
+        if (tem_arr[ixc[n]] != 0) & (tem_arr[ix[n]] == 0): 
+            # Mark giver with the id of the receiver
+            tem_arr[ix[n]] = tem_arr[ixc[n]]
+            l_lssi_all.append(n)
+    l_lssi_all = l_lssi_all[::-1]
+    
+    # 3. Sort the parts with their size (nodes number) 
+    part_arr = np.zeros(ncells, np.int)   
+    npart = 0
+    nl_all = len(l_lssi_all)
+    for n in range(nl_all-1,-1,-1):
+        # If receiver's order is i, add a new part
+        id_i = l_lssi_all[n]
+        if str_ord[ixc[id_i]] == iorder:
+            npart += 1
+            part_arr[ixc[id_i]] = npart                
+         # Mark giver with the id of the receiver
+        part_arr[ix[id_i]] = part_arr[ixc[id_i]]                    
+ 
+    npart = int(npart)
+    if npart > 1:
+        part_size = np.zeros((npart,2),np.int)
+        for i in range(0,npart):
+            part_id = i+1
+            part_size[i,0] = part_id 
+            part_size[i,1] = np.sum(part_arr == part_id)
+        part_size = part_size[np.lexsort(-part_size.T)] 
+        keep_id = part_size[0,0]
+    else:
+        keep_id = 1
+        
+    # 4. Output the list of index in ix of the part with order (i-1)    
+    l_lssi = []
+    lss_iorder = iorder - 1
+    for n in range(0,nix):
+        id_arr = ix[n]
+        if (str_ord[id_arr] == lss_iorder) & (part_arr[id_arr] == keep_id):
+            l_lssi.append(n)
+    return l_lssi
 
 class FlowError(Exception):
     pass
