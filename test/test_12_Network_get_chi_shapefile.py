@@ -8,7 +8,7 @@ Testing suite for Network.get_chi_shapefile() function
 @date: 20 January, 2020
 """
 
-import unittest
+import unittest, os
 from topopy import Network
 infolder = "data/in"
 outfolder = "data/out"
@@ -25,6 +25,10 @@ class NetworkGetChiShapefile(unittest.TestCase):
             # Exportamos canales a shapefile
             out_shp = outfolder +  "/{0}_chi.shp".format(file)
             net.get_chi_shapefile(out_shp, 250)
+            
+            computed = os.path.exists(out_shp)
+            self.assertEqual(computed, True)
+            
             
 if __name__ == "__main__":
     unittest.main()

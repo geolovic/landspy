@@ -8,7 +8,7 @@ Testing suite for Network get_streams functions
 @date: 08 October, 2018
 """
 
-import unittest
+import unittest, os
 from topopy import Network
 infolder = "data/in"
 outfolder = "data/out"
@@ -25,10 +25,15 @@ class NetworkGetStreams(unittest.TestCase):
             # Probamos que no haya fallos en las funciones de get_streams
             streams = net.get_streams()
             streams.save(outfolder + "/{0}_streams.tif".format(file))
+            computed = [os.path.exists(outfolder + "/{0}_streams.tif".format(file))]
             segments = net.get_stream_segments()
             segments.save(outfolder + "/{0}_segments.tif".format(file))
+            computed.append(os.path.exists(outfolder + "/{0}_segments.tif".format(file)))
             orders = net.get_stream_orders()
             orders.save(outfolder + "/{0}_ord.tif".format(file))
+            computed.append(os.path.exists(outfolder + "/{0}_ord.tif".format(file)))
+            
+            self.assertEqual(computed, [True, True, True])
 
 if __name__ == "__main__":
     unittest.main()

@@ -101,7 +101,7 @@ class PRaster():
     
     def is_inside(self, x, y, coords="XY"):
         """
-        Check if one point is inside the raster
+        Check if one point is inside the raster (rectangular extent)
         """
         if coords == "XY":
             row, col = self.xy_2_cell(x, y)
