@@ -6,6 +6,7 @@ Testing suite for Network class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 11 August, 2018
+@modified:  07 february, 2021
 """
 
 import unittest
@@ -21,12 +22,12 @@ class NetworkClassTest(unittest.TestCase):
 
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
-            net_path = infolder + "/{0}_network.net".format(file)
+            net_path = outfolder + "/{0}_net.dat".format(file)
             fd = Flow(flw_path)
             
             # Creamos objeto network
             net = Network(fd, gradients=True)
-            # Cargamos objeto network guardado
+            # Guardamos objeto network y cargamos
             net.save(net_path)
             net2 = Network(net_path)
             

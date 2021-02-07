@@ -6,6 +6,7 @@ Testing suite for Network.get_chi_shapefile() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 20 January, 2020
+@modified:  07 february, 2021
 """
 
 import unittest, os
@@ -19,7 +20,7 @@ class NetworkGetChiShapefile(unittest.TestCase):
         files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             
             # Exportamos canales a shapefile

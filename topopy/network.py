@@ -42,10 +42,23 @@ class Network(PRaster):
       m/n coeficient to calculate chi values in each channel cell    
     npoints : *int*
       Number of points to calculate slope and ksn in each cell. Slope and ksn values
-      are calculated with a moving window of (npoints * 2 + 1) cells.
+      are cc
     """
-    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=True):
+    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False):
 
+        # The Network object has the following properties:
+        # ._ix >> Giver cells
+        # ._ixc >> Receivers cells
+        # ._ax >> Upstream draining area (in pixel units)
+        # ._dx >> Distance to mouth (distance from pixel to nearest outlet)
+        # ._zx >> Elevation
+        # ._chi >> Chi index
+        # ._slp >> Slope of the pixel, calculated by regression with a moving window of {npoints * 2 + 1} cells.
+        # ._ksn >> Ksn index of the pixel, calculated by regression with a moving window of {npoints * 2 + 1} cells.
+        # ._r2slp >> R2 Coeficient of the slope regression
+        # ._r2ksn >> R2 Coeficient of the ksn regression
+        # ._dd >> Giver (ix) - Receiver (ixc) distance
+        
         # If flow is a str, load it
         if type(flow)== str:
             self._load(flow)
@@ -73,7 +86,7 @@ class Network(PRaster):
         self._ixc = flow._ixc[I]
         
         # Get Area and Elevations for channel cells
-        self._ax = fac.ravel()[self._ix] * self._cellsize[0] * self._cellsize[1] * -1 # Area in map units
+        self._ax = fac.ravel()[self._ix] # Area in CELLS units!!
         self._zx = flow._zx[I]
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
@@ -107,35 +120,43 @@ class Network(PRaster):
 
     def save(self, path):
         """
-        Saves the Network instance to disk. It will be saved as a numpy array in text format.
-        The first three rows will have the information of the raster
+        Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
+        The first three lines will have the information of the raster:
+            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Tyy
+            Line2::   thetaref; threshold; slp_np; ksn_np
+            Line3::   String with the projection (WKT format)
+        xsize, ysize >> Dimensions of the raster
+        cx, cy >> Cellsizes in X and Y
+        Tx, Ty >> Rotation factors (for geotransformation matrix)
+        ULx, ULy >> X and Y coordinates of the corner of the upper left pixel of the raster
+        thetaref >>  m/n coeficient to calculate chi values in each channel cell
+        threshold >> Number the cells to initiate a channel
+        slp_np, ksn_np >> Number of points to calculate ksn and slope by regression. Window of {npoints * 2 + 1}
         
         Parameters:
         ===========
         path : *str*
-          Path to save the network object, with *.net extension
+          Path to save the network object with *.dat extension (it is not necessary to  give the extension)
         """
     
-        path = os.path.splitext(path)[0]
-            
-        # Create *.net file with properties
-        netfile = open(path + ".net", "w")
-        params = [self._size, self._cellsize, self._ncells, self._ksn_npoints, 
-                  self._slp_npoints, self._thetaref, self._threshold] 
-        linea = ";".join([str(param) for param in params]) + "\n"
-        netfile.write(linea)
-        linea = ";".join([str(elem) for elem in self._geot]) + "\n"
-        netfile.write(linea)
-        netfile.write(str(self._proj))
-        netfile.close()
+        # In case the extension is wrong or path has not extension
+        path = os.path.splitext(path)[0] + ".dat"
         
+        # Create header with properties
+        params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
+                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
+        header = ";".join([str(param) for param in params]) + "\n"  
+        params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
+        header += ";".join([str(param) for param in params]) + "\n" 
+        header += str(self._proj) + "\n"
+
         # Create data array
         data_arr = np.array((self._ix, self._ixc, self._ax, self._dx, self._zx,
                              self._chi, self._slp, self._ksn, self._r2slp, 
                              self._r2ksn, self._dd)).T
         
         # Save the network instance as numpy.ndarray in text format
-        np.save(path + ".npy", data_arr)
+        np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
     
     def _load(self, path):
         """
@@ -145,28 +166,31 @@ class Network(PRaster):
         ==========
            Path to the saved network object
         """
-        # Get properties from properties file *.net
-        netfile = path
-        fr = open(netfile, "r")
-        linea = fr.readline()[:-1]
+        # Open the file as normal text file to get its properties
+        fr = open(path, "r")
+        # Line 1: First and last characters will be "#" and "\n"
+        linea = fr.readline()[1:-1]
         data = linea.split(";")
-        self._size = (int(data[0].split(",")[0][1:]), int(data[0].split(",")[1][:-1]))
-        self._dims = (self._size[1], self._size[0])
-        self._cellsize = (float(data[1].split(",")[0][1:]), float(data[1].split(",")[1][:-1]))
-        self._ncells = int(data[2])
+        self._size = (int(data[0]), int(data[1]))
+        self._dims = (int(data[1]), int(data[0]))
+        self._cellsize = (float(data[2]), float(data[3]))
+        self._ncells = self._size[0] * self._size[1]
+        self._geot = (float(data[4]), float(data[2]), float(data[6]), 
+                      float(data[5]), float(data[7]), float(data[3]))       
+        # Line2: First and last characters will be "#" and "\n"
+        linea = fr.readline()[1:-1]
+        data = linea.split(";")
+        self._thetaref = float(data[0])
+        self._threshold = int(data[1])
+        self._slp_npoints = int(data[2])
         self._ksn_npoints = int(data[3])
-        self._slp_npoints = int(data[4])
-        self._thetaref = float(data[5])
-        self._threshold = int(data[6])
-        linea = fr.readline()[:-1]
-        self._geot = tuple([float(n) for n in linea.split(";")])
-        linea = fr.readline()
+        # Line3: First and last characters will be "#" and "\n"
+        linea = fr.readline()[1:-1]
         self._proj = linea
         fr.close()
         
-        # Load array data from the auxiliar array file *.npy
-        arrfile = os.path.splitext(netfile)[0] + ".npy"
-        data_arr = np.load(arrfile)
+        # Load array data
+        data_arr = np.loadtxt(path, dtype=float, comments='#', delimiter=";", encoding="utf8")
         self._ix = data_arr[:, 0].astype(np.int)
         self._ixc = data_arr[:, 1].astype(np.int)
         self._ax = data_arr[:, 2]
@@ -670,7 +694,7 @@ class Network(PRaster):
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         
-        # Get heads, confluences and orders
+        # Get heads, confluences, outlets and orders
         heads = self.get_stream_poi("heads", "IND")
         confs = self.get_stream_poi("confluences", "IND")
         ch_ord = self.get_stream_orders(asgrid=False).ravel()
@@ -685,7 +709,7 @@ class Network(PRaster):
                 strahler_confs.append(conf)
                 
         # Append strahler confluences to heads
-        heads = np.append(heads, np.array(strahler_confs))    
+        heads = np.append(heads, np.array(strahler_confs))
         
         # Iterate heads
         for head in heads:
@@ -694,15 +718,15 @@ class Network(PRaster):
             processing = True
             while processing:
                 next_cell = self._ixc[ixcix[cell]]
-                river_data.append(next_cell)
-                if next_cell in confs:
+                river_data.append(next_cell)               
+                if ixcix[next_cell] == 0:
+                    processing = False
+                elif next_cell in confs:
                     if ch_ord[next_cell] > ch_ord[cell]:
                         processing = False
                     else:
                         river_data.append(next_cell)
                         cell = next_cell
-                elif ixcix[next_cell] == 0:
-                    processing = False
                 else:
                     river_data.append(next_cell)
                     cell = next_cell    

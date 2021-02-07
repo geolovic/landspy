@@ -6,6 +6,7 @@ Testing suite for topopy.Network.get_stream_poi() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: October 3, 2018
+@modified:  07 february, 2021
 """
 
 import unittest
@@ -24,7 +25,7 @@ class SnapPoiTest(unittest.TestCase):
         files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             
             # Obtenemos 20 puntos aleatorios
@@ -47,7 +48,7 @@ class SnapPoiTest(unittest.TestCase):
         files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             
             # Obtenemos 20 puntos aleatorios

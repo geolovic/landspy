@@ -28,7 +28,8 @@ class BNetworkClassTest(unittest.TestCase):
             # Generamos todas las cuencas
             cuencas = fd.get_drainage_basins(min_area = 0.0025)
             
-            # Generamos 20 cabeceras aleatorias
+            # Generamos 20 puntos aleatorios dentro de la extensión del objeto Network
+            # Estos 20 puntos se usara como cabeceras
             xmin, xmax, ymin, ymax = net.get_extent()
             xi = np.random.randint(xmin, xmax, 50)
             yi = np.random.randint(ymin, ymax, 50)
@@ -46,7 +47,7 @@ class BNetworkClassTest(unittest.TestCase):
                     basin = Basin(dem, cuencas, bid)
                     bnet = BNetwork(net, basin, heads, bid)
                 
-                bnet_path = "{}/{}_{}_bnetwork.net".format(infolder, file, bid)
+                bnet_path = "{}/{}_{}_bnetwork.net".format(outfolder, file, bid)
                 bnet.save(bnet_path)
                 bnet2 = BNetwork(bnet_path)
                 

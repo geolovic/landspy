@@ -6,6 +6,7 @@ Testing suite for Network get_streams functions
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 08 October, 2018
+@modified:  07 february, 2021
 """
 
 import unittest, os
@@ -19,7 +20,7 @@ class NetworkGetStreams(unittest.TestCase):
         files = ["small25", "tunez", "jebja30"]
         for file in files:
             # Cargamos objeto network guardado previamente
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             
             # Probamos que no haya fallos en las funciones de get_streams

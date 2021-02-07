@@ -6,6 +6,7 @@ Testing suite for topopy.Network.get_stream_poi() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 02 October, 2018
+@modified:  07 february, 2021
 """
 
 import unittest
@@ -23,7 +24,7 @@ class StreamPoiTest(unittest.TestCase):
     def test_stream_poi_01(self):
         files = ["small25", "tunez", "jebja30"]
         for file in files:
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             for kind in ["heads", "confluences", "outlets"]:
                 poi = net.get_stream_poi(kind, "XY")
@@ -34,7 +35,7 @@ class StreamPoiTest(unittest.TestCase):
     def test_stream_poi_02(self):    
         files = ["small25", "tunez", "jebja30"]
         for file in files:
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             for kind in ["heads", "confluences", "outlets"]:
                 poi = net.get_stream_poi(kind, "CELL")
@@ -47,7 +48,7 @@ class StreamPoiTest(unittest.TestCase):
     def test_stream_poi_03(self):                 
         files = ["small25", "tunez", "jebja30"]
         for file in files:
-            net_path = infolder +  "/{0}_network.net".format(file)
+            net_path = infolder +  "/{0}_net.dat".format(file)
             net = Network(net_path)
             for kind in ["heads", "confluences", "outlets"]:
                 poi = net.get_stream_poi(kind, "IND")
