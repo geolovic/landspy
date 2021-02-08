@@ -99,15 +99,20 @@ class PRaster():
         """
         return self._geot
     
-    def is_inside(self, x, y, coords="XY"):
+    def is_inside(self, x, y):
         """
-        Check if one point is inside the raster (rectangular extent)
-        """
-        if coords == "XY":
-            row, col = self.xy_2_cell(x, y)
-        else:
-            row, col = x, y
+        Check if points are inside the rectangular extent of the rasterr
         
+        Parameters:
+        ===========
+        x, y : coordinates (number, list, or numpy.ndarray)
+        
+        Returns:
+        ========
+        bool / bool array, indicating True (inside) or False (outside)
+        """
+        
+        row, col = self.xy_2_cell(x, y)
         rowinside = np.logical_and(row >= 0, row < self._dims[0])
         colinside = np.logical_and(col >= 0, col < self._dims[1])
         inside = np.logical_and(rowinside, colinside)
@@ -367,7 +372,7 @@ class Grid(PRaster):
             
     def get_nodata_pos(self):
         """
-        Return the position of the NoData values as a tuple of two arrays (rows, columns)
+        Return the positions of the NoData values as a tuple of two arrays (rows, columns)
         """
         if self._nodata is None:
             return (np.array([], dtype=np.int), np.array([], dtype=np.int))
@@ -423,6 +428,32 @@ class Grid(PRaster):
             ax.imshow(arr)
         else:
             plt.imshow(arr)
+    
+    def is_inside(self, x, y, NoData=True):
+        """
+        Check if points are inside the rasterr
+        
+        Parameters:
+        ===========
+        x, y : coordinates (number, list, or numpy.ndarray)
+        NoData : Flag to set if NoData are considered (If NoData == True > Points in NoData are outside)
+        
+        Returns:
+        ========
+        bool / bool array, indicating True (inside) or False (outside)
+        """
+        inside = super().is_inside(x, y)
+
+        if NoData:
+            pos = np.where(inside)
+            x = x[inside]
+            y = y[inside]
+            row, col = self.xy_2_cell(x, y)
+            in_nodata = self.get_value(row, col) != self.get_nodata()
+            inside[pos] = in_nodata
+        
+        return inside
+        
     
     def save(self, path):
         """

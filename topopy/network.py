@@ -10,7 +10,7 @@
 # Version: 1.1
 # October 1th, 2018
 #
-# Last modified 28 march, 2020 (COVID19 quarantine)
+# Last modified 07 february 2021
 
 import numpy as np
 import os
@@ -148,7 +148,7 @@ class Network(PRaster):
         header = ";".join([str(param) for param in params]) + "\n"  
         params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
         header += ";".join([str(param) for param in params]) + "\n" 
-        header += str(self._proj) + "\n"
+        header += str(self._proj)
 
         # Create data array
         data_arr = np.array((self._ix, self._ixc, self._ax, self._dx, self._zx,
@@ -191,6 +191,9 @@ class Network(PRaster):
         
         # Load array data
         data_arr = np.loadtxt(path, dtype=float, comments='#', delimiter=";", encoding="utf8")
+        # Fix to avoid errors in networks with only one cell...
+        if data_arr.ndim < 2:
+            data_arr = data_arr.reshape((1, data_arr.size))
         self._ix = data_arr[:, 0].astype(np.int)
         self._ixc = data_arr[:, 1].astype(np.int)
         self._ax = data_arr[:, 2]
@@ -776,23 +779,14 @@ class Network(PRaster):
         This method export network data to a shapelife. It calculates segments of a given
         distance and calculate chi, ksn, slope, etc. for the segment. The shapefile will 
         have the following fields:
-            
-            id_profile : Profile identifier. Profiles are calculated from heads until outlets or
-            
+            id_profile : Profile identifier. Profiles are calculated from heads until outlets or  
             L : Lenght from the middle point of the segment to the profile head
-            
-            area_e6 : Drainage area in the segment mouth (divided by E6, to avoide large numbers)
-            
+            area_e6 : Drainage area in the segment mouth (divided by E6, to avoide large numbers) 
             z : Elevation of the middle point of the segment
-            
-            chi : Mean chi of the segment
-            
+            chi : Mean chi of the segment 
             ksn : Ksn of the segment (calculated by linear regression)
-            
             slope : slope of the segment (calculated by linear regression)
-            
             rksn : R2 of the ksn linear regression
-            
             rslope : R2 of the slope linear regression
             
         Parameters:
@@ -922,13 +916,13 @@ class BNetwork(Network):
     """
     Class to manipulate cells from a drainage network from a single basin network. 
     This class inhereits all methods and properties of the Network class plus some 
-    new methods to manipulate the drainage network and the trunk channel. 
+    new methods to manipulate channels
     
     Parameters:
     -----------
     net : *topopy.Network* | *str*
       Network instance or path to a previously saved BNetwork file
-    basingrid : *numpy.ndarray* | *topopy.Grid*
+    basingrid : *topopy.Basin* | *topopy.Grid*
       Numpy array or topopy Grid representing the drainage basin. If array or Grid have more than
       one basin, set the basinid properly. 
     heads : *list* or *numpy.ndarray*
@@ -1017,24 +1011,27 @@ class BNetwork(Network):
                         pos = np.argsort(heads[:, 2])
                         heads = heads[pos]
                     
-                    # Snap heads to network heads
-                    heads = net.snap_points(heads, "heads")                   
-                    
                     # Get heads inside the basin (taking into account nodata)
-                    heads = heads[basingrid.is_inside(heads[:,0], heads[:,1])]
+                    heads = heads[basingrid.is_inside(heads[:,0], heads[:,1], True)]
+                    
+                    # Snap heads to network heads
+                    heads = self.snap_points(heads, "heads")                   
+
+                    # Get indexes
                     row, col = basingrid.xy_2_cell(heads[:,0], heads[:,1])
-                    pos = np.where(basin[row, col] > 0)
-                    heads = heads[pos]
-                    row, col = self.xy_2_cell(heads[:,0], heads[:,1])
-                    self._heads = self.cell_2_ind(row, col)
-                    self._heads = np.unique(self._heads)
+                    idx = self.cell_2_ind(row, col)
+                    
+                    # Remove duplicate heads if any
+                    aux, pos = np.unique(idx, return_index=True)
+                    pos.sort()
+                    self._heads = idx[pos]
                     
                 if self._heads.size == 0:
                     heads = self.get_stream_poi("heads", "IND")
                     ixcix = np.zeros(self._ncells, np.int)
                     ixcix[self._ix] = np.arange(self._ix.size)
                     pos = np.argsort(-self._zx[ixcix[heads]])
-                    self._heads = heads[pos][0:1] #Take only the first (highest) head
+                    self._heads = heads[pos][0] #Take only the first (highest) head
             
             except:
                 raise NetworkError("Unexpected Error creating the BNetwork object")
@@ -1051,33 +1048,62 @@ class BNetwork(Network):
         # Call to the parent Network._load() function
         super()._load(path)
         
-        # Open again the *.net file to get the heads
+        # Open again the *.dat file to get the heads
         fr = open(path, "r")
-        lineas = fr.readlines()
-        self._heads = np.array(lineas[3].split(";")).astype(np.int)
-        fr.close()
+        for n in range(3):
+            fr.readline()
+        head_line = fr.readline()
+        if  head_line[0] == "#":
+            self._heads = np.array(head_line[1:-1].split(";")).astype(np.int)
+        # If the file hasn't got a four line in the header (with the heads) is not a BNetwork file
+        else:
+            raise NetworkError("The selected file is not a BNetwork objetct")
 #        except:
 #            raise NetworkError("Error loading the BNetwork object")
             
     def save(self, path):
         """
-        Saves the BNetwork instance to disk. It will be saved as text file (*.net) plus
-        a numpy binary array with the same name (*.npy) with the cell data.
+        Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
+        The first three lines will have the information of the raster:
+            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Tyy
+            Line2::   thetaref; threshold; slp_np; ksn_np
+            Line3::   String with the projection (WKT format)
+            Line4::   head_1, head_2, ..., head_n
+        xsize, ysize >> Dimensions of the raster
+        cx, cy >> Cellsizes in X and Y
+        Tx, Ty >> Rotation factors (for geotransformation matrix)
+        ULx, ULy >> X and Y coordinates of the corner of the upper left pixel of the raster
+        thetaref >>  m/n coeficient to calculate chi values in each channel cell
+        threshold >> Number the cells to initiate a channel
+        slp_np, ksn_np >> Number of points to calculate ksn and slope by regression. Window of {npoints * 2 + 1}
         
         Parameters:
         ===========
         path : *str*
-          Path to save the network object, with *.net extension
+          Path to save the network object with *.dat extension (it is not necessary to  give the extension)
         """
-        # Call to the parent Network.save() function
-        super().save(path)
+    
+        # In case the extension is wrong or path has not extension
+        path = os.path.splitext(path)[0] + ".dat"
         
-        # Open again the *.net file to append the heads
-        netfile = open(os.path.splitext(path)[0] + ".net", "a")
-        heads = ";".join(self._heads.astype(np.str))
-        netfile.write("\n" + heads)
-        netfile.close()
-
+        # Create header with properties
+        params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
+                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
+        header = ";".join([str(param) for param in params]) + "\n"  
+        params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
+        header += ";".join([str(param) for param in params]) + "\n" 
+        header += str(self._proj) + "\n"
+        params = [str(head) for head in self._heads]
+        header += ";".join([str(param) for param in params])
+        
+        # Create data array
+        data_arr = np.array((self._ix, self._ixc, self._ax, self._dx, self._zx,
+                             self._chi, self._slp, self._ksn, self._r2slp, 
+                             self._r2ksn, self._dd)).T
+        
+        # Save the network instance as numpy.ndarray in text format
+        np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
+    
     def chi_plot(self, ax=None):
         """
         This function plot the Chi-elevation graphic for all the channels of the basin. 

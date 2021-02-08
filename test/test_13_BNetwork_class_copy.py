@@ -10,7 +10,6 @@ Testing suite for BNetwork class
 
 import unittest
 import numpy as np
-import os
 from topopy import Flow, Basin, Network, BNetwork, DEM
 infolder = "data/in"
 outfolder = "data/out"
@@ -36,6 +35,13 @@ class BNetworkClassTest(unittest.TestCase):
             yi = np.random.randint(ymin, ymax, 50)
             heads = np.array((xi, yi)).T
             
+            # ================================================================================
+            # File for visual inspection
+            random_heads_path = "{}/{}_random_heads.txt".format(outfolder, file)
+            header = "x;y\n"
+            np.savetxt(random_heads_path, heads, delimiter=";", header=header, comments="")
+            # ================================================================================
+            
             # Cogemos 5 cuencas aleatorias
             bids = np.random.choice(np.unique(cuencas.read_array())[1:], 5)
             print("Test with DEM: ", file)
@@ -48,15 +54,32 @@ class BNetworkClassTest(unittest.TestCase):
                     basin = Basin(dem, cuencas, bid)
                     bnet = BNetwork(net, basin, heads, bid)
                 
-                # Salvamos BNetwork y volvemos a cargar para comprobar que se cargan-guardan bien
+                # Salvamos BNetwork y volvemos a cargar
                 bnet_path = "{}/{}_{}_bnet.dat".format(outfolder, file, bid)
                 bnet.save(bnet_path)
                 bnet2 = BNetwork(bnet_path)
+                # Solo comprobamos que se han cargado-guardado bien
+                # Para una comparación visual, descomentar códigos de visual inspection
                 computed = np.array_equal(bnet._ix, bnet2._ix)
                 self.assertEqual(computed, True)
-                # borramos archivo
-                os.remove(bnet_path)
+                
+                
+                # ================================================================================
+                # Files for visual inspection
+                canales = bnet.get_streams()
+                canales.save("{}/{}_{}_streams.tif".format(outfolder, file, bid))
+                
+                basin_heads_path = "{}/{}_{}_heads.txt".format(outfolder, file, bid)
+                header = "x;y\n"
+                row, col = bnet.ind_2_cell(bnet._heads)
+                xi ,yi = bnet.cell_2_xy(row, col)
+                heads_arr = np.array((xi, yi)).T
+                np.savetxt(basin_heads_path, heads_arr, delimiter=";", header=header, comments="")
+                # ================================================================================                
 
+                
+                
+        
 
 if __name__ == "__main__":
     unittest.main()
