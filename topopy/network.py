@@ -58,23 +58,24 @@ class Network(PRaster):
         # ._r2slp >> R2 Coeficient of the slope regression
         # ._r2ksn >> R2 Coeficient of the ksn regression
         # ._dd >> Giver (ix) - Receiver (ixc) distance
-        
-        # If flow is a str, load it
-        if type(flow)== str:
+                      
+        # If flow is empty, create an empty Network instancee
+        if flow is None:
+            self._create_empty()
+            return
+        # If flow parameter is a str, we load the Network object from path
+        elif type(flow)== str:
             self._load(flow)
             return
         
         # Set PRaster properties
-        self._size = flow.get_size()
-        self._dims = flow.get_dims()
-        self._geot = flow.get_geotransform()
-        self._cellsize = flow.get_cellsize()
-        self._proj = flow.get_projection()
-        self._ncells = flow.get_ncells()
-      
+        self._size = flow._size
+        self._geot = flow._geot
+        self._proj = flow._proj
+     
         # Get a threshold if not specified (Default 0.25% of the total number of cells)
         if threshold == 0:
-            threshold = self._ncells * 0.0025
+            threshold = self.get_ncells() * 0.0025
         self._threshold = int(threshold)
         
         # Get sort Nodes for channel cells and elevations
@@ -90,7 +91,7 @@ class Network(PRaster):
         self._zx = flow._zx[I]
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
-        di = np.zeros(self._ncells)
+        di = np.zeros(self.get_ncells())
         self._dd = np.zeros(self._ix.shape) # Giver-Receiver distance
         for n in np.arange(self._ix.size)[::-1]:
             grow, gcol = self.ind_2_cell(self._ix[n])
@@ -118,11 +119,34 @@ class Network(PRaster):
             self._r2ksn = np.zeros(self._ix.size)
             self._ksn_npoints = 0
 
+    def _create_empty(self):
+        """
+        Creates a empty instance of the Network class
+        """
+        # Set the empty PRaster properties
+        super().__init__()
+        # Set remaining properties
+        self._ix =  np.array([0])
+        self._ixc = np.array([0])  
+        self._ax = np.array([1])
+        self._dx = np.array([0])
+        self._zx = np.array([0])
+        self._chi = np.array([0])
+        self._slp = np.array([0])
+        self._ksn = np.array([0])
+        self._r2slp = np.array([0])
+        self._r2ksn = np.array([0])
+        self._dd = np.array([1])
+        self._thetaref = 0.45
+        self._slp_npoints = 0
+        self._ksn_npoints = 0
+        self._threshold = 0
+        
     def save(self, path):
         """
         Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
         The first three lines will have the information of the raster:
-            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Tyy
+            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
             Line2::   thetaref; threshold; slp_np; ksn_np
             Line3::   String with the projection (WKT format)
         xsize, ysize >> Dimensions of the raster
@@ -172,9 +196,6 @@ class Network(PRaster):
         linea = fr.readline()[1:-1]
         data = linea.split(";")
         self._size = (int(data[0]), int(data[1]))
-        self._dims = (int(data[1]), int(data[0]))
-        self._cellsize = (float(data[2]), float(data[3]))
-        self._ncells = self._size[0] * self._size[1]
         self._geot = (float(data[4]), float(data[2]), float(data[6]), 
                       float(data[5]), float(data[7]), float(data[3]))       
         # Line2: First and last characters will be "#" and "\n"
@@ -217,7 +238,7 @@ class Network(PRaster):
         a0 : *float*
           Reference area to avoid dimensionality (usually don't need to be changed)
         """
-        chi = np.zeros(self._ncells)
+        chi = np.zeros(self.get_ncells())
         for n in np.arange(self._ix.size)[::-1]:
             chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)            
         self._chi = chi[self._ix]
@@ -250,7 +271,7 @@ class Network(PRaster):
             y_arr = self._zx
             
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self._ncells, np.int)
+        ixcix = np.zeros(self.get_ncells(), np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get heads array and confluences dictionary
@@ -263,8 +284,8 @@ class Network(PRaster):
         heads = heads[spos]
         
         # Prepare auxiliary arrays
-        gi = np.zeros(self._ncells)
-        r2 = np.zeros(self._ncells)
+        gi = np.zeros(self.get_ncells())
+        r2 = np.zeros(self.get_ncells())
         
         # Taking sequentally all the heads and compute downstream flow
         for head in heads:
@@ -411,13 +432,13 @@ class Network(PRaster):
                 coords = 'CELL'
 
             # Get grid channel cells
-            w = np.zeros(self._ncells, dtype=np.bool)
+            w = np.zeros(self.get_ncells(), dtype=np.bool)
             w[self._ix] = True
             w[self._ixc] = True
             
             # Build a sparse array with giver-receivers cells
             aux_vals = np.ones(self._ix.shape, dtype=np.int8)
-            sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self._ncells, self._ncells))
+            sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self.get_ncells(), self.get_ncells()))
             
             # Get stream POI according the selected type
             if kind == 'heads':
@@ -433,7 +454,7 @@ class Network(PRaster):
                 sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
                 out_pos = np.logical_and((sum_arr == 0), w)  
                 
-            out_pos = out_pos.reshape(self._dims)
+            out_pos = out_pos.reshape(self.get_dims())
             row, col = np.where(out_pos)
             
             if coords=="CELL":
@@ -496,7 +517,7 @@ class Network(PRaster):
         
         out_arr = np.array((self._ix, x, y, self._zx, self._dx, self._ax, self._chi, 
                             self._slp, self._ksn, self._r2slp, self._r2ksn)).T
-        np.savetxt(path, out_arr, delimiter=";", header=cab, comments="")
+        np.savetxt(path, out_arr, delimiter=";", header=cab, comments="", encoding="utf8")
     
     def get_streams(self, asgrid=True):
         """
@@ -508,10 +529,10 @@ class Network(PRaster):
           Indicates if the network is returned as topopy.Grid (True) or as a numpy.array
         """
         # Get grid channel cells
-        w = np.zeros(self._ncells, dtype=np.int8)
+        w = np.zeros(self.get_ncells(), dtype=np.int8)
         w[self._ix] = 1
         w[self._ixc] = 1
-        w = w.reshape(self._dims)
+        w = w.reshape(self.get_dims())
         # Return grid
         if asgrid:
             return self._create_output_grid(w, 0)
@@ -536,7 +557,7 @@ class Network(PRaster):
         
         # We created a zeros arrays and put in confluences and heads their id
         # Those id will be consecutive numbers starting in one
-        seg_arr = np.zeros(self._ncells, dtype=np.int32)
+        seg_arr = np.zeros(self.get_ncells(), dtype=np.int32)
         for n, inds in enumerate(all_ind):
             seg_arr[inds] = n+1
         
@@ -547,7 +568,7 @@ class Network(PRaster):
                 seg_arr[self._ixc[n]] = seg_arr[self._ix[n]]
         
         # Reshape and output
-        seg_arr = seg_arr.reshape(self._dims)
+        seg_arr = seg_arr.reshape(self.get_dims())
         if asgrid:
             return self._create_output_grid(seg_arr, 0)
         else:
@@ -565,13 +586,13 @@ class Network(PRaster):
           Indicates if the selfwork is returned as topopy.Grid (True) or as a numpy.array
         """
         if kind not in ['strahler', 'shreeve']:
-            return
+            kind = 'strahler'
         
         # Get grid channel cells
-        str_ord = np.zeros(self._ncells, dtype=np.int8)
+        str_ord = np.zeros(self.get_ncells(), dtype=np.int8)
         str_ord[self._ix] = 1
         str_ord[self._ixc] = 1
-        visited = np.zeros(self._ncells, dtype=np.int8)
+        visited = np.zeros(self.get_ncells(), dtype=np.int8)
     
         if kind == 'strahler':
             for n in range(len(self._ix)):
@@ -587,7 +608,7 @@ class Network(PRaster):
                 else:
                     str_ord[self._ixc[n]] = max(str_ord[self._ix[n]], str_ord[self._ixc[n]])
                     visited[self._ixc[n]] = True
-        str_ord = str_ord.reshape(self._dims)
+        str_ord = str_ord.reshape(self.get_dims())
         
         if asgrid:
             return self._create_output_grid(str_ord, nodata_value=0)
@@ -633,7 +654,7 @@ class Network(PRaster):
         ch_ord = ch_ord[self._ix]
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self._ncells, np.int)
+        ixcix = np.zeros(self.get_ncells(), np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         seg_ids = np.unique(ch_seg)
@@ -676,8 +697,7 @@ class Network(PRaster):
            
         layer = None
         dataset = None
-    
-    
+
     def _get_continuous_shp(self, path=""):
         """
         Export Network channels to shapefile format. Channels will split only when order changes.
@@ -694,7 +714,7 @@ class Network(PRaster):
         layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self._ncells, np.int)
+        ixcix = np.zeros(self.get_ncells(), np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get heads, confluences, outlets and orders
@@ -774,6 +794,61 @@ class Network(PRaster):
         grid._tipo = str(array.dtype)
         return grid
 
+    def get_channel(self, head, mouth=None):
+        """
+        Get a channel from the head to the mouth. 
+        
+        Parameters
+        ----------
+        head : tuple
+            (x, y) tuple with the coordinates of the channel head (will be snapped to a channel cell)
+        mouth : tuple
+            (x, y) tuple with the coordinates of the channel mouth (will be snapped to a channel cell).
+            If None or a cell out of the current channel, the channel will continue until the nearest outlet.
+
+        Returns
+        -------
+        Channel instance
+
+        """
+        if mouth is None:
+            mouth = head
+        
+        # Snap  head and mouth to channel cells
+        snap_points = self.snap_points(np.array((head, mouth)))
+        row, col = self.xy_2_cell(snap_points[:,0], snap_points[:,1])
+        idx = self.cell_2_ind(row, col)
+        head = idx[0]
+        mouth = idx[1]
+        
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self.get_ncells(), np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        
+        # Get channel cells
+        ch_cells = [head]
+        next_cell = head
+        while ixcix[next_cell] != 0:
+            next_cell = self._ixc[ixcix[next_cell]]
+            ch_cells.append(next_cell)
+            if next_cell == mouth:
+                break
+        
+        # Get chandata array
+        ax = self._ax[ixcix[ch_cells]]
+        dx = self._dx[ixcix[ch_cells]]
+        zx = self._zx[ixcix[ch_cells]]
+        chi = self._chi[ixcix[ch_cells]]
+        slp = self._slp[ixcix[ch_cells]]
+        ksn = self._ksn[ixcix[ch_cells]]
+        slp = self._slp[ixcix[ch_cells]]
+        r2_slp = self._r2slp[ixcix[ch_cells]]
+        r2_ksn = self._r2ksn[ixcix[ch_cells]]
+        dd = self._dd[ixcix[ch_cells]]
+        chandata = np.array([ch_cells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
+        
+        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+        
     def get_chi_shapefile(self, out_shp, distance):
         """
         This method export network data to a shapelife. It calculates segments of a given
@@ -811,7 +886,7 @@ class Network(PRaster):
             layer.CreateField(ogr.FieldDefn(campos[n], tipos[n]))
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self._ncells, np.int)
+        ixcix = np.zeros(self.get_ncells(), np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get heads and sort them by elevation and iterate them
@@ -819,7 +894,7 @@ class Network(PRaster):
         zpos = np.argsort(self._zx[ixcix[heads]])
         heads = heads[zpos][::-1]
         
-        aux_arr = np.zeros(self._ncells, np.bool)
+        aux_arr = np.zeros(self.get_ncells(), np.bool)
         id_profile = 0
         for head in heads:
             id_profile += 1
@@ -938,104 +1013,110 @@ class BNetwork(Network):
         if isinstance(net, str):
             self._load(net)
         
-        else:
-            try:    
-                # Get a basin grid with net dimensions (basin cells will set to 1)
-                if isinstance(basingrid, Basin):
-                    basin = np.zeros(net.get_dims(), dtype=np.int8)
-                    x = basingrid.get_geotransform()[0] + (basingrid.get_geotransform()[1]/2)
-                    y = basingrid.get_geotransform()[3] + (basingrid.get_geotransform()[5]/2)
-                    row, col = net.xy_2_cell(x, y)
-                    arr = np.where(basingrid.read_array()==basingrid.get_nodata(), 0, 1)
-                    basin[row:row+basingrid.get_dims()[0], col:col+basingrid.get_dims()[1]] = arr        
-                
-                elif isinstance(basingrid, Grid):
-                    basin = np.where(basingrid.read_array()==bid, 1, 0)
-                
-                # Get limits for the input basin
-                c1 = basin.max(axis=0).argmax()
-                r1 = basin.max(axis=1).argmax()
-                c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
-                r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
-                
-                # Cut basin by those limits
-                basin_cl = basin[r1:r2, c1:c2]
-                
-                # Create Grid
-                self._size = (basin_cl.shape[1], basin_cl.shape[0])
-                self._dims = (basin_cl.shape[0], basin_cl.shape[1])
-                geot = net._geot
-                ULx = geot[0] + geot[1] * c1
-                ULy = geot[3] + geot[5] * r1
-                self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
-                self._cellsize = (geot[1], geot[5])
-                self._proj = basingrid._proj
-                self._ncells = basin_cl.size
-                self._ncells = basin_cl.size
-                self._threshold = net._threshold
-                self._thetaref = net._thetaref
-                self._slp_npoints = net._slp_npoints
-                self._ksn_npoints = net._ksn_npoints
-                
-                # Get only points inside the basin
-                basin_bool = basin.astype(np.bool).ravel()
-                I = basin_bool[net._ix]
-                self._ax = net._ax[I]
-                self._zx = net._zx[I]
-                self._dd = net._dd[I]
-                self._dx = net._dx[I]
-                self._chi = net._chi[I]
-                self._slp = net._slp[I]
-                self._ksn = net._ksn[I]
-                self._r2slp = net._r2slp[I]
-                self._r2ksn = net._r2ksn[I]
-                
-                # Get new indices for the new grid
-                ix = net._ix[I]
-                ixc = net._ixc[I]
-                # Givers (ix)
-                row, col = net.ind_2_cell(ix)
-                x, y = net.cell_2_xy(row, col)
-                newrow, newcol = self.xy_2_cell(x, y)
-                self._ix = self.cell_2_ind(newrow, newcol)
-                # Receivers (ixc)
-                row, col = net.ind_2_cell(ixc)
-                x, y = net.cell_2_xy(row, col)
-                newrow, newcol = self.xy_2_cell(x, y)
-                self._ixc = self.cell_2_ind(newrow, newcol)
-                self._heads = np.array([])
-                
-                if heads is not None:
-                    # Sort heads if "id" field is present
-                    if heads.shape[1] > 2:
-                        pos = np.argsort(heads[:, 2])
-                        heads = heads[pos]
-                    
-                    # Get heads inside the basin (taking into account nodata)
-                    heads = heads[basingrid.is_inside(heads[:,0], heads[:,1], True)]
-                    
-                    # Snap heads to network heads
-                    heads = self.snap_points(heads, "heads")                   
-
-                    # Get indexes
-                    row, col = basingrid.xy_2_cell(heads[:,0], heads[:,1])
-                    idx = self.cell_2_ind(row, col)
-                    
-                    # Remove duplicate heads if any
-                    aux, pos = np.unique(idx, return_index=True)
-                    pos.sort()
-                    self._heads = idx[pos]
-                    
-                if self._heads.size == 0:
-                    heads = self.get_stream_poi("heads", "IND")
-                    ixcix = np.zeros(self._ncells, np.int)
-                    ixcix[self._ix] = np.arange(self._ix.size)
-                    pos = np.argsort(-self._zx[ixcix[heads]])
-                    self._heads = heads[pos][0] #Take only the first (highest) head
+        else: 
+            # Get a basin grid with net dimensions (basin cells will set to 1)
+            if isinstance(basingrid, Basin):
+                basin = np.zeros(net.get_dims(), dtype=np.int8)
+                x = basingrid.get_geotransform()[0] + (basingrid.get_geotransform()[1]/2)
+                y = basingrid.get_geotransform()[3] + (basingrid.get_geotransform()[5]/2)
+                row, col = net.xy_2_cell(x, y)
+                arr = np.where(basingrid.read_array()==basingrid.get_nodata(), 0, 1)
+                basin[row:row+basingrid.get_dims()[0], col:col+basingrid.get_dims()[1]] = arr        
             
-            except:
-                raise NetworkError("Unexpected Error creating the BNetwork object")
-    
+            elif isinstance(basingrid, Grid):
+                basin = np.where(basingrid.read_array()==bid, 1, 0)
+                basingrid = basingrid.copy()
+                basingrid.set_array(basin)
+                basingrid.set_nodata(0)
+            
+            # Get limits for the input basin
+            c1 = basin.max(axis=0).argmax()
+            r1 = basin.max(axis=1).argmax()
+            c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
+            r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
+            
+            # Cut basin by those limits
+            basin_cl = basin[r1:r2, c1:c2]
+            
+            # Create Grid
+            self._size = (basin_cl.shape[1], basin_cl.shape[0])
+            self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+            geot = net._geot
+            ULx = geot[0] + geot[1] * c1
+            ULy = geot[3] + geot[5] * r1
+            self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
+            self._cellsize = (geot[1], geot[5])
+            self._proj = basingrid._proj
+            self._ncells = basin_cl.size
+            self._ncells = basin_cl.size
+            self._threshold = net._threshold
+            self._thetaref = net._thetaref
+            self._slp_npoints = net._slp_npoints
+            self._ksn_npoints = net._ksn_npoints
+            
+            # Get only points inside the basin
+            # The last receiver (ixc) will be outside of the basin
+            # This can give index problems. We will throw away the last point in arrays
+            basin_bool = basin.astype(np.bool).ravel()
+            I = basin_bool[net._ix]
+            self._ax = net._ax[I][:-1]
+            self._zx = net._zx[I][:-1]
+            self._dd = net._dd[I][:-1]
+            self._dx = net._dx[I][:-1]
+            self._chi = net._chi[I][:-1]
+            self._slp = net._slp[I][:-1]
+            self._ksn = net._ksn[I][:-1]
+            self._r2slp = net._r2slp[I][:-1]
+            self._r2ksn = net._r2ksn[I][:-1]
+            
+            # If Network object has less than 3 pixels, return an empty BNetwork
+            if self._ax.size < 3:
+                self._create_empty()
+                return
+            
+            # Get new indices for the new grid
+            ix = net._ix[I][:-1]
+            ixc = net._ixc[I][:-1]
+            # Givers (ix)
+            row, col = net.ind_2_cell(ix)
+            x, y = net.cell_2_xy(row, col)
+            newrow, newcol = self.xy_2_cell(x, y)
+            self._ix = self.cell_2_ind(newrow, newcol)
+            # Receivers (ixc)
+            row, col = net.ind_2_cell(ixc)
+            x, y = net.cell_2_xy(row, col)
+            newrow, newcol = self.xy_2_cell(x, y)
+            self._ixc = self.cell_2_ind(newrow, newcol)
+            self._heads = np.array([])
+           
+            if heads is not None:
+                # Sort heads if "id" field is present
+                if heads.shape[1] > 2:
+                    pos = np.argsort(heads[:, 2])
+                    heads = heads[pos]
+                
+                # Get heads inside the basin (taking into account nodata)
+                heads = heads[basingrid.is_inside(heads[:,0], heads[:,1], True)]
+                
+                # Snap heads to network heads
+                heads = self.snap_points(heads, "heads")                   
+
+                # Get indexes
+                row, col = self.xy_2_cell(heads[:,0], heads[:,1])
+                idx = self.cell_2_ind(row, col)
+                
+                # Remove duplicate heads if any
+                aux, pos = np.unique(idx, return_index=True)
+                pos.sort()
+                self._heads = idx[pos]
+                
+            if self._heads.size == 0:
+                heads = self.get_stream_poi("heads", "IND")
+                ixcix = np.zeros(self._ncells, np.int)
+                ixcix[self._ix] = np.arange(self._ix.size)
+                pos = np.argsort(-self._zx[ixcix[heads]])
+                self._heads = heads[pos][0:1] #Take only the first (highest) head as a list
+            
     def _load(self, path):
         """
         Loads a BNetwork instance saved in the disk.
@@ -1044,7 +1125,6 @@ class BNetwork(Network):
         ==========
            Path to the saved BNetwork object (*.net file)
         """
-#        try:
         # Call to the parent Network._load() function
         super()._load(path)
         
@@ -1058,8 +1138,6 @@ class BNetwork(Network):
         # If the file hasn't got a four line in the header (with the heads) is not a BNetwork file
         else:
             raise NetworkError("The selected file is not a BNetwork objetct")
-#        except:
-#            raise NetworkError("Error loading the BNetwork object")
             
     def save(self, path):
         """
@@ -1104,6 +1182,12 @@ class BNetwork(Network):
         # Save the network instance as numpy.ndarray in text format
         np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
     
+    def _create_empty(self):
+        super()._create_empty()
+        self._heads = np.array([0])
+    
+### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
+    
     def chi_plot(self, ax=None):
         """
         This function plot the Chi-elevation graphic for all the channels of the basin. 
@@ -1133,7 +1217,6 @@ class BNetwork(Network):
     def chi_analysis(self, draw=False):
         pass
 
-### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
     def get_main_channel(self):
         chcells = [self._heads[0]]
         ixcix = np.zeros(self._ncells, np.int)
@@ -1211,6 +1294,213 @@ class BNetwork(Network):
         
         return canales
      
+
+class Channel(PRaster):
+
+    def __init__(self, praster, chandata, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5):
+        """
+        Class that defines a channel (cells from head to mouth)
         
+        Parameters
+        ----------
+        praster : PRaster instance
+            PRaster object to copy internal properties.
+        chandata : numpy Array
+            Array of 10 columns wiht channel data. These columns are:
+                0 (ix)    >> Channel cells (ordered from head to mouth, in IND coordinates)
+                1 (ax)    >> Upstream draining area (in pixel units)
+                2 (dx)    >> Distance to mouth (distance from pixel to nearest outlet, NOT the channel mouth)
+                3 (zx)    >> Elevation
+                4 (chi)   >> Chi index
+                5 (slp)   >> Slope of the pixel, calculated by regression with a moving window of {npoints * 2 + 1} cells.
+                6 (ksn)   >> Ksn index of the pixel, calculated by regression with a moving window of {npoints * 2 + 1} cells.
+                7 (r2slp) >> R2 Coeficient of the slope regression
+                8 (r2ksn) >> R2 Coeficient of the ksn regression
+                9 (dd)    >> Distance between channel cell and flowing cell (giver-receirver distance)
+        thetaref : double, optional
+            The m/n reference coeficient. The default is 0.45.
+        chi0 : TYPE, optional
+            Chi value of the mouth cell. The default is 0.
+        slp_np : int, optional
+            Number of points for slope calculation. Slope will be calculated within a moving window 
+            of 2 * npoints + 1 . The default is 5.
+        ksn_np : int, optional
+            Number of points for ksn calculation. Ksn will be calculated within a moving window 
+            of 2 * npoints + 1 . The default is 5.
+
+        Returns
+        -------
+        Channel object
+        """
+       
+        # Initalize internal properties
+        self._size = praster._size
+        self._geot = praster._geot
+        self._proj = praster._proj
+        self._ix = chandata[:, 0].astype(np.int)
+        self._ax = chandata[:, 1]
+        self._dx = chandata[:, 2]
+        self._zx = chandata[:, 3]
+        self._chi = chandata[:, 4]
+        self._slp = chandata[:, 5]
+        self._ksn = chandata[:, 6]
+        self._R2slp = chandata[:, 7]
+        self._R2ksn = chandata[:, 8]
+        self._dd = chandata[:, 9]
+        self._thetaref = thetaref
+        self._chi0 = chi0
+        self._slp_npoints = slp_np
+        self._ksn_np = ksn_np
+        self._knickpoints = []
+        self._regressions = []
+    
+    def get_length(self):
+        """
+        Returns channel lenght
+        """
+        return self._dx[0] - self._dx[-1]
+    
+    def get_xy(self, head=True):
+        """
+        Returns channel coordiates (numpy.array with two columns, x and y)
+        """
+        row, col = self.ind_2_cell(self._ix)
+        x, y = self.cell_2_xy(row, col)
+        return np.array((x, y)).T
+    
+    def get_z(self, head=True, relative=False):
+        """
+        Returns channel elevations
+        
+        Parameters
+        ----------
+        head : boolean, optional
+            Returns elevations from head to mouth (True) or mouth to head (False). The default is True.
+        relative : boolean, optional
+            Returns relative elevations (True) or real elevations (True). The default is False.
+
+        Returns
+        -------
+        1D numpy array
+        """
+        zi = np.copy(self._zx)
+        
+        if relative:
+            zi = zi - zi[-1]
+        if not head:
+            zi = zi[::-1]
+        
+        return zi
+
+    def get_chi(self, head=True, relative=False):
+        """
+        Returns channel chi values
+        
+        Parameters
+        ----------
+        head : boolean, optional
+            Returns values from head to mouth (True) or mouth to head (False). The default is True.
+        relative : boolean, optional
+            Returns relative chi value (True) or real chi values (True). The default is False.
+
+        Returns
+        -------
+        1D numpy array
+        """
+        chi = np.copy(self._chi)
+        
+        if relative:
+            chi = chi - chi[-1]
+        if not head:
+            chi = chi[::-1]
+        
+        return chi
+      
+    def get_a(self, head=True, cells=True):
+        """
+        Returns channel area values (in cell units)
+        
+        Parameters
+        ----------
+        head : boolean, optional
+            Returns values from head to mouth (True) or mouth to head (False). The default is True.
+        cells : boolean, optional
+            Returns area values in cells (True), or in length units (False)
+
+        Returns
+        -------
+        1D numpy array
+        """
+        ai = np.copy(self._ax)
+        
+        if not cells:
+            ai = ai * self.get_cellsize()[0] * self.get_cellsize()[1] * -1
+        if not head:
+            ai = ai[::-1]
+
+        return ai    
+    
+    def get_slope(self, head=True):
+        """
+        Returns channel slope values
+        
+        Parameters
+        ----------
+        head : boolean, optional
+            Returns values from head to mouth (True) or mouth to head (False). The default is True.
+        
+        Returns
+        -------
+        1D numpy array
+        """
+        slp = np.copy(self._slp)
+        if not head:
+            slp = slp[::-1]
+        return slp
+            
+    def get_d(self, tohead=True, head=True):
+        """
+        Returns channel distante values
+        
+        Parameters
+        ----------
+        tohead : boolean, optional
+            Distance are computed from cell to head (True) or from cell to mouth (False)
+        head : boolean, optional
+            Returns distance values from head to mouth (True) or mouth to head (False). The default is True.
+        Returns
+        -------
+        1D numpy array
+        """
+        di = np.copy(self._dx)
+        if tohead:
+            di = self._dx[0] - di
+        else:
+            di = di - self._dx[-1]
+        
+        if not head:
+            di = di[::-1]
+        
+        return di
+
+    def get_ksn(self, head=True):
+        """
+        Returns ksn values
+        
+        Parameters
+        ----------
+        head : boolean, optional
+            Returns values from head to mouth (True) or mouth to head (False). The default is True.
+        
+        Returns
+        -------
+        1D numpy array
+        """
+        ksn = np.copy(self._ksn)
+        if not head:
+            ksn = ksn[::-1]
+            
+        return ksn
+
 class NetworkError(Exception):
     pass

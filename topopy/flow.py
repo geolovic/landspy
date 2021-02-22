@@ -55,12 +55,8 @@ class Flow(PRaster):
         
         if dem == "":
             # Creates an empty Flow object
-            self._size = (1, 1)
-            self._dims = (1, 1)
-            self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = (self._geot[1], self._geot[5])
-            self._proj = ""
-            self._ncells = 1
+            super().__init__()
+            # New elements for Flow object
             self._nodata_pos = np.array([], dtype=np.int32)
             self._ix = np.array([], dtype=np.uint32)
             self._ixc = np.array([], dtype=np.uint32)
@@ -74,14 +70,11 @@ class Flow(PRaster):
                 #raise FlowError("Error opening the Geotiff")
         else:
             try:
-                # Set Network properties
+                # Set Flow properties
                 self._size = dem.get_size()
-                self._dims = dem.get_dims()
                 self._geot = dem.get_geotransform()
-                self._cellsize = dem.get_cellsize()
                 self._proj = dem.get_projection()
-                self._ncells = dem.get_ncells()
-                self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self._dims)            
+                self._nodata_pos = np.ravel_multi_index(dem.get_nodata_pos(), self.get_dims())            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
                 if raw_z:
@@ -111,18 +104,18 @@ class Flow(PRaster):
         """
 
         driver = gdal.GetDriverByName("GTiff")
-        raster = driver.Create(path, self._dims[1], self._dims[0], 3, gdal.GDT_UInt32)
+        raster = driver.Create(path, self._size[0], self._size[1], 3, gdal.GDT_UInt32)
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
 
-        no_cells = self._ncells - len(self._ix)
+        no_cells = self.get_ncells() - len(self._ix)
         miss_cells = np.zeros(no_cells, np.uint32)
         ix = np.append(self._ix, miss_cells).astype(np.uint32)
         ixc = np.append(self._ixc, miss_cells).astype(np.uint32)
         zx = np.append(self._zx * 1000, miss_cells).astype(np.uint32)
-        ix = ix.reshape(self._dims)
-        ixc = ixc.reshape(self._dims)
-        zx = zx.reshape(self._dims)
+        ix = ix.reshape(self.get_dims())
+        ixc = ixc.reshape(self.get_dims())
+        zx = zx.reshape(self.get_dims())
 
         raster.GetRasterBand(1).WriteArray(ix)
         raster.GetRasterBand(2).WriteArray(ixc)
@@ -143,27 +136,26 @@ class Flow(PRaster):
 
         # Set Network properties        
         self._size = (raster.RasterXSize, raster.RasterYSize)
-        self._dims = (raster.RasterYSize, raster.RasterXSize)
         self._geot = raster.GetGeoTransform()
-        self._cellsize = (self._geot[1], self._geot[5])
         self._proj = raster.GetProjection()
-        self._ncells = raster.RasterYSize * raster.RasterXSize
+
+        ncells = self.get_ncells()
 
         # Load ix, ixc, zx
         banda = raster.GetRasterBand(1)
         no_cells = banda.GetNoDataValue()
         arr = banda.ReadAsArray().astype(np.uint32)
-        self._ix = arr.ravel()[0:int(self._ncells - no_cells)]
+        self._ix = arr.ravel()[0:int(ncells - no_cells)]
         banda = raster.GetRasterBand(2)
         arr = banda.ReadAsArray().astype(np.uint32)
-        self._ixc = arr.ravel()[0:int(self._ncells - no_cells)]
+        self._ixc = arr.ravel()[0:int(ncells - no_cells)]
         banda = raster.GetRasterBand(3)
         arr = banda.ReadAsArray().astype(np.float32)
-        self._zx = arr.ravel()[0:int(self._ncells - no_cells)]
+        self._zx = arr.ravel()[0:int(ncells - no_cells)]
         self._zx = self._zx / 1000
         
         # Get NoData positions
-        aux_arr = np.zeros(self._ncells, np.uint32)
+        aux_arr = np.zeros(ncells, np.uint32)
         aux_arr[self._ix] = 1
         aux_arr[self._ixc] = 1
         self._nodata_pos = np.where(aux_arr==0)[0]
@@ -196,22 +188,25 @@ class Flow(PRaster):
         method to solve the stream power equation governing fluvial incision and landscape 
         evolution. Geomorphology 180–181, 170–179. 
         """
+        dims = self.get_dims()
+        ncells = self.get_ncells()
+        
         if weights:
             facc = weights.read_array()
         else:
-            facc = np.ones(self._ncells, np.uint32)
+            facc = np.ones(ncells, np.uint32)
         
         nix = len(self._ix)
         for n in range(nix):
             facc[self._ixc[n]] += facc[self._ix[n]]
         
-        facc = facc.reshape(self._dims)
+        facc = facc.reshape(dims)
         if nodata:
             nodata_val = np.iinfo(np.uint32).max
         else:
             nodata_val = 0
         
-        row, col = np.unravel_index(self._nodata_pos, self._dims)
+        row, col = np.unravel_index(self._nodata_pos, dims)
         facc[row, col] = nodata_val
         
         # Get the output in form of a Grid object
@@ -268,13 +263,13 @@ class Flow(PRaster):
         ixc = self._ixc[I]
         
         # Recalculate grid channel cells
-        w = np.zeros(self._ncells, dtype=np.bool)
+        w = np.zeros(self.get_ncells(), dtype=np.bool)
         w[ix] = True
         w[ixc] = True
         
         # Build a sparse array with giver-receivers cells
         aux_vals = np.ones(ix.shape, dtype=np.int8)
-        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self._ncells, self._ncells))
+        sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self.get_ncells(), self.get_ncells()))
         
         # Get stream POI according the selected type
         if kind == 'heads':
@@ -290,7 +285,7 @@ class Flow(PRaster):
             sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
             out_pos = np.logical_and((sum_arr == 0), w)  
             
-        out_pos = out_pos.reshape(self._dims)
+        out_pos = out_pos.reshape(self.get_dims())
         row, col = np.where(out_pos)
         
         if coords=="CELL":
@@ -345,7 +340,7 @@ class Flow(PRaster):
         """
         # Sino especificamos outlets pero si área mínima, extraemos outlets con ese area mínima
         if outlets is None and min_area > 0:
-            threshold = int(self._ncells * min_area)
+            threshold = int(self.get_ncells() * min_area)
             inds = self.get_stream_poi(threshold, kind="outlets", coords="IND")
             basin_ids = np.arange(inds.size) + 1
         elif isinstance(outlets, np.ndarray):
@@ -371,7 +366,7 @@ class Flow(PRaster):
             temp_ix = self._ix
             temp_ixc = self._ixc
             nbasins = 0
-            basin_arr = np.zeros(self._ncells, np.int)
+            basin_arr = np.zeros(self.get_ncells(), np.int)
             nix = len(temp_ix)
             for n in range(nix-1,-1,-1):
                 # If receiver is zero, add a new basin
@@ -388,7 +383,7 @@ class Flow(PRaster):
             xi, yi = self.cell_2_xy(row, col)
             temp_ix = self._ix
             temp_ixc = self._ixc
-            basin_arr = np.zeros(self._ncells, np.int)
+            basin_arr = np.zeros(self.get_ncells(), np.int)
 
             # Change basin array outlets by the basin id (starting to 1)
             if inds.size == 1:
@@ -406,7 +401,7 @@ class Flow(PRaster):
                     basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
         
         # Reshape and return
-        basin_arr = basin_arr.reshape(self._dims)  
+        basin_arr = basin_arr.reshape(self.get_dims())  
         
         if asgrid:
             return self._create_output_grid(basin_arr, 0)
@@ -486,7 +481,7 @@ class Flow(PRaster):
         individual cells that do not receive any flow and at the same time flow to 
         Nodata cells are also considered NoData and excluded from analysis.      
         """
-        aux_arr = np.zeros(self._ncells)
+        aux_arr = np.zeros(self.get_ncells())
         aux_arr[self._ix] = 1
         aux_arr[self._ixc] = 1
         return np.where(aux_arr == 0)[0]

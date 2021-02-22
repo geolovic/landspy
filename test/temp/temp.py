@@ -5,13 +5,13 @@ Editor de Spyder
 Este es un archivo temporal
 """
 
-class A(object):     # deriving from 'object' declares A as a 'new-style-class'
-    def foo(self):
-        print("foo")
+from topopy import DEM, Flow, Network, BNetwork
 
-class B(A):
-    def foo(self):
-        super(B, self).foo()   # calls 'A.foo()'
+infolder = "/Users/vicen/Desktop/genil_profiler/gisdata"
 
-myB = B()
-myB.foo()
+dem = DEM(infolder + "/genil10.tif")
+fd = Flow(dem)
+fd.save(infolder + "/genil10_fd.tif")
+fac = fd.get_flow_accumulation()
+fac.save(infolder + "/genil10_fac.tif")
+

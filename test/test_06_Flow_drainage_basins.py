@@ -27,8 +27,8 @@ class DrainageBasinTest(unittest.TestCase):
             fd = Flow(flw_path)
             
             # Creamos 10 cuencas aleatorias 
-            ri = np.random.randint(0, fd._dims[0], 10)
-            ci = np.random.randint(0, fd._dims[1], 10)
+            ri = np.random.randint(0, fd.get_dims()[0], 10)
+            ci = np.random.randint(0, fd.get_dims()[1], 10)
             rdn_ids = np.random.randint(100, 700, 10)
             xi, yi = fd.cell_2_xy(ri, ci)
             # Extract basins
@@ -48,8 +48,8 @@ class DrainageBasinTest(unittest.TestCase):
             fd = Flow(flw_path)
             
             # Creamos 10 cuencas aleatorias con 10 ids aleatorios
-            ri = np.random.randint(0, fd._dims[0], 10)
-            ci = np.random.randint(0, fd._dims[1], 10)
+            ri = np.random.randint(0, fd.get_dims()[0], 10)
+            ci = np.random.randint(0, fd.get_dims()[1], 10)
             rdn_ids = np.random.randint(100, 700, 10)
             xi, yi = fd.cell_2_xy(ri, ci)
             # Extract basins

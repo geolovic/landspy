@@ -11,13 +11,13 @@ import unittest
 
 from test_00_PRaster import TestPRaster00, TestPRaster01
 from test_01_Grid import TestGrid01
-from test_02_DEM import DEMFillTest, DEMFlatTest
+from test_02_DEM import DEM_class, DEMFlatTest
 from test_02b_Basin import BasinClassTest
 
 suite1 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster00)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestPRaster01)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(TestGrid01)
-suite4 = unittest.TestLoader().loadTestsFromTestCase(DEMFillTest)
+suite4 = unittest.TestLoader().loadTestsFromTestCase(DEM_class)
 suite5 = unittest.TestLoader().loadTestsFromTestCase(DEMFlatTest)
 suite6 = unittest.TestLoader().loadTestsFromTestCase(BasinClassTest)
 

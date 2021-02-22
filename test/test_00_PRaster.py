@@ -55,7 +55,7 @@ class TestPRaster00(unittest.TestCase):
         geot = raster.get_geotransform()
         proj = raster.get_projection()
         computed = (size, dims, ncells, cellsize, geot, proj)
-        expected = ((1, 1), (1, 1), 1, (1.0, -1.0), (0., 1., 0., 0., 0., -1.), "")
+        expected = ((1, 1), (1, 1), 1, (1.0, -1.0), (0., 1., 0., 1., 0., -1.), "")
         self.assertEqual(computed, expected)
         
     def test_copy_layout(self):

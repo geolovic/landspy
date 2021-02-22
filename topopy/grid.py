@@ -23,9 +23,8 @@ from skimage.morphology import reconstruction
 try: 
     import matplotlib.pyplot as plt
     PLT = True
-except Exception as e:
+except:
     PLT = False
-
 
 NTYPES = {'int8': 3, 'int16': 3, 'int32': 5, 'int64': 5, 'uint8': 1, 'uint16': 2,
           'uint32': 4, 'uint64': 4, 'float16': 6, 'float32': 6, 'float64': 7}
@@ -41,19 +40,14 @@ class PRaster():
             
             banda = raster.GetRasterBand(1)
             self._size = (banda.XSize, banda.YSize)
-            self._dims = (banda.YSize, banda.XSize)
             self._geot = raster.GetGeoTransform()
-            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = raster.GetProjection()
-            self._ncells = banda.XSize * banda.YSize
         
         else:
             self._size = (1, 1)
-            self._dims = (1, 1)
-            self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = (self._geot[1], self._geot[5])
+            self._geot = (0., 1., 0., 1., 0., -1.)
             self._proj = ""
-            self._ncells = 1
+
 
     def get_size(self):
         """
@@ -65,13 +59,13 @@ class PRaster():
         """
         Return a tuple with the size of the internal array (nrow, ncol)
         """
-        return self._dims
+        return self._size[1], self._size[0]
     
     def get_ncells(self):
         """
         Return the total number of cells of the Grid
         """
-        return self._ncells
+        return self._size[0] * self._size[1]
     
     def get_projection(self):
         """
@@ -81,9 +75,10 @@ class PRaster():
     
     def get_cellsize(self):
         """
-        Return the grid cellsize
+        Return a tuple with (XCellsize, YCellsize). 
+        The YCellsize is a negative value
         """
-        return self._cellsize
+        return self._geot[1], self._geot[5]
     
     def get_geotransform(self):
         """
@@ -113,8 +108,8 @@ class PRaster():
         """
         
         row, col = self.xy_2_cell(x, y)
-        rowinside = np.logical_and(row >= 0, row < self._dims[0])
-        colinside = np.logical_and(col >= 0, col < self._dims[1])
+        rowinside = np.logical_and(row >= 0, row < self.get_dims()[0])
+        colinside = np.logical_and(col >= 0, col < self.get_dims()[1])
         inside = np.logical_and(rowinside, colinside)
         return inside
     
@@ -123,8 +118,8 @@ class PRaster():
         Returns a tuple (XMin, XMax, YMin, YMax) with the extension of the Grid
         """
         xmin = self._geot[0]
-        xmax = self._geot[0] + self._size[0] * self._cellsize[0]
-        ymin = self._geot[3] + self._size[1] * self._cellsize[1]
+        xmax = self._geot[0] + self._size[0] * self._geot[1]
+        ymin = self._geot[3] + self._size[1] * self._geot[5]
         ymax = self._geot[3]
         
         return (xmin, xmax, ymin, ymax)
@@ -139,11 +134,8 @@ class PRaster():
           PRaster instance from which parameters will be copied
         """
         self._size = grid.get_size()
-        self._dims = grid.get_dims()
         self._geot = grid.get_geotransform()
-        self._cellsize = grid.get_cellsize()
         self._proj = grid.get_projection()
-        self._ncells = grid.get_ncells()
 
     def xy_2_cell(self, x, y):
         """
@@ -178,6 +170,7 @@ class PRaster():
         **tuple** : Tuple with (x, y) coordinates as np.ndarrays
 
         """
+        
         row = np.array(row)
         col = np.array(col)
         x = self._geot[0] + self._geot[1] * col + self._geot[1] / 2
@@ -196,7 +189,7 @@ class PRaster():
         =======
         **tuple** : Tuple with (row, col) indices as numpy.ndarrays
         """
-        return np.unravel_index(ind, self._dims) 
+        return np.unravel_index(ind, self.get_dims()) 
     
     def cell_2_ind(self, row, col):
         """
@@ -211,8 +204,7 @@ class PRaster():
         =======
         **numpy.array** : Array with linear indexes (row-major, C-style)
         """
-        return np.ravel_multi_index((row, col), self._dims)
-    
+        return np.ravel_multi_index((row, col), self.get_dims())
     
 class Grid(PRaster):
         
@@ -235,23 +227,15 @@ class Grid(PRaster):
                         
             banda = raster.GetRasterBand(1)
             self._size = (banda.XSize, banda.YSize)
-            self._dims = (banda.YSize, banda.XSize)
             self._geot = raster.GetGeoTransform()
-            self._cellsize = (self._geot[1], self._geot[5])
             self._proj = raster.GetProjection()
-            self._ncells = banda.XSize * banda.YSize
             # New elements of Grid
             self._nodata = banda.GetNoDataValue()
             self._array = banda.ReadAsArray()
             self._tipo = str(self._array.dtype)
                   
         else:
-            self._size = (1, 1)
-            self._dims = (1, 1)
-            self._geot = (0., 1., 0., 0., 0., -1.)
-            self._cellsize = (self._geot[1], self._geot[5])
-            self._proj = ""
-            self._ncells = 1
+            super().__init__()
             # New elements of Grid
             self._nodata = None
             self._array = np.array([[0]], dtype=np.float)
@@ -270,12 +254,11 @@ class Grid(PRaster):
         """
         # If the Grid is an empty Grid, any array is valid
         if self._size == (1, 1):       
-            self._dims = array.shape
             self._size = (array.shape[1], array.shape[0])    
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
         # If the Grid is not an empty Grid, input array shape must coincide with internal array
-        elif array.shape == self._dims:    
+        elif array.shape == self.get_dims():    
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
         else:
@@ -362,10 +345,14 @@ class Grid(PRaster):
         """
         Sets the nodata value for the Grid
         """
+        # If nodata wasn't stabished, we set up the new value
         if self._nodata is None:
             self._nodata = value
+        # If value == None, we are removing nodata value
         elif value is None:
             self._nodata = None
+        # If grid had a nodata defined, we set up the new value
+        # And change old nodata values with the new value
         else:
             self._array[self.get_nodata_pos()] = value
             self._nodata = value
@@ -453,7 +440,17 @@ class Grid(PRaster):
             inside[pos] = in_nodata
         
         return inside
-        
+    
+    def copy(self):    
+        """
+        Returns a copy of the Grid
+        """
+        newgrid = Grid()
+        newgrid.copy_layout(self)
+        newgrid._array = np.copy(self._array)
+        newgrid._tipo = self._tipo
+        newgrid._nodata = self._nodata
+        return newgrid
     
     def save(self, path):
         """
@@ -491,6 +488,16 @@ class DEM(Grid):
         # Change NoData values to -9999.
         self.set_nodata(-9999.)
         
+    def copy(self):    
+        """
+        Returns a copy of the DEM
+        """
+        newgrid = DEM()
+        newgrid.copy_layout(self)
+        newgrid._array = np.copy(self._array)
+        newgrid._tipo = self._tipo
+        newgrid._nodata = self._nodata
+        return newgrid
         
     def identify_flats(self, nodata=True, as_array=False):
         """
@@ -603,10 +610,8 @@ class DEM(Grid):
             return filled
         else:
             # Return filled DEM as topopy.DEM
-            filled_dem = DEM()
-            filled_dem.copy_layout(self)
+            filled_dem = self.copy()
             filled_dem.set_array(filled)
-            filled_dem.set_nodata(self._nodata)
             return filled_dem
     
     def fill_sinks2(self, four_way=False):
@@ -682,7 +687,6 @@ class DEM(Grid):
         filled_dem.set_nodata(self._nodata)
         return filled_dem
 
- 
 class Basin(DEM):
 
     def __init__(self, dem, basin=None, idx=1):
@@ -740,7 +744,18 @@ class Basin(DEM):
         self._nodata = dem._nodata
         self._tipo = dem._tipo
         arr = np.where(basin_cl > 0, dem_cl, dem._nodata)
-        self._array = arr
+        self._array = arr.astype(dem._tipo)
+        
+    def copy(self):    
+        """
+        Returns a copy of the Basin
+        """
+        newgrid = Basin()
+        newgrid.copy_layout(self)
+        newgrid._array = np.copy(self._array)
+        newgrid._tipo = self._tipo
+        newgrid._nodata = self._nodata
+        return newgrid
 
 class GridError(Exception):
-    pass               
+    pass
