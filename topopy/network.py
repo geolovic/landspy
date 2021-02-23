@@ -375,16 +375,19 @@ class Network(PRaster):
                 else:
                     # Si ha sido procesada, es una confluencia 
                     processing = False
-                    if len(confs[mid_cell]) == 0:
-                        confs[mid_cell].append(gi[mid_cell])
-                        confs[mid_cell].append(g)
-                    else:
-                        confs[mid_cell].append(g)
+        #             if len(confs[mid_cell]) == 0:
+        #                 confs[mid_cell].append(gi[mid_cell])
+        #                 confs[mid_cell].append(g)
+        #             else:
+        #                 confs[mid_cell].append(g)
                         
-        # Calculamos valores medios en confluencias                
-        for cell in confs.keys():
-            if len(confs[cell]) > 0:
-                gi[cell] = np.mean(np.array(confs[cell]))
+        # # Calculamos valores medios en confluencias                
+        # for cell in confs.keys():
+        #     if len(confs[cell]) > 0:
+        #         gi[cell] = np.mean(np.array(confs[cell]))
+        
+        # Discard gradients near 0 (to improve graphic performance)
+        gi[np.where(gi < 0.001)] = 0.001
         
         # Llenamos array del objeto Network
         if kind == 'slp':
@@ -814,7 +817,7 @@ class Network(PRaster):
         if mouth is None:
             mouth = head
         
-        # Snap  head and mouth to channel cells
+        # Snap head and mouth to channel cells
         snap_points = self.snap_points(np.array((head, mouth)))
         row, col = self.xy_2_cell(snap_points[:,0], snap_points[:,1])
         idx = self.cell_2_ind(row, col)
@@ -826,27 +829,29 @@ class Network(PRaster):
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get channel cells
-        ch_cells = [head]
-        next_cell = head
+        chcells = [head]
+        next_cell = self._ixc[ixcix[head]]
         while ixcix[next_cell] != 0:
-            next_cell = self._ixc[ixcix[next_cell]]
-            ch_cells.append(next_cell)
+            chcells.append(next_cell)
             if next_cell == mouth:
                 break
+            next_cell = self._ixc[ixcix[next_cell]]
+
+        chcells = np.array(chcells)
+        auxarr = np.zeros(self.get_ncells()).astype(np.bool)
+        auxarr[chcells] = True
+        I = auxarr[self._ix]
+        ax = self._ax[I]
+        dx = self._dx[I]
+        zx = self._zx[I]
+        chi = self._chi[I]
+        slp = self._slp[I]
+        ksn = self._ksn[I]
+        r2_slp = self._r2slp[I]
+        r2_ksn = self._r2ksn[I]
+        dd = self._dd[I]
         
-        # Get chandata array
-        ax = self._ax[ixcix[ch_cells]]
-        dx = self._dx[ixcix[ch_cells]]
-        zx = self._zx[ixcix[ch_cells]]
-        chi = self._chi[ixcix[ch_cells]]
-        slp = self._slp[ixcix[ch_cells]]
-        ksn = self._ksn[ixcix[ch_cells]]
-        slp = self._slp[ixcix[ch_cells]]
-        r2_slp = self._r2slp[ixcix[ch_cells]]
-        r2_ksn = self._r2ksn[ixcix[ch_cells]]
-        dd = self._dd[ixcix[ch_cells]]
-        chandata = np.array([ch_cells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        
+        chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
         return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
         
     def get_chi_shapefile(self, out_shp, distance):
@@ -1278,7 +1283,7 @@ class BNetwork(Network):
             
             row, col = self.ind_2_cell(chcells)
             xi, yi = self.cell_2_xy(row, col)
-            auxarr = np.zeros(self._ncells).astype(np.bool)
+            auxarr = np.zeros(self.get_ncells()).astype(np.bool)
             auxarr[chcells] = True
             I = auxarr[self._ix]
             ai = self._ax[I]
@@ -1499,8 +1504,8 @@ class Channel(PRaster):
         ksn = np.copy(self._ksn)
         if not head:
             ksn = ksn[::-1]
-            
         return ksn
-
+            
+            
 class NetworkError(Exception):
     pass

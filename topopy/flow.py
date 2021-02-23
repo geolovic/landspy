@@ -21,7 +21,7 @@ from . import Grid, PRaster, DEM
 
 class Flow(PRaster):
     
-    def __init__(self, dem="", auxtopo=False, filled=False, raw_z=True, verbose=False, verb_func=print):
+    def __init__(self, dem="", auxtopo=False, filled=False, raw_z=False, verbose=False, verb_func=print):
         """
         Class that define a network object (topologically sorted giver-receiver cells)
         
