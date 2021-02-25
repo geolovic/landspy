@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 # Test longitudinal profile
 # Load profiles (TProfile)
 net = Network("../data/in/tunez_net.dat")
+net.calculate_gradients(20)
 shp_path = "../data/in/tunez_channels.shp"
 
 dataset = ogr.Open(shp_path)

@@ -1354,7 +1354,7 @@ class Channel(PRaster):
         self._dd = chandata[:, 9]
         self._thetaref = thetaref
         self._chi0 = chi0
-        self._slp_npoints = slp_np
+        self._slp_np = slp_np
         self._ksn_np = ksn_np
         self._knickpoints = []
         self._regressions = []
