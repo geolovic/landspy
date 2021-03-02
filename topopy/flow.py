@@ -132,17 +132,14 @@ class Flow(PRaster):
         path : *str* 
           Path for the Flow geotiff.
         """
-        raster = gdal.Open(path)
-
-        # Set Network properties        
-        self._size = (raster.RasterXSize, raster.RasterYSize)
-        self._geot = raster.GetGeoTransform()
-        self._proj = raster.GetProjection()
+        # Elements inherited from Grid.__init__
+        super().__init__(path)    
 
         ncells = self.get_ncells()
 
         # Load ix, ixc, zx
-        banda = raster.GetRasterBand(1)
+        raster = self._raster
+        banda = self._banda
         no_cells = banda.GetNoDataValue()
         arr = banda.ReadAsArray().astype(np.uint32)
         self._ix = arr.ravel()[0:int(ncells - no_cells)]
@@ -192,7 +189,24 @@ class Flow(PRaster):
         ncells = self.get_ncells()
         
         if weights:
-            facc = weights.read_array()
+            if self._geot == weights._geot and self._size == weights._size:
+                facc = weights.read_array().ravel().astype(np.float)
+
+                
+            elif weights.is_inside(self.get_extent()[0],self.get_extent()[2]) and weights.is_inside(self.get_extent()[1],self.get_extent()[3]):
+                print ("RESAMPLING. The Weight Grid does not have the same characteristics as the Input Dem." )
+                ix_ixc = np.append(self._ix,self._ixc)
+                ix_ixc = np.array(list(set(ix_ixc)), np.uint32)
+                facc = np.zeros(self._ncells, np.uint32)
+                for n in ix_ixc:
+                    row, col = self.ind_2_cell(n)
+                    x, y = self.cell_2_xy(row, col)
+                    Wcell = weights.xy_2_cell(x, y)
+                    value = weights.get_value(Wcell[0], Wcell[1])
+                    facc[n] = value
+            else:
+                raise FlowError("ERROR. DEM is not within the Weight Grid! ")
+        
         else:
             facc = np.ones(ncells, np.uint32)
         
@@ -248,12 +262,7 @@ class Flow(PRaster):
         MATLAB-based software for topographic analysis and modeling in Earth 
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
-        # Check input parameters
-        if kind not in ['heads', 'confluences', 'outlets']:
-            kind = 'heads'
-        if coords not in ['CELL', 'XY', 'IND']:
-            coords = 'CELL'
-        
+
         # Get drainage network using the given threshold
         fac = self.get_flow_accumulation(nodata=False, asgrid=False)
         w = fac > threshold
@@ -272,30 +281,29 @@ class Flow(PRaster):
         sp_arr = csc_matrix((aux_vals, (ix, ixc)), shape=(self.get_ncells(), self.get_ncells()))
         
         # Get stream POI according the selected type
-        if kind == 'heads':
-            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-            out_pos = (sum_arr == 0) & w
-        elif kind == 'confluences':
+        if kind == 'confluences':
             # Confluences will be channel cells with two or givers
             sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
             out_pos = sum_arr > 1
         elif kind == 'outlets':
             # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
             sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-            out_pos = np.logical_and((sum_arr == 0), w)  
+            out_pos = np.logical_and((sum_arr == 0), w)
+        else:
+            # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+            sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+            out_pos = (sum_arr == 0) & w
             
         out_pos = out_pos.reshape(self.get_dims())
         row, col = np.where(out_pos)
         
-        if coords=="CELL":
-            return np.array((row, col)).T
-        elif coords=="XY":
+        if coords=="XY":
             xi, yi = self.cell_2_xy(row, col)
             return np.array((xi, yi)).T
         elif coords=="IND":
             return self.cell_2_ind(row, col)
-
+        else:
+            return np.array((row, col)).T
 
     def get_drainage_basins(self, outlets=None, min_area = 0.005, asgrid=True):
         """
@@ -426,8 +434,6 @@ class Flow(PRaster):
         numpy.ndarray
           Numpy ndarray with two columns [xi, yi] with the snap points
         """
-        if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
-            kind = 'channel'
         
         # Extract a numpy array with the coordinate to snap the points
         if kind in ['heads', 'confluences', 'outlets']:
