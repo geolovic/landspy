@@ -34,11 +34,13 @@ class PRaster():
     def __init__(self, path=""):
         
         if path:
-            raster = gdal.Open(path)
+            self._raster = gdal.Open(path)
+            raster = self._raster
             if not raster:
                 raise FileNotFoundError
             
-            banda = raster.GetRasterBand(1)
+            self._banda = raster.GetRasterBand(1)
+            banda = self._banda
             self._size = (banda.XSize, banda.YSize)
             self._geot = raster.GetGeoTransform()
             self._proj = raster.GetProjection()
@@ -59,7 +61,7 @@ class PRaster():
         """
         Return a tuple with the size of the internal array (nrow, ncol)
         """
-        return self._size[1], self._size[0]
+        return self._size[::-1]
     
     def get_ncells(self):
         """
@@ -108,8 +110,8 @@ class PRaster():
         """
         
         row, col = self.xy_2_cell(x, y)
-        rowinside = np.logical_and(row >= 0, row < self.get_dims()[0])
-        colinside = np.logical_and(col >= 0, col < self.get_dims()[1])
+        rowinside = np.logical_and(row >= 0, row < self._size[1])
+        colinside = np.logical_and(col >= 0, col < self._size[0])
         inside = np.logical_and(rowinside, colinside)
         return inside
     
@@ -219,24 +221,18 @@ class Grid(PRaster):
         band : int
           Raster band to be open (usually don't need to be modified)
         """
-        
-        if path:
-            raster = gdal.Open(path)
-            if not raster:
-                raise FileNotFoundError
-                        
-            banda = raster.GetRasterBand(1)
-            self._size = (banda.XSize, banda.YSize)
-            self._geot = raster.GetGeoTransform()
-            self._proj = raster.GetProjection()
-            # New elements of Grid
+    
+        # Elements inherited from PRaster.__init__
+        super().__init__(path)
+
+        # New elements of Grid        
+        if path: 
+            banda = self._banda
             self._nodata = banda.GetNoDataValue()
             self._array = banda.ReadAsArray()
             self._tipo = str(self._array.dtype)
                   
         else:
-            super().__init__()
-            # New elements of Grid
             self._nodata = None
             self._array = np.array([[0]], dtype=np.float)
             self._tipo = str(self._array.dtype)
@@ -254,7 +250,7 @@ class Grid(PRaster):
         """
         # If the Grid is an empty Grid, any array is valid
         if self._size == (1, 1):       
-            self._size = (array.shape[1], array.shape[0])    
+            self._size = (array.shape[::-1])    
             self._array = np.copy(array)
             self._tipo = str(self._array.dtype)
         # If the Grid is not an empty Grid, input array shape must coincide with internal array
@@ -362,7 +358,7 @@ class Grid(PRaster):
         Return the positions of the NoData values as a tuple of two arrays (rows, columns)
         """
         if self._nodata is None:
-            return (np.array([], dtype=np.int), np.array([], dtype=np.int))
+            return (np.array([], np.int), np.array([], np.int))
         else:
             return np.where(self._array == self._nodata)
         
@@ -484,11 +480,11 @@ class DEM(Grid):
     def __init__(self, path="", band=1):
         
         # Call to Grid.__init__ method
-        super(DEM, self).__init__(path=path, band=band)
+        super().__init__(path, band)
         # Change NoData values to -9999.
         self.set_nodata(-9999.)
         
-    def copy(self):    
+    def copy(self):
         """
         Returns a copy of the DEM
         """
@@ -544,10 +540,7 @@ class DEM(Grid):
         flats = ndimage.morphology.grey_erosion(z_arr, footprint=footprint) == z_arr
         
         # Remove flats from the borders
-        flats[:,0] = False
-        flats[:,-1] = False
-        flats[0,:] = False
-        flats[-1,:] = False
+        flats[0,:] = flats[-1,:] = flats[:,0] = flats[:,-1] = False
         
         # Remove flats for nodata values and cells bordering them
         flats[nodata_ids] = False
@@ -601,7 +594,7 @@ class DEM(Grid):
 
         # Fill the DEM        
         nodata_pos = self.get_nodata_pos()
-        filled = reconstruction(seed, self._array, method='erosion')
+        filled = reconstruction(seed, self._array, 'erosion')
         filled = filled.astype(self._array.dtype)
         filled[nodata_pos] = self._nodata
         
@@ -652,9 +645,7 @@ class DEM(Grid):
     
         # Build mask of cells with data not on the edge of the image
         # Use 3x3 square Structuring element
-        inside_mask = ndimage.morphology.binary_erosion(
-            np.isfinite(copyarr),
-            structure=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool))
+        inside_mask = ndimage.morphology.binary_erosion(np.isfinite(copyarr),np.ones((3,3), bool))
     
         # Initialize output array as max value test_array except edges
         output_array = np.copy(copyarr)
@@ -666,9 +657,9 @@ class DEM(Grid):
     
         # Cross structuring element
         if four_way:
-            el = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]).astype(np.bool)
+            el = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], bool)
         else:
-            el = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(np.bool)
+            el = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]], bool)
     
         # Iterate until marker array doesn't change
         while not np.array_equal(output_old_array, output_array):
@@ -706,7 +697,7 @@ class Basin(DEM):
         # If basin is None, the DEM is already a basin and we load it
         if basin is None:
             # Call to DEM.__init__ method
-            super(Basin, self).__init__(path=dem, band=1)
+            super().__init__(dem)
             # Change NoData values to -9999.
             self.set_nodata(-9999.)
             return
