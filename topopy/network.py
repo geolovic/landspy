@@ -127,7 +127,7 @@ class Network(PRaster):
         super().__init__()
         # Set remaining properties
         self._ix =  np.array([0])
-        self._ixc = np.array([0])  
+        self._ixc = np.array([0])
         self._ax = np.array([1])
         self._dx = np.array([0])
         self._zx = np.array([0])
@@ -243,7 +243,30 @@ class Network(PRaster):
             chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)            
         self._chi = chi[self._ix]
         self._thetaref = thetaref
-      
+   
+    
+    ### Esta es la función para reducir el código, no lo he implementado porque
+    ### si la pongo fuera de "calculate_gradients", en esta versión del código
+    ### genera un error dentro de "processing". En cambio si la pongo dentro de
+    ### la función no da error. 
+    def polynomial_fit(self, x, y):
+        '''Calculate gradient and R2''' 
+       
+        # Calculate slope of central cell by regression 
+        poli, SCR = np.polyfit(x, y, deg = 1, full = True)[:2]
+        # Calculate gradient
+        g = poli[0]
+        if g < 0.001: 
+            g = 0.001
+    
+        # Calculate R2 
+        if y.size * y.var() == 0:
+            R2 = 1 # Puntos colineares
+        else:
+            R2 = float(1 - SCR/(y.size * y.var()))
+    
+            return (g, R2)  
+    
     def calculate_gradients(self, npoints, kind='slp'):
         """
         This function calculates gradients (slope or ksn) for all channel cells. 
@@ -258,17 +281,15 @@ class Network(PRaster):
           
         kind : *str* {'slp', 'ksn'}
         """
-        if kind not in ['slp', 'ksn']:
-            kind = 'slp'
+
         winlen = npoints * 2 + 1
         
         # Get arrays depending on type
-        if kind == 'slp':
-            x_arr = self._dx
-            y_arr = self._zx
-        elif kind == 'ksn':
+        y_arr = self._zx
+        if kind == 'ksn':
             x_arr = self._chi
-            y_arr = self._zx
+        else:
+            x_arr = self._dx
             
         # Get ixcix auxiliar array
         ixcix = np.zeros(self.get_ncells(), np.int)
@@ -276,7 +297,7 @@ class Network(PRaster):
         
         # Get heads array and confluences dictionary
         heads = self.get_stream_poi("heads", "IND")
-        confs = {conf:[] for conf in self.get_stream_poi("confluences", "IND")}
+        #confs = {conf:[] for conf in self.get_stream_poi("confluences", "IND")}
         
         # Sort heads by elevation
         elev = self._zx[ixcix[heads]]
@@ -293,40 +314,38 @@ class Network(PRaster):
             head_cell = head
             mid_cell = self._ixc[ixcix[head_cell]]
             mouth_cell = self._ixc[ixcix[mid_cell]]
-        
-            if ixcix[mid_cell] == 0:
-                # Channel type 2 (mid_cell is an outlet)
+            win = [mouth_cell, mid_cell, head_cell]
+            
+            if ixcix[mid_cell] == 0 or gi[mid_cell] != 0:
+                # Channel type 2 (mid_cell is an outlet) or mid_call is already calculated
                 continue
+            
             elif ixcix[mouth_cell]== 0:
                 # Channel type 3 (mouth_cell is an outlet)
                 processing = False
-            # Check si cabecera es una confluencia de solo dos celdas
-            elif gi[mid_cell] != 0:
-                processing = False
+                
+                # Obtenemos datos de elevacion y distancias
+                xi = x_arr[ixcix[win]]
+                yi = y_arr[ixcix[win]]
+               
+                # Calculamos pendiente de celda central por regresion
+                poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
+                g = poli[0]
+                if g == 0: 
+                    g = 0.000001
             
-            # Obtenemos datos de elevacion y distancias
-            win = [mouth_cell, mid_cell, head_cell]
-            xi = x_arr[ixcix[win]]
-            yi = y_arr[ixcix[win]]
-           
-            # Calculamos pendiente de celda central por regresion
-            poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
-            g = poli[0]
-            if g == 0: 
-                g = 0.000001
-        
-            # Calculamos gradient y R2
-            if yi.size * yi.var() == 0:
-                R2 = 1 # Puntos colineares
-            else:
-                R2 = float(1 - SCR/(yi.size * yi.var()))
-        
-            gi[mid_cell] = g
-            r2[mid_cell] = R2
+                # Calculamos gradient y R2
+                if yi.size * yi.var() == 0:
+                    R2 = 1 # Puntos colineares
+                else:
+                    R2 = float(1 - SCR/(yi.size * yi.var()))
+            
+                gi[mid_cell] = g
+                r2[mid_cell] = R2
                     
             while processing:
                 # Verificamos si estamos al final (en un outlet)  
-                if not ixcix[mouth_cell]==0:
+                if ixcix[mouth_cell]!=0:
                     # Si mouth_cell no es un outlet, cogemos siguiente celda
                     next_cell = self._ixc[ixcix[mouth_cell]]
                     # Si la siguiente celda es el final, 
@@ -398,6 +417,60 @@ class Network(PRaster):
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
             self._ksn_npoints = npoints
+
+    def hierarchy_channels(self, heads="", asgrid=True):
+        """
+        This function classifies channels into major and minor. By default this
+        order is calculated according to the height of the heads. 
+        
+        Parameters
+        ----------
+        heads : *list*
+            List with indices of the heads of the channels arranged according 
+            to the hierarchy of the channels.
+            
+        asgrid : *bool*
+          Indicates if the function is returned as topopy.Grid (True) or as a 
+          numpy.array (False)
+          
+        """
+        
+        tier=0
+        # Prepare auxiliary arrays
+        ladder = np.zeros(self.get_ncells())
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self.get_ncells(), np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)   
+        
+        if heads == "":
+            # Sort heads by elevation
+            heads = self.get_stream_poi("heads", "IND")
+            elev = self._zx[ixcix[heads]]
+            spos = np.argsort(-elev)
+            heads = heads[spos]
+        
+        # Taking sequentally all the heads and compute downstream flow
+        for head in heads:
+            tier+=1
+            processing = True
+            ladder[head]=tier
+            head_cell = head
+            next_cell = self._ixc[ixcix[head_cell]]
+            
+            while processing:
+                if ladder[next_cell] > 0 or ixcix[next_cell] == 0:
+                    processing = False
+                    continue
+                ladder[next_cell]=tier
+                next_cell = self._ixc[ixcix[next_cell]]
+                
+        ladder = ladder.reshape(self.get_dims())
+        
+        # Return grid
+        if asgrid:
+            return self._create_output_grid(ladder, 0)
+        else:
+            return ladder
         
     def get_stream_poi(self, kind="heads", coords="CELL"):
             """
@@ -428,11 +501,6 @@ class Network(PRaster):
             MATLAB-based software for topographic analysis and modeling in Earth 
             surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
             """
-            # Check input parameters
-            if kind not in ['heads', 'confluences', 'outlets']:
-                kind = 'heads'
-            if coords not in ['CELL', 'XY', 'IND']:
-                coords = 'CELL'
 
             # Get grid channel cells
             w = np.zeros(self.get_ncells(), dtype=np.bool)
@@ -444,11 +512,7 @@ class Network(PRaster):
             sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self.get_ncells(), self.get_ncells()))
             
             # Get stream POI according the selected type
-            if kind == 'heads':
-                # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-                out_pos = (sum_arr == 0) & w
-            elif kind == 'confluences':
+            if kind == 'confluences':
                 # Confluences will be channel cells with two or givers
                 sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
                 out_pos = sum_arr > 1
@@ -456,17 +520,21 @@ class Network(PRaster):
                 # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
                 sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
                 out_pos = np.logical_and((sum_arr == 0), w)  
+            else:
+                # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
+                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
+                out_pos = (sum_arr == 0) & w
                 
             out_pos = out_pos.reshape(self.get_dims())
             row, col = np.where(out_pos)
             
-            if coords=="CELL":
-                return np.array((row, col)).T
-            elif coords=="XY":
+            if coords=="XY":
                 xi, yi = self.cell_2_xy(row, col)
                 return np.array((xi, yi)).T
             elif coords=="IND":
                 return self.cell_2_ind(row, col)
+            else:
+                return np.array((row, col)).T
 
     def snap_points(self, input_points, kind="channel"):
         """
@@ -474,7 +542,7 @@ class Network(PRaster):
         
         Parameters:
         ===========
-        array : *numpy.ndarray*
+        input_points : *numpy.ndarray*
           Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
             Kind of point to snap input points
@@ -484,8 +552,6 @@ class Network(PRaster):
         numpy.ndarray
           Numpy ndarray with two columns [xi, yi] with the snap points
         """
-        if kind not in  ['channel', 'heads', 'confluences', 'outlets']:
-            kind = 'channel'
         
         # Extract a numpy array with the coordinate to snap the points
         if kind in ['heads', 'confluences', 'outlets']:
@@ -1505,7 +1571,7 @@ class Channel(PRaster):
         if not head:
             ksn = ksn[::-1]
         return ksn
-            
+          
             
 class NetworkError(Exception):
     pass
