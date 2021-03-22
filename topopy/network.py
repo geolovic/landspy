@@ -265,7 +265,7 @@ class Network(PRaster):
         else:
             R2 = float(1 - SCR/(y.size * y.var()))
     
-            return (g, R2)  
+        return (g, R2)  
     
     def calculate_gradients(self, npoints, kind='slp'):
         """
@@ -324,24 +324,14 @@ class Network(PRaster):
                 # Channel type 3 (mouth_cell is an outlet)
                 processing = False
                 
-                # Obtenemos datos de elevacion y distancias
-                xi = x_arr[ixcix[win]]
-                yi = y_arr[ixcix[win]]
-               
-                # Calculamos pendiente de celda central por regresion
-                poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
-                g = poli[0]
-                if g == 0: 
-                    g = 0.000001
-            
-                # Calculamos gradient y R2
-                if yi.size * yi.var() == 0:
-                    R2 = 1 # Puntos colineares
-                else:
-                    R2 = float(1 - SCR/(yi.size * yi.var()))
-            
-                gi[mid_cell] = g
-                r2[mid_cell] = R2
+            # Obtenemos datos de elevacion y distancias
+            xi = x_arr[ixcix[win]]
+            yi = y_arr[ixcix[win]]
+           
+            g, R2 = self.polynomial_fit(xi, yi)
+        
+            gi[mid_cell] = g
+            r2[mid_cell] = R2
                     
             while processing:
                 # Verificamos si estamos al final (en un outlet)  
@@ -377,15 +367,8 @@ class Network(PRaster):
                 # Obtenemos datos de elevacion y distancias para calcular pendientes
                 xi = x_arr[ixcix[win]]
                 yi = y_arr[ixcix[win]]
-                poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
-                g = poli[0]
-                if g == 0: 
-                    g = 0.000001
                 
-                if yi.size * yi.var() == 0:
-                    R2 = 1
-                else:
-                    R2 = float(1 - SCR/(yi.size * yi.var()))
+                g, R2 = self.polynomial_fit(xi, yi)
                             
                 # Comprobamos si celda central ha sido procesada
                 if gi[mid_cell] == 0:
@@ -405,18 +388,17 @@ class Network(PRaster):
         #     if len(confs[cell]) > 0:
         #         gi[cell] = np.mean(np.array(confs[cell]))
         
-        # Discard gradients near 0 (to improve graphic performance)
-        gi[np.where(gi < 0.001)] = 0.001
+
         
         # Llenamos array del objeto Network
-        if kind == 'slp':
-            self._slp = gi[self._ix]
-            self._r2slp = r2[self._ix]
-            self._slp_npoints = npoints
-        elif kind == 'ksn':
+        if kind == 'ksn':
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
             self._ksn_npoints = npoints
+        else:
+            self._slp = gi[self._ix]
+            self._r2slp = r2[self._ix]
+            self._slp_npoints = npoints
 
     def hierarchy_channels(self, heads="", asgrid=True):
         """
