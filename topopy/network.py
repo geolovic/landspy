@@ -244,11 +244,6 @@ class Network(PRaster):
         self._chi = chi[self._ix]
         self._thetaref = thetaref
    
-    
-    ### Esta es la función para reducir el código, no lo he implementado porque
-    ### si la pongo fuera de "calculate_gradients", en esta versión del código
-    ### genera un error dentro de "processing". En cambio si la pongo dentro de
-    ### la función no da error. 
     def polynomial_fit(self, x, y):
         '''Calculate gradient and R2''' 
        

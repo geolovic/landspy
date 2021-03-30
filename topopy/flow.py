@@ -193,11 +193,11 @@ class Flow(PRaster):
                 facc = weights.read_array().ravel().astype(np.float)
 
                 
-            elif weights.is_inside(self.get_extent()[0],self.get_extent()[2]) and weights.is_inside(self.get_extent()[1],self.get_extent()[3]):
+            elif weights.is_inside(self.get_extent()[0],self.get_extent()[2],False) and weights.is_inside(self.get_extent()[1],self.get_extent()[3], False):
                 print ("RESAMPLING. The Weight Grid does not have the same characteristics as the Input Dem." )
                 ix_ixc = np.append(self._ix,self._ixc)
                 ix_ixc = np.array(list(set(ix_ixc)), np.uint32)
-                facc = np.zeros(self._ncells, np.uint32)
+                facc = np.zeros(self.get_ncells(), np.uint32)
                 for n in ix_ixc:
                     row, col = self.ind_2_cell(n)
                     x, y = self.cell_2_xy(row, col)
