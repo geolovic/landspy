@@ -1401,7 +1401,96 @@ class Channel(PRaster):
         self._ksn_np = ksn_np
         self._knickpoints = []
         self._regressions = []
+        
+    def save(self, path):
+        """
+        Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
+        The first three lines will have the information of the raster:
+            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
+            Line2::   thetaref; threshold; slp_np; ksn_np
+            Line3::   String with the projection (WKT format)
+        xsize, ysize >> Dimensions of the raster
+        cx, cy >> Cellsizes in X and Y
+        Tx, Ty >> Rotation factors (for geotransformation matrix)
+        ULx, ULy >> X and Y coordinates of the corner of the upper left pixel of the raster
+        thetaref >>  m/n coeficient to calculate chi values in each channel cell
+        threshold >> Number the cells to initiate a channel
+        slp_np, ksn_np >> Number of points to calculate ksn and slope by regression. Window of {npoints * 2 + 1}
+        
+        Parameters:
+        ===========
+        path : *str*
+          Path to save the network object with *.dat extension (it is not necessary to  give the extension)
+        """
     
+        # In case the extension is wrong or path has not extension
+        path = os.path.splitext(path)[0] + ".dat"
+        
+        # Create header with properties
+        params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
+                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
+        header = ";".join([str(param) for param in params]) + "\n"  
+        params = [self._thetaref, self._chi0, self._slp_np, self._ksn_np]
+        header += ";".join([str(param) for param in params]) + "\n" 
+        header += str(self._proj) + "\n" 
+        header += str(self._knickpoints) + "\n" 
+        header += str(self._regressions)
+        # Create data array
+        data_arr = np.array((self._ix, self._ax, self._dx, self._zx,
+                             self._chi, self._slp, self._ksn, self._R2slp, 
+                             self._R2ksn, self._dd)).T
+        #, self._knickpoints, self._regressions
+        # Save the network instance as numpy.ndarray in text format
+        np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
+        
+    def _load(self, path):
+        """
+        Loads a Network instance saved in the disk.
+        
+        Parameter:
+        ==========
+           Path to the saved network object
+        """
+        # Open the file as normal text file to get its properties
+        fr = open(path, "r")
+        # Line 1: First and last characters will be "#" and "\n"
+        linea = fr.readline()[1:-1]
+        data = linea.split(";")
+        self._size = (int(data[0]), int(data[1]))
+        self._geot = (float(data[4]), float(data[2]), float(data[6]), 
+                      float(data[5]), float(data[7]), float(data[3]))       
+        # Line2: First and last characters will be "#" and "\n"
+        linea = fr.readline()[1:-1]
+        data = linea.split(";")
+        self._thetaref = float(data[0])
+        self._chi0 = float(data[1])
+        self._slp_np = int(data[2])
+        self._ksn_np = int(data[3])
+        # Line3: First and last characters will be "#" and "\n"
+        linea = fr.readline()[1:-1]
+        self._proj = linea
+        linea = fr.readline()[1:-1]
+        self._knickpoints = linea
+        linea = fr.readline()[1:-1]
+        self._regressions = linea
+        fr.close()
+        
+        # Load array data
+        data_arr = np.loadtxt(path, dtype=float, comments='#', delimiter=";", encoding="utf8")
+        # Fix to avoid errors in networks with only one cell...
+        if data_arr.ndim < 2:
+            data_arr = data_arr.reshape((1, data_arr.size))
+        self._ix = data_arr[:, 0].astype(np.int)
+        self._ax = data_arr[:, 1]
+        self._dx = data_arr[:, 2]
+        self._zx = data_arr[:, 3]
+        self._chi = data_arr[:, 4]
+        self._slp = data_arr[:, 5]
+        self._ksn = data_arr[:, 6]
+        self._R2slp = data_arr[:, 7]
+        self._R2ksn = data_arr[:, 8]
+        self._dd = data_arr[:, 9]
+
     def get_length(self):
         """
         Returns channel lenght
