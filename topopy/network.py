@@ -688,16 +688,19 @@ class Network(PRaster):
         dataset = driver.CreateDataSource(path)
         sp = osr.SpatialReference()
         sp.ImportFromWkt(self._proj)
-        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
+        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString25D)
         layer.CreateField(ogr.FieldDefn("segid", ogr.OFTInteger))
-        layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn("strahler", ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn("shreeve", ogr.OFTInteger)) 
         layer.CreateField(ogr.FieldDefn("flowto", ogr.OFTInteger))
         
         # Get channel segments and orders
         ch_seg = self.get_stream_segments(False).ravel()
-        ch_ord = self.get_stream_orders(asgrid=False).ravel()
+        ch_stra = self.get_stream_orders(asgrid=False).ravel()
+        ch_shre = self.get_stream_orders(kind='shreeve', asgrid=False).ravel()  
         ch_seg = ch_seg[self._ix]
-        ch_ord = ch_ord[self._ix]
+        ch_stra = ch_stra[self._ix]
+        ch_shre = ch_shre[self._ix]  
         
         # Get ixcix auxiliar array
         ixcix = np.zeros(self.get_ncells(), np.int)
@@ -719,7 +722,8 @@ class Network(PRaster):
             first = ch_ix[0]
             
             # Get segment order and receiver segment
-            order = ch_ord[ixcix[first]]
+            stra = ch_stra[ixcix[first]]
+            shre = ch_shre[ixcix[first]]
             if ixcix[last] == 0:
                 flowto = idx
             else:
@@ -728,15 +732,18 @@ class Network(PRaster):
             # Add feature
             feat = ogr.Feature(layer.GetLayerDefn())
             feat.SetField("segid", int(idx))
-            feat.SetField("order", int(order))
+            feat.SetField("strahler", int(stra))
+            feat.SetField("shreeve", int(shre))
             feat.SetField("flowto", int(flowto))
             row, col = self.ind_2_cell(ch_ix)
             xi, yi = self.cell_2_xy(row, col)
+            pos = ixcix[ch_ix]
+            zi = self._zx[pos]
             
-            geom = ogr.Geometry(ogr.wkbLineString)
+            geom = ogr.Geometry(ogr.wkbLineString25D)
             
             for n in range(xi.size):
-                geom.AddPoint(xi[n], yi[n])
+                geom.AddPoint(xi[n], yi[n], zi[n])
                 
             feat.SetGeometry(geom)
             layer.CreateFeature(feat)
@@ -756,7 +763,7 @@ class Network(PRaster):
         dataset = driver.CreateDataSource(path)
         sp = osr.SpatialReference()
         sp.ImportFromWkt(self._proj)
-        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
+        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString25D)
         layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
         
         # Get ixcix auxiliar array
@@ -804,9 +811,12 @@ class Network(PRaster):
             feat = ogr.Feature(layer.GetLayerDefn())
             row, col = self.ind_2_cell(river_data)
             xi, yi = self.cell_2_xy(row, col)
-            geom = ogr.Geometry(ogr.wkbLineString)
+            pos = ixcix[river_data]
+            zi = self._zx[pos]            
+            
+            geom = ogr.Geometry(ogr.wkbLineString25D)
             for n in range(xi.size):
-                geom.AddPoint(xi[n], yi[n])
+                geom.AddPoint(xi[n], yi[n], zi[n])
                 
             feat.SetGeometry(geom)
             chanorder = ch_ord[cell]
@@ -925,7 +935,7 @@ class Network(PRaster):
         dataset = driver.CreateDataSource(out_shp)
         sp = osr.SpatialReference()
         sp.ImportFromWkt(self._proj)
-        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString)
+        layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString25D)
         
         # Add fields
         campos = ["id_profile", "L", "area_e6", "z", "chi", "ksn", "rksn", "slope", "rslope"]
@@ -978,6 +988,7 @@ class Network(PRaster):
                     row, col = self.ind_2_cell(segment_cells)
                     xi, yi = self.cell_2_xy(row, col)
                     pos = ixcix[segment_cells][::-1]
+                    zi = self._zx[pos[::-1]]
                     mouth_cell = ixcix[segment_cells[-1]]
                     mid_cell = ixcix[segment_cells[int(len(segment_cells)/2)]]
                     dx = self._dx[pos]
@@ -1021,9 +1032,9 @@ class Network(PRaster):
                     feat.SetField("rslope", float(rslope))
                     
                     # Create geometry
-                    geom = ogr.Geometry(ogr.wkbLineString)
+                    geom = ogr.Geometry(ogr.wkbLineString25D)
                     for n in range(xi.size):
-                        geom.AddPoint(xi[n], yi[n])
+                        geom.AddPoint(xi[n], yi[n], zi[n])
                     feat.SetGeometry(geom)
                     # Add segment feature to the shapefile
                     layer.CreateFeature(feat)
@@ -1256,7 +1267,7 @@ class BNetwork(Network):
         ax.plot(self._chi, self._zx, color="0.75", ls="None", marker=".", ms=1)
         ax.plot(main_ch[:, 5], main_ch[:, 2], ls="-", c="0.3", lw=1)
         ax.set_xlim(xmin=0)
-        ax.set_ylim(ymin=0)
+        ax.set_ylim(ymin=min(self._zx))
         
         ax.set_xlabel("Chi [m]")
         ax.set_ylabel("Elevation [m]")
@@ -1265,7 +1276,7 @@ class BNetwork(Network):
     def chi_analysis(self, draw=False):
         pass
 
-    def get_main_channel(self):
+    def get_main_channel(self, aschannel=False):
         chcells = [self._heads[0]]
         ixcix = np.zeros(self._ncells, np.int)
         ixcix[self._ix] = np.arange(self._ix.size)
@@ -1293,7 +1304,10 @@ class BNetwork(Network):
 #        di = length - di
 
         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
-        return outarr
+        if aschannel == True:
+            return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+        else:
+            return outarr
 
     def get_channels(self, nchannels=0):
         aux_arr = np.zeros(self._ncells, np.bool)
