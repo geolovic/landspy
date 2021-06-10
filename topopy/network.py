@@ -1651,7 +1651,36 @@ class Channel(PRaster):
         if not head:
             ksn = ksn[::-1]
         return ksn
-          
-            
+
+    def knickpoints_shp(self, path=""):          
+
+        if len(self._knickpoints) > 0:
+            driver = ogr.GetDriverByName("ESRI Shapefile")
+            dataset = driver.CreateDataSource(path)
+            sp = osr.SpatialReference()
+            sp.ImportFromWkt(self._proj)
+            layer = dataset.CreateLayer("Knickpoints", sp, geom_type=ogr.wkbPoint25D)    
+    
+            campos = ['z', 'chi', 'ksn', 'rksn', 'slope', 'rslope']
+            tipos = [2, 2, 2, 2, 2, 2]
+            for n in range(len(campos)):
+                layer.CreateField(ogr.FieldDefn(campos[n], tipos[n]))
+
+            for n in self._knickpoints:
+                feat = ogr.Feature(layer.GetLayerDefn())             
+                feat.SetField('z', float(self._zx[n]))
+                feat.SetField('chi', float(self._chi[n]))
+                feat.SetField('ksn', float(self._ksn[n]))
+                feat.SetField('rksn', float(self._R2ksn[n]))
+                feat.SetField('slope', float(self._slp[n]))
+                feat.SetField('rslope', float(self._R2slp[n]))
+                
+                # Create geometry
+                geom = ogr.Geometry(ogr.wkbPoint25D)
+                geom.AddPoint(self.get_xy()[n][0], self.get_xy()[n][1], self._zx[n])
+                feat.SetGeometry(geom)            
+                layer.CreateFeature(feat)
+        else:
+            raise NetworkError('The Channel object has no Knickpoints')
 class NetworkError(Exception):
     pass
