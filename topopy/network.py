@@ -635,10 +635,10 @@ class Network(PRaster):
             kind = 'strahler'
         
         # Get grid channel cells
-        str_ord = np.zeros(self.get_ncells(), dtype=np.int8)
+        str_ord = np.zeros(self.get_ncells(), dtype=np.int64)
         str_ord[self._ix] = 1
         str_ord[self._ixc] = 1
-        visited = np.zeros(self.get_ncells(), dtype=np.int8)
+        visited = np.zeros(self.get_ncells(), dtype=np.int64)
     
         if kind == 'strahler':
             for n in range(len(self._ix)):
