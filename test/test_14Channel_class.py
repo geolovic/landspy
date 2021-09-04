@@ -19,7 +19,7 @@ outfolder = "data/out"
 class ChannelClassTest(unittest.TestCase):
 
     
-    def test_get_channel(self):
+    def test_get_channel(self, plot_canales=False):
         """
         Test Obtiene shapefile con canales, selecciona 5 grupos de 10 canales
         aleaorios y crea objeto Channel (con puntos inicial y final de línea)
@@ -29,11 +29,11 @@ class ChannelClassTest(unittest.TestCase):
             
             net = net = Network("{}/{}_net.dat".format(infolder, file))
             shp_path = outfolder + "/canales_{}.shp".format(file)
-            net.export_to_shp(shp_path, True)
+            net.export_to_shp(shp_path, False)
             
             dataset = ogr.Open(shp_path)
             layer = dataset.GetLayer(0)
-            
+            canales = []
             for n in range(5):
                 for n in np.random.randint(0, layer.GetFeatureCount(), 10):
                     feat = layer.GetFeature(n)
@@ -41,9 +41,10 @@ class ChannelClassTest(unittest.TestCase):
                     head = geom.GetPoint(0)
                     mouth = geom.GetPoint(geom.GetPointCount() - 1)
                     canal = net.get_channel(head, mouth)
+                    canales.append(canal)
                     # Verificamos que canal se ha creado bien
                     self.assertEqual(isinstance(canal, Channel), True)
-     
+           
     def test_get_channel2(self):
         """
         Test crea los canales hasta outlet para todas las cabeceras (sin mouth)

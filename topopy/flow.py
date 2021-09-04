@@ -416,7 +416,7 @@ class Flow(PRaster):
         else:
             return basin_arr
     
-    def snap_points(self, input_points, threshold, kind="channel"):
+    def snap_points(self, input_points, threshold, kind="channel", remove_duplicates=False):
         """
         Snap input points to channel cells or to stream POI
         
@@ -454,7 +454,19 @@ class Flow(PRaster):
         di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
         pos = np.argmin(di, axis=1)
         
-        return poi[pos]
+        # Get the rest of columns (if the case)
+        if input_points.shape[1] > 2:
+            aux = input_points[:, 2:]
+            out_p = np.concatenate((poi[pos], aux, pos.reshape(pos.size, 1)), axis=1)
+        else:
+            out_p = poi[pos]
+    
+        # Remove duplicates
+        if remove_duplicates:     
+            idx = np.unique(out_p[:,-1], return_index=True)[1]
+            out_p = out_p[idx, :-1]
+    
+        return out_p
         
     def _create_output_grid(self, array, nodata_value=None):
         """

@@ -513,7 +513,7 @@ class Network(PRaster):
             else:
                 return np.array((row, col)).T
 
-    def snap_points(self, input_points, kind="channel"):
+    def snap_points(self, input_points, kind="channel", remove_duplicates=False):
         """
         Snap input points to channel cells or to stream POI
         
@@ -548,7 +548,19 @@ class Network(PRaster):
         di = np.sqrt((xi - xci)**2 + (yi - yci)**2 )
         pos = np.argmin(di, axis=1)
         
-        return poi[pos]
+        # Get the rest of columns (if the case)
+        if input_points.shape[1] > 2:
+            aux = input_points[:, 2:]
+            out_p = np.concatenate((poi[pos], aux, pos.reshape(pos.size, 1)), axis=1)
+        else:
+            out_p = poi[pos]
+    
+        # Remove duplicates
+        if remove_duplicates:     
+            idx = np.unique(out_p[:,-1], return_index=True)[1]
+            out_p = out_p[idx, :-1]
+    
+        return out_p
     
     def export_to_points(self, path):
         """
@@ -792,19 +804,15 @@ class Network(PRaster):
             cell = head
             river_data = [cell]
             processing = True
+
             while processing:
                 next_cell = self._ixc[ixcix[cell]]
-                river_data.append(next_cell)               
-                if ixcix[next_cell] == 0:
+                river_data.append(next_cell)
+                if ixcix[next_cell] == 0: # next_cell is an outlet
                     processing = False
-                elif next_cell in confs:
-                    if ch_ord[next_cell] > ch_ord[cell]:
-                        processing = False
-                    else:
-                        river_data.append(next_cell)
-                        cell = next_cell
+                elif next_cell in strahler_confs: # next_cell is in strahler_confs
+                    processing = False
                 else:
-                    river_data.append(next_cell)
                     cell = next_cell    
                             
             # Add feature
@@ -1276,38 +1284,82 @@ class BNetwork(Network):
     def chi_analysis(self, draw=False):
         pass
 
-    def get_main_channel(self, aschannel=False):
-        chcells = [self._heads[0]]
-        ixcix = np.zeros(self._ncells, np.int)
-        ixcix[self._ix] = np.arange(self._ix.size)
-        nextcell = self._ixc[ixcix[self._heads[0]]]
+    def get_main_channel(self, aschannel=True): 
+        """
+        Get the main Channel
         
-        while ixcix[nextcell] != 0:
-            chcells.append(nextcell)
-            nextcell = self._ixc[ixcix[nextcell]]
-                     
-        row, col = self.ind_2_cell(chcells)
-        xi, yi = self.cell_2_xy(row, col)
-        auxarr = np.zeros(self._ncells).astype(np.bool)
+        Parameters
+        ----------
+        aschannel : bool
+          Channel is returned as an array (False) or as a Channel instance (True).
+
+        Returns
+        -------
+        numpy array or Channel instance
+
+        """
+        head = self._heads[0]       
+        # Get ixcix auxiliar array
+        ixcix = np.zeros(self.get_ncells(), np.int)
+        ixcix[self._ix] = np.arange(self._ix.size)
+        
+        # Get channel cells
+        chcells = [head]
+        next_cell = self._ixc[ixcix[head]]
+        while ixcix[next_cell] != 0:
+            chcells.append(next_cell)
+            next_cell = self._ixc[ixcix[next_cell]]
+
+        chcells = np.array(chcells)
+        auxarr = np.zeros(self.get_ncells()).astype(np.bool)
         auxarr[chcells] = True
         I = auxarr[self._ix]
-        ai = self._ax[I]
-        zi = self._zx[I]
-        di = self._dx[I]
+        ax = self._ax[I]
+        dx = self._dx[I]
+        zx = self._zx[I]
         chi = self._chi[I]
         slp = self._slp[I]
         ksn = self._ksn[I]
-        r2slp = self._r2slp[I]
-        r2ksn = self._r2ksn[I]
-#        length = di[0] - di[-1]
-#        di -= di[-1]
-#        di = length - di
+        r2_slp = self._r2slp[I]
+        r2_ksn = self._r2ksn[I]
+        dd = self._dd[I]
+        
+        chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
+        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+        
+        
+        
+#         chcells = [self._heads[0]]
+#         ixcix = np.zeros(self._ncells, np.int)
+#         ixcix[self._ix] = np.arange(self._ix.size)
+#         nextcell = self._ixc[ixcix[self._heads[0]]]
+        
+#         while ixcix[nextcell] != 0:
+#             chcells.append(nextcell)
+#             nextcell = self._ixc[ixcix[nextcell]]
+                     
+#         row, col = self.ind_2_cell(chcells)
+#         xi, yi = self.cell_2_xy(row, col)
+#         auxarr = np.zeros(self._ncells).astype(np.bool)
+#         auxarr[chcells] = True
+#         I = auxarr[self._ix]
+#         ai = self._ax[I]
+#         zi = self._zx[I]
+#         di = self._dx[I]
+#         chi = self._chi[I]
+#         slp = self._slp[I]
+#         ksn = self._ksn[I]
+#         r2slp = self._r2slp[I]
+#         r2ksn = self._r2ksn[I]
+# #        length = di[0] - di[-1]
+# #        di -= di[-1]
+# #        di = length - di
 
-        outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
-        if aschannel == True:
-            return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
-        else:
-            return outarr
+#         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
+#         if aschannel == True:
+#             return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+#         else:
+#             return outarr
 
     def get_channels(self, nchannels=0):
         aux_arr = np.zeros(self._ncells, np.bool)
@@ -1682,5 +1734,6 @@ class Channel(PRaster):
                 layer.CreateFeature(feat)
         else:
             raise NetworkError('The Channel object has no Knickpoints')
+
 class NetworkError(Exception):
     pass
