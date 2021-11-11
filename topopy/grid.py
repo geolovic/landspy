@@ -13,7 +13,7 @@
 # Last modified 28 September, 2018
 
 
-import gdal
+from osgeo import gdal
 import numpy as np
 from scipy import ndimage
 from skimage.morphology import reconstruction

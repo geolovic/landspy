@@ -13,7 +13,7 @@
 # Last modified September 25, 2018
 
 import numpy as np
-import gdal
+from osgeo import gdal
 from scipy import ndimage
 from skimage import graph
 from scipy.sparse import csc_matrix

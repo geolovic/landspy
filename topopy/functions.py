@@ -13,7 +13,7 @@
 # Last modified February 24, 2020
 
 import numpy as np
-import ogr
+from osgeo import ogr
 
 def extract_points(path, idfield=""):
     """
@@ -54,3 +54,16 @@ def extract_points(path, idfield=""):
             points.append((geom.GetX(), geom.GetY()))
 
     return np.array(points)
+
+
+def rivers_to_channels(path, net, idfield=""):
+    
+    # Open que river shapefile
+    driver = ogr.GetDriverByName("ESRI Shapefile")
+    dataset = driver.Open(path)
+    layer = dataset.GetLayer()
+    geom_type = layer.GetGeomType()
+    lydef = layer.GetLayerDefn()
+    id_fld = lydef.GetFieldIndex(idfield)
+    geom_type = layer.GetGeomType()
+    

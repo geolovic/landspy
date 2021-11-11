@@ -10,7 +10,7 @@ Testing suite for topopy Grid class
 import unittest
 import sys
 import numpy as np
-import gdal
+from osgeo import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import Grid
