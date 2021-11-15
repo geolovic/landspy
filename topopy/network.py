@@ -312,12 +312,13 @@ class Network(PRaster):
             win = [mouth_cell, mid_cell, head_cell]
             
             if ixcix[mid_cell] == 0 or gi[mid_cell] != 0:
-                # Channel type 2 (mid_cell is an outlet) or mid_call is already calculated
+                # Channel type 2 (mid_cell is an outlet) or mid_cell is already calculated
                 continue
             
             elif ixcix[mouth_cell]== 0:
                 # Channel type 3 (mouth_cell is an outlet)
                 processing = False
+                win = [mid_cell, mid_cell, head_cell]
                 
             # Obtenemos datos de elevacion y distancias
             xi = x_arr[ixcix[win]]
@@ -327,10 +328,12 @@ class Network(PRaster):
         
             gi[mid_cell] = g
             r2[mid_cell] = R2
-                    
+            
+            in_outlet = False
+                
             while processing:
                 # Verificamos si estamos al final (en un outlet)  
-                if ixcix[mouth_cell]!=0:
+                if not in_outlet:
                     # Si mouth_cell no es un outlet, cogemos siguiente celda
                     next_cell = self._ixc[ixcix[mouth_cell]]
                     # Si la siguiente celda es el final, 
@@ -355,7 +358,14 @@ class Network(PRaster):
                 head_cell = win[-1]
                 mid_cell = self._ixc[ixcix[mid_cell]]
                 mouth_cell = win[0]
-                
+            
+                # Verificamos si mouth_cell es un outlet
+                if ixcix[mouth_cell] == 0:
+                    in_outlet = True
+                    # Si mouth_cell es un outlet, hay que eliminarla de la ventana
+                    # puesto que ixcix[mouth_cell] será la posición 0 del array ._ix
+                    win[0] = win[1]    
+            
                 if len(win) <= 3:
                     processing = False
                     
@@ -382,9 +392,7 @@ class Network(PRaster):
         # for cell in confs.keys():
         #     if len(confs[cell]) > 0:
         #         gi[cell] = np.mean(np.array(confs[cell]))
-        
-
-        
+                
         # Llenamos array del objeto Network
         if kind == 'ksn':
             self._ksn = gi[self._ix]
@@ -858,7 +866,7 @@ class Network(PRaster):
         grid._tipo = str(array.dtype)
         return grid
 
-    def get_channel(self, head, mouth=None):
+    def get_channel(self, head, mouth=None, name="", oid=-1):
         """
         Get a channel from the head to the mouth. 
         
@@ -869,7 +877,11 @@ class Network(PRaster):
         mouth : tuple
             (x, y) tuple with the coordinates of the channel mouth (will be snapped to a channel cell).
             If None or a cell out of the current channel, the channel will continue until the nearest outlet.
-
+        name : str, optional
+            Name ("label") for the channel    
+        oid : int, optional
+            Id of the channel
+            
         Returns
         -------
         Channel instance
@@ -913,7 +925,7 @@ class Network(PRaster):
         dd = self._dd[I]
         
         chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints, name=name, oid=oid)
         
     def get_chi_shapefile(self, out_shp, distance):
         """
@@ -1411,7 +1423,7 @@ class BNetwork(Network):
 
 class Channel(PRaster):
 
-    def __init__(self, praster, chandata, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5):
+    def __init__(self, praster, chandata, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5, name="", oid=-1, flowto=-1):
         """
         Class that defines a channel (cells from head to mouth)
         
@@ -1441,6 +1453,15 @@ class Channel(PRaster):
         ksn_np : int, optional
             Number of points for ksn calculation. Ksn will be calculated within a moving window 
             of 2 * npoints + 1 . The default is 5.
+            
+        name : str, optional
+            Name ("label") for the channel
+            
+        oid : int, optional
+            Id of the channel
+            
+        flowto : int, optional
+            Id of the channel where this channel flows. 
 
         Returns
         -------
@@ -1467,6 +1488,10 @@ class Channel(PRaster):
         self._ksn_np = ksn_np
         self._knickpoints = []
         self._regressions = []
+        self._name = name
+        self._oid = oid
+        self._flowto = flowto
+
         
     def save(self, path):
         """
@@ -1557,6 +1582,18 @@ class Channel(PRaster):
         self._R2ksn = data_arr[:, 8]
         self._dd = data_arr[:, 9]
 
+    def set_name(self, name):
+        """
+        Sets the name (label) of the channel
+        """
+        self._name = name
+        
+    def get_name(self):
+        """
+        Returns the name (label) of the channel
+        """
+        return self._name
+
     def get_length(self):
         """
         Returns channel lenght
@@ -1642,6 +1679,35 @@ class Channel(PRaster):
             ai = ai[::-1]
 
         return ai    
+    
+  
+    def calculate_gradients(self, npoints, kind='slp'):
+        """
+        This function calculates gradients (slope or ksn) for all the cells. 
+        Gradients of each cell are calculated by linear regression using a number
+        of points (npoints) up and downstream.
+        
+        Parameters:
+        ===========
+        npoints : *int*
+          Window to analyze slopes. Slopes are calculated by linear regression using a window
+          of npoints * 2 + 1 pixel (using the central pixel)
+          
+        kind : *str* {'slp', 'ksn'}
+        """
+
+        winlen = npoints * 2 + 1
+        
+        # Get arrays depending on type
+        y_arr = self._zx
+        if kind == 'ksn':
+            x_arr = self._chi
+            self._ksn_np = npoints
+        else:
+            x_arr = self._dx
+            self._slp_np = npoints
+        pass
+    
     
     def get_slope(self, head=True):
         """
