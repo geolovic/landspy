@@ -1486,13 +1486,32 @@ class Channel(PRaster):
         self._chi0 = chi0
         self._slp_np = slp_np
         self._ksn_np = ksn_np
-        self._knickpoints = []
+        self._kp = np.empty((0, 2), int)
         self._regressions = []
         self._name = name
         self._oid = oid
         self._flowto = flowto
 
+
+    def add_kp(self, ind, tipo=0):
+        self._kp = np.append(self._kp, [[ind, tipo]], axis=0)
         
+    def remove_kp(self, ind):
+        pos = np.where(self._kp[:,0] == ind)[0]
+        self._kp = np.delete(self._kp, pos, axis=0) 
+    
+    def add_regression(self, p1, p2):
+        self._regressions.append((p1, p2))
+    
+    def remove_regression(self, ind):
+        for reg in self._regressions:
+            if reg[0] <= ind <= reg[2]:
+                remove_reg = reg
+                break
+            
+        self._regressions.remove(remove_reg)
+                
+    
     def save(self, path):
         """
         Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.

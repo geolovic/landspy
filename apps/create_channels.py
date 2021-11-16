@@ -17,4 +17,7 @@ field_n = "segid"
 canales = rivers_to_channels(path, net, field_n)
 canales = np.array(canales)
 
+canal = canales[0]
+
+
 np.save("canales2.npy", canales)

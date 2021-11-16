@@ -43,7 +43,8 @@ class MainWindow(QMainWindow):
         # Hacemos que el Figure Canvas sea el widget central
         self.setCentralWidget(self.canvas)
         self._create_toolbar()
-             
+        
+        # Cargamos canales  
         self.load_channels(canales)
         
         # Modificamos tamaño inicial de MainWindoww
@@ -51,26 +52,43 @@ class MainWindow(QMainWindow):
         self.statusBar = QStatusBar(self)
         self.setStatusBar(self.statusBar)
         
-        # Creamos modos de dibujo (distintos perfiles)
-        self._mode = 1 # 1. Long. profile, 2. Chi profile, 3. Area-slope profile, 4. ksn profile
-        # Y picking mode
-        self._pick_mode = 0 # 0. No piking points 1. Knickpoint, 2. Regression, 3. Dam remover
+        # Tipos para knickpoints
+        self.kp_types = {0 : {'ls':"", 'marker':"*", 'mec':"k", 'mew':0.5, 'mfc':"r", 'ms':8}, 
+                         1 : {'ls':"", 'marker':"*", 'mec':"k", 'mew':0.5, 'mfc':"b", 'ms':8},
+                         2 : {'ls':"", 'marker':"o", 'mec':"k", 'mew':0.5, 'mfc':"g", 'ms':4},
+                         3 : {'ls':"", 'marker':"o", 'mec':"k", 'mew':0.5, 'mfc':"y", 'ms':4}}
         
-        self._draw()
+        # Modos de dibujo (distintos tipos de perfiles)
+        self._mode = 1 # 1. Long. profile, 2. Chi profile, 3. Area-slope profile, 4. ksn profile
+        # pick_mode >> Modo de captura de puntos >> 0. No piking points 1. Knickpoint, 2. Regression, 3. Dam remover
+        self._pick_mode = 0
+        self.kp_type = 0
+        self.current_regression = []
+        
+        # Dibujamos perfiles
+        self.change_profile_graph(1)
     
     def load_channels(self, channels):
+        """
+        Loads channels into App. 
+        
+        channels : np.array of topopy.Channel objects
+        """
         self._channels = channels
         self._nchannels = len(channels)
         self._active = 0
     
     def _create_toolbar(self):
+        """
+        Función interna para crear la barra de herramientas principal de Aplicación
+        """
         # Creamos barra de herramientas
         toolbar = QToolBar("Action toolbar")
         toolbar.setIconSize(QSize(20,20))
         self.addToolBar(toolbar)
         
         # Creamos botones
-        # Desplazamiento entre perfiles
+        # Desplazamiento entre perfiles (no ncesaria referencia, los creamos y los conectamos con funciones)
         tb_button_prev = QAction(QIcon("icons/arrow-180.png"), "Previous", self)
         tb_button_next = QAction(QIcon("icons/arrow-000.png"), "Next", self)
         # Tipos de gráficos
@@ -78,20 +96,22 @@ class MainWindow(QMainWindow):
         tb_button_chiP = QAction(QIcon("icons/chi_prof.ico"), "Chi profile", self)
         tb_button_ASP = QAction(QIcon("icons/loglog_prof.ico"), "log(a)-log(s) profile", self)
         tb_button_ksnP = QAction(QIcon("icons/ksn_prof.ico"), "ksn profile", self)
-        # Modos de captura de puntos
+       
+        # Modos de captura de puntos (necesaria referencia para poder cambiarles el estado)
         self.tb_button_KP = QAction(QIcon("icons/flag.ico"), "Set Knickpoint", self)
         self.tb_button_reg = QAction(QIcon("icons/reg.ico"), "Create regression", self)
         self.tb_button_dam = QAction(QIcon("icons/dam.ico"), "Remove dam", self)        
         self.tb_button_KP.setCheckable(True)
         self.tb_button_reg.setCheckable(True)
         self.tb_button_dam.setCheckable(True)
+        
         # Número de puntos para ksn y slope
         self.npointLabel = QLabel("N Points:")
         self.npointSpinBox = QSpinBox()
         self.tb_button_refresh = QAction(QIcon("icons/arrow-circle.png"), "Refresh", self)
         self.npointSpinBox.setFocusPolicy(Qt.NoFocus)
     
-        # Los añadimos a toolbar
+        # Añadimos botones a toolbar
         toolbar.addAction(tb_button_prev)
         toolbar.addAction(tb_button_next)
         toolbar.addAction(tb_button_longP)
@@ -121,57 +141,121 @@ class MainWindow(QMainWindow):
         
         # Conectamos boton de KP a funcion
         self.tb_button_KP.triggered.connect(self.button_KP_click)
+        
+        # Conectamos boton de Regression a funcion
+        self.tb_button_reg.triggered.connect(self.button_reg_click)
+    
+    
+    def button_reg_click(self):
+        # Handler para botón de regressions
+        
+        if self.tb_button_reg.isChecked():
+            self._pick_mode = 2 # Regression selection on
+            self.statusBar.showMessage("Regression mode ON")
+            self.pc_id = self.canvas.mpl_connect("pick_event", self.pick_point)
+            self.tb_button_KP.setEnabled(False)
+            self.tb_button_dam.setEnabled(False)
+            self.current_regression = []
+
+        else:
+            self.current_regression = []
+            self.canvas.mpl_disconnect(self.pc_id)
+            self.tb_button_KP.setEnabled(True)
+            if self._mode == 2 or self._mode == 1:
+                self.tb_button_dam.setEnabled(True)
+    
     
     def button_KP_click(self):
-        self.statusBar.showMessage("Click en boton knickpoint")
-        self.canvas.mpl_connect("pick_event", self.pick_point)
-        # if self.tb_button_KP.isChecked():
-            
-        #     self._pick_mode = 1
-        #     self.pc_id = self.canvas.mpl_connect("mouse_press_event", self.pick_point)
-        #     self.statusBar.showMessage("Knickpoint mode ON", self.pc_id)
-            
-        # else:
-        #     self.statusBar.showMessage("Knickpoint mode OFF")
-        #     self.canvas.mpl_disconnect(self.pc_id)
-    
+        # Handler para botón de knickpoint        
+        if self.tb_button_KP.isChecked():
+            self._pick_mode = 1 # Knickpoint selection on
+            self.statusBar.showMessage("Knickpoint selection ON - Knickpoint type: {}".format(self.kp_type))
+            self.pc_id = self.canvas.mpl_connect("pick_event", self.pick_point)
+            self.tb_button_reg.setEnabled(False)
+            self.tb_button_dam.setEnabled(False)
+
+        else:
+            self.canvas.mpl_disconnect(self.pc_id)
+            if self._mode == 2:
+                self.tb_button_reg.setEnabled(True)
+                self.tb_button_dam.setEnabled(True)
+            elif self._mode == 1:
+                self.tb_button_dam.setEnabled(True)
+
+
     def pick_point(self, event):
         """
         Pick a point in the active profile 
-        :param event: matplotlib picker event
-        """
-        # In the case that many points are picked (true if the profile has several points). Take the center one.
         
-        # self.ax.plot(event.xdata, event.ydata, mew=0.5, mec="k", ms=10)
-        # self.canvas.draw()
-        # self.canvas.draw()
+        event : matplotlib picker event
+        """
+        # Check if App has channels (and take the active one)
+        if self._nchannels > 0:
+            canal = self._channels[self._active]
+        else:
+            return
+        
+        # In the case that many points are picked (true if the profile has several points). Take the middle one.
         if len(event.ind) > 2:
             ind = (event.ind[-1] + event.ind[0]) // 2
         else:
             ind = event.ind[0]
+            
+        # If self._pick_mode == 1 --> Selecting Knickpoints
+        if self._pick_mode == 1:
+            # Left button >> Add knickpoint
+            if event.mouseevent.button==1:
+                canal.add_kp(ind, self.kp_type)
+            # Rigth button >> Remove knickpoint
+            elif event.mouseevent.button==3:
+                kps = canal._kp[:, 0]
+                diffs = np.abs(kps - ind)
+                min_kp = np.min(diffs)
+                pos_min = np.argmin(diffs)
+                if min_kp < 3:
+                    ind_to_remove = kps[pos_min]
+                    canal.remove_kp(ind_to_remove)
+            # Middle button >> Change knickpoint type
+            elif event.mouseevent.button==2:
+                self.kp_type += 1
+                self.kp_type = self.kp_type % 4
+                self.statusBar.showMessage("Knickpoint selection ON - Knickpoint type: {}".format(self.kp_type))
+                
+        # If self._pick_mode == 2 --> Selecting regression
+        elif self._pick_mode == 2:
+            if ind > 0:
+            if len(self.current_regression) == 0:
+                self.current_regression.append(ind)
+                self.ax.plot(event.mouseevent.xdata, event.mouseevent.ydata, ls="", marker="+")
+                return
+            elif len(self.current_regression) == 1:
+                
 
-        self.statusBar.showMessage("Click en {}".format(ind))
-        # self.statusBar.showMessage("Clicked on point {}".format(ind))
-        # self._channels[self._active]._knickpoints.append(ind)
-        # self._draw()
-        
+
+        self._draw()
+
     
     def calculate_gradients(self):
+        # Handler to tb_button_refresh
+        # Recalcuates gradients of the active channel with specific number of points (npointsSpinBox)
         # Get the active profile
         canal = self._channels[self._active]
         npoints = self.npointSpinBox.value()
-        # If mode == 3, calculate slope
+        # If mode == 3, recalculate slope
         if self._mode == 3:
             canal.calculate_gradients(npoints, 'slp')
-        # If mode == 4, calculate ksn
+        # If mode == 4, recalculate ksn
         elif self._mode == 4:
             canal.calculate_gradients(npoints, 'ksn')
         
         self._draw()
         
     def next_profile(self, direction):
+        # Handler to tb_button_prev and tb_button_next buttons 
+        # Select the next / previous channel of the channel list (self._channels)
         self._active += direction
         self._active = self._active % self._nchannels
+        self.current_regression = []
         
         if self._mode == 3:    
             npoints = self._channels[self._active]._slp_np
@@ -183,8 +267,9 @@ class MainWindow(QMainWindow):
         self._draw()
         
     def change_profile_graph(self, graph_number):
+        # Changes the profile graph type and activate-deactivate specific buttons and options
         self._mode = graph_number
-        #self.statusBar.showMessage("Has seleccionado el gráfico número " + str(graph_number))
+        self.current_regression = []
         
         if self._mode == 1: # Longitudinal profile
             self.tb_button_dam.setEnabled(True)
@@ -226,6 +311,7 @@ class MainWindow(QMainWindow):
         self.tb_button_refresh.setEnabled(False)
         
     def _draw(self):
+        # Function to draw the active channel in the current graphic mode (self._mode)
         
         if self._nchannels > 0:
             canal = self._channels[self._active]
@@ -242,12 +328,12 @@ class MainWindow(QMainWindow):
             self.ax.set_ylabel("Elevation (m)")
             di = canal.get_d()
             zi = canal.get_z()
-            self.ax.plot(di, zi, c="b", lw=1.25, picker=True,  pickradius=5)
+            self.ax.plot(di, zi, c="k", lw=1.25, picker=True,  pickradius=5)
             
-            # # Draw knickpoints
-            # if len(canal._knickpoints) > 0:
-            #     for k in canal._knickpoints:
-            #         self.ax.plot(di[k[0]], zi[k[0]], mew=0.5, mec="k", ms=10)
+            # Draw knickpoints
+            if len(canal._kp) > 0:
+                for k in canal._kp:
+                    self.ax.plot(di[k[0]], zi[k[0]], **self.kp_types[k[1]])
             
             
         elif self._mode == 2: # Chi profile
@@ -259,7 +345,13 @@ class MainWindow(QMainWindow):
             self.ax.set_ylabel("Elevation (m)")  
             chi = canal.get_chi()
             zi = canal.get_z()
-            self.ax.plot(chi, zi, c="b", lw=1.25, picker=True, pickradius=5)
+            self.ax.plot(chi, zi, c="k", lw=1.25, picker=True, pickradius=5)
+            
+            # Draw knickpoints
+            if len(canal._kp) > 0:
+                for k in canal._kp:
+                    self.ax.plot(chi[k[0]], zi[k[0]], **self.kp_types[k[1]])
+            
         
         elif self._mode == 3: # Area-slope profile
             title = "Area-slope profile"
@@ -270,9 +362,15 @@ class MainWindow(QMainWindow):
             self.ax.set_ylabel("Slope")
             ai= canal.get_a(cells=False)
             slp = canal.get_slope()
-            self.ax.plot(ai, slp, "r.", picker=True, pickradius=5)
+            self.ax.plot(ai, slp, "b.", picker=True, pickradius=5)
             self.ax.set_xscale("log")
             self.ax.set_yscale("log")
+            
+            # Draw knickpoints
+            if len(canal._kp) > 0:
+                for k in canal._kp:
+                    self.ax.plot(ai[k[0]], slp[k[0]], **self.kp_types[k[1]])
+            
             
         elif self._mode == 4: # ksn profile
             title = "Ksn profile"
@@ -284,8 +382,13 @@ class MainWindow(QMainWindow):
             self.ax.set_ylabel("ksn")
             di = canal.get_d()
             ksn = canal.get_ksn()
-            self.ax.plot(di, ksn, c="b", lw=1.25, picker=True, pickradius=5)
-        
+            self.ax.plot(di, ksn, c="k", lw=1.25, picker=True, pickradius=5)
+            
+            # Draw knickpoints
+            if len(canal._kp) > 0:
+                for k in canal._kp:
+                    self.ax.plot(di[k[0]], ksn[k[0]], **self.kp_types[k[1]])
+            
         self.canvas.draw()
 
 # 3. Creamos aplicación        
