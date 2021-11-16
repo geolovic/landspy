@@ -17,8 +17,30 @@ from topopy import DEM
 infolder = "data/in"
 outfolder = "data/out"
 
-class DEMFillTest(unittest.TestCase):
 
+class DEM_class(unittest.TestCase):
+      
+    def test_empty_dem(self):
+        # test an empty DEM
+        dem = DEM()
+        computed = (dem._size, dem._geot, dem._proj, dem._nodata)
+        expected = ((1, 1), (0.0, 1.0, 0.0, 1.0, 0.0, -1.0), "", -9999.0)
+        self.assertEqual(computed, expected)
+        
+    def test_empty_dem02(self):
+        dem = DEM()
+        computed = np.array([[0]], dtype=np.float)
+        expected = dem._array       
+        self.assertEqual(np.array_equal(computed, expected), True)
+        
+    def test_copyDEM(self):
+        files = ["small25", "jebja30", "tunez"]
+        for file in  files:
+            dem = DEM("{}/{}.tif".format(infolder, file))
+            dem2 = dem.copy()
+            computed = np.array_equal(dem._array, dem2._array)
+            self.assertEqual(computed, True)
+        
     def test_fill_01(self):
         arr = np.array([[49, 36, 29, 29],
                         [32, 19, 17, 20],
@@ -35,7 +57,7 @@ class DEMFillTest(unittest.TestCase):
         expected = arr.tolist()
         
         self.assertEqual(computed, expected)
-    
+
   
     def test_fill_02(self):
         arr = np.array([[49, 36, 29, 29],

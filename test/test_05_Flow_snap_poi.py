@@ -21,11 +21,11 @@ class SnapPoiTest(unittest.TestCase):
     
     def test_snap_poi_01(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
+            thr = int(fd.get_ncells() * 0.0025)
             # Obtenemos 20 puntos aleatorios
             x1, x2, y1, y2 = fd.get_extent()
             xi = (x2 - x1) * np.random.random(25) + x1
@@ -44,11 +44,11 @@ class SnapPoiTest(unittest.TestCase):
 
     def test_snap_poi_02(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
+            thr = int(fd.get_ncells() * 0.0025)
             # Obtenemos 20 puntos aleatorios
             x1, x2, y1, y2 = fd.get_extent()
             xi = (x2 - x1) * np.random.random(25) + x1

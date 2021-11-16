@@ -9,7 +9,7 @@ Testing suite for topopy Grid class
 import unittest
 import sys
 import numpy as np
-import gdal
+from osgeo import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import PRaster
@@ -55,7 +55,7 @@ class TestPRaster00(unittest.TestCase):
         geot = raster.get_geotransform()
         proj = raster.get_projection()
         computed = (size, dims, ncells, cellsize, geot, proj)
-        expected = ((1, 1), (1, 1), 1, (1.0, -1.0), (0., 1., 0., 0., 0., -1.), "")
+        expected = ((1, 1), (1, 1), 1, (1.0, -1.0), (0., 1., 0., 1., 0., -1.), "")
         self.assertEqual(computed, expected)
         
     def test_copy_layout(self):
@@ -174,6 +174,27 @@ class TestPRaster01(unittest.TestCase):
         ids = self.ids
         cids = raster.cell_2_ind(rows, cols)
         self.assertEqual(np.array_equal(ids, cids), True)
+        
+    def test_is_inside(self):
+        # points 1, 2, 4, 8 --> -Fuera de ráster
+        # points 3, 5 --> Dentro de ráster, pero en NoData
+        # points 6, 7, 9 --> Dentro de ráster
+        
+        puntos = np.array([[476154., 4115084.],
+                          [472289., 4112838.],
+                          [471317., 4114050.],
+                          [472874., 4117717.],
+                          [472205., 4114091.],
+                          [470795., 4116411.],
+                          [472257., 4115565.],
+                          [469572., 4115376.],
+                          [473877., 4114844.]])
+        x = puntos[:,0]
+        y = puntos[:,1]
+        raster = PRaster(infolder + "/small25.tif")
+        computed = raster.is_inside(x, y)
+        expected = np.array([False, False, True, False, True, True, True ,False, True])
+        self.assertEqual(np.array_equal(computed, expected), True)
         
 if __name__ == "__main__":
     unittest.main()

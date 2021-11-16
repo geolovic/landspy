@@ -146,7 +146,7 @@ class FlowValueTest(unittest.TestCase):
 class FlowPropertiesTest(unittest.TestCase):
     
     def test_flow_properties_01(self):
-        files = ["small", "small25", "morocco", "tunez", "jebja30"]
+        files = ["small", "small25", "tunez", "jebja30"]
         for file in files:
             dem = DEM(infolder + "/{0}.tif".format(file))
             fd = Flow(infolder +  "/{0}_fd.tif".format(file))
@@ -167,7 +167,7 @@ class FlowCreateTest(unittest.TestCase):
     
     def test_create_Flow_01(self):
         # Create Flow object without auxiliar topography
-        files = ["small", "small25", "morocco", "tunez", "jebja30"]
+        files = ["small", "small25", "tunez", "jebja30"]
         for file in files:
             dem_path = infolder + "/{0}.tif".format(file)
             flw_path = infolder +  "/{0}_fd.tif".format(file)
@@ -179,7 +179,7 @@ class FlowCreateTest(unittest.TestCase):
             
     def test_create_Flow_02(self):
         # Create Flow object with auxiliar topography
-        files = ["small", "small25", "morocco", "tunez", "jebja30"]
+        files = ["small", "small25", "tunez", "jebja30"]
         for file in files:
             dem_path = infolder + "/{0}.tif".format(file)
             flw_path = infolder +  "/{0}_fd_auxtp.tif".format(file)
@@ -191,7 +191,7 @@ class FlowCreateTest(unittest.TestCase):
 
     def test_create_Flow_03(self):
         # Create Flow object with previously filled DEM (auxtopo is ignored)
-        files = ["small", "small25", "morocco", "tunez", "jebja30"]
+        files = ["small", "small25", "tunez", "jebja30"]
         for file in files:
             dem_path = infolder + "/{0}_fil.tif".format(file)
             flw_path = infolder +  "/{0}_fd.tif".format(file)

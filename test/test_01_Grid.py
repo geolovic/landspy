@@ -10,7 +10,7 @@ Testing suite for topopy Grid class
 import unittest
 import sys
 import numpy as np
-import gdal
+from osgeo import gdal
 # Add to the path code folder and data folder
 sys.path.append("../")
 from topopy import Grid
@@ -72,8 +72,8 @@ class TestGrid01(unittest.TestCase):
           
     def test_save(self):
         dem = Grid(infolder + "/small25.tif")
-        dem.save(outfolder + "/dummy_dem.tif")
-        dem2 = Grid(outfolder + "/dummy_dem.tif")
+        dem.save(outfolder + "/a_dummy_dem.tif")
+        dem2 = Grid(outfolder + "/a_dummy_dem.tif")
         expected = dem.get_value([20, 30, 40, 50], [20, 30, 40, 50])
         computed = dem2.get_value([20, 30, 40, 50], [20, 30, 40, 50])
         self.assertEqual(np.array_equal(computed, expected), True)
@@ -86,9 +86,9 @@ class TestGrid01(unittest.TestCase):
         arr[np.where(arr%5==0)] = 0
         dem.set_array(arr)
         dem.set_nodata(0)
-        dem.save(outfolder + "/dummy_dem2.tif")
+        dem.save(outfolder + "/a_dummy_dem2.tif")
         # Open with gdal
-        raster = gdal.Open(outfolder + "/dummy_dem2.tif")
+        raster = gdal.Open(outfolder + "/a_dummy_dem2.tif")
         banda = raster.GetRasterBand(1)
         nodata = banda.GetNoDataValue()
         self.assertEqual(nodata, 0)
@@ -148,6 +148,28 @@ class TestGrid01(unittest.TestCase):
         row, col = dem.get_nodata_pos()
         crow, ccol= np.where(arr == -9999)
         self.assertEqual((np.array_equal(row, crow), np.array_equal(col, ccol)), (True, True))
+        
+    def test_is_inside(self):
+        # points 1, 2, 4, 8 --> -Fuera de ráster
+        # points 3, 5 --> Dentro de ráster, pero en NoData
+        # points 6, 7, 9 --> Dentro de ráster
+        
+        puntos = np.array([[476154., 4115084.],
+                          [472289., 4112838.],
+                          [471317., 4114050.],
+                          [472874., 4117717.],
+                          [472205., 4114091.],
+                          [470795., 4116411.],
+                          [472257., 4115565.],
+                          [469572., 4115376.],
+                          [473877., 4114844.]])
+        x = puntos[:,0]
+        y = puntos[:,1]
+        raster = Grid(infolder + "/small25.tif")
+        computed = raster.is_inside(x, y)
+        expected = np.array([False, False, False, False, False, True, True ,False, True])
+        self.assertEqual(np.array_equal(computed, expected), True)
+        
         
     
 if __name__ == "__main__":

@@ -21,11 +21,11 @@ class StreamPoiTest(unittest.TestCase):
     
     def test_stream_poi_01(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
+            thr = int(fd.get_ncells() * 0.0025)
             for kind in ["heads", "confluences", "outlets"]:
                 poi = fd.get_stream_poi(thr, kind, "XY")
                 spoi = np.loadtxt(infolder +  "/{0}_{1}.txt".format(file, kind), delimiter=";", skiprows=1)
@@ -34,11 +34,11 @@ class StreamPoiTest(unittest.TestCase):
 
     def test_stream_poi_02(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
+            thr = int(fd.get_ncells() * 0.0025)
             for kind in ["heads", "confluences", "outlets"]:
                 poi = fd.get_stream_poi(thr, kind, "CELL")
                 x, y = fd.cell_2_xy(poi[:, 0], poi[:, 1])
@@ -49,11 +49,11 @@ class StreamPoiTest(unittest.TestCase):
                 
     def test_stream_poi_03(self):
         # Test 10 random basins
-        files = ["small25", "morocco", "tunez", "jebja30"]
+        files = ["small25", "tunez", "jebja30"]
         for file in files:
             flw_path = infolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.01)
+            thr = int(fd.get_ncells() * 0.0025)
             for kind in ["heads", "confluences", "outlets"]:
                 poi = fd.get_stream_poi(thr, kind, "IND")
                 row, col = fd.ind_2_cell(poi)
