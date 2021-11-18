@@ -42,9 +42,15 @@ class Network(PRaster):
       m/n coeficient to calculate chi values in each channel cell    
     npoints : *int*
       Number of points to calculate slope and ksn in each cell. Slope and ksn values
-      are cc
+    gradients : *bool*
+      Flag to determinate if gradients are calculated or not when creating the Network 
+      (calculate gradients can be slow for big grids)
+    verbose : boolean
+      Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
+    verb_func : str
+      Function to output verbose messages (only needed if topopy is embeded in other application)
     """
-    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False):
+    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False, verbose=False, verb_func=print):
 
         # The Network object has the following properties:
         # ._ix >> Giver cells
@@ -114,10 +120,10 @@ class Network(PRaster):
         else:
             self._slp = np.zeros(self._ix.size)
             self._r2slp = np.zeros(self._ix.size)
-            self._slp_npoints = 0
+            self._slp_np = 0
             self._ksn = np.zeros(self._ix.size)
             self._r2ksn = np.zeros(self._ix.size)
-            self._ksn_npoints = 0
+            self._ksn_np = 0
 
     def _create_empty(self):
         """
@@ -138,8 +144,8 @@ class Network(PRaster):
         self._r2ksn = np.array([0])
         self._dd = np.array([1])
         self._thetaref = 0.45
-        self._slp_npoints = 0
-        self._ksn_npoints = 0
+        self._slp_np = 0
+        self._ksn_np = 0
         self._threshold = 0
         
     def save(self, path):
@@ -170,7 +176,7 @@ class Network(PRaster):
         params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
                   self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
         header = ";".join([str(param) for param in params]) + "\n"  
-        params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
+        params = [self._thetaref, self._threshold, self._slp_np, self._ksn_np]
         header += ";".join([str(param) for param in params]) + "\n" 
         header += str(self._proj)
 
@@ -203,8 +209,8 @@ class Network(PRaster):
         data = linea.split(";")
         self._thetaref = float(data[0])
         self._threshold = int(data[1])
-        self._slp_npoints = int(data[2])
-        self._ksn_npoints = int(data[3])
+        self._slp_np = int(data[2])
+        self._ksn_np = int(data[3])
         # Line3: First and last characters will be "#" and "\n"
         linea = fr.readline()[1:-1]
         self._proj = linea
@@ -229,7 +235,7 @@ class Network(PRaster):
          
     def calculate_chi(self, thetaref=0.45, a0=1.0):
         """
-        Function that calculate chi_values for channel cells
+        Function that calculates chi_values for channel cells
         
         Parameters:
         -----------
@@ -272,9 +278,10 @@ class Network(PRaster):
         ===========
         npoints : *int*
           Window to analyze slopes. Slopes are calculated by linear regression using a window
-          of npoints * 2 + 1 pixel (using the central pixel)
+          of (npoints * 2 + 1) pixels (using the central pixel)
           
         kind : *str* {'slp', 'ksn'}
+          Kind of gradient to calculate Slope (slp) or Ksn (ksn)
         """
 
         winlen = npoints * 2 + 1
@@ -397,11 +404,11 @@ class Network(PRaster):
         if kind == 'ksn':
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
-            self._ksn_npoints = npoints
+            self._ksn_np = npoints
         else:
             self._slp = gi[self._ix]
             self._r2slp = r2[self._ix]
-            self._slp_npoints = npoints
+            self._slp_np = npoints
 
     def hierarchy_channels(self, heads="", asgrid=True):
         """
@@ -530,7 +537,10 @@ class Network(PRaster):
         input_points : *numpy.ndarray*
           Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
-            Kind of point to snap input points
+          Kind of point to snap input points
+        remove_duplicates : *bool*
+          Remove duplicate points. When snapping points, two points can be snapped to the same poi. If True, 
+          these duplicate points will be removed. 
         
         Returns:
         ===========
@@ -573,6 +583,8 @@ class Network(PRaster):
     def export_to_points(self, path):
         """
         Export channel points to a semicolon-delimited text file
+        This file will contain  data of 
+        id ; x ; y ; z ; distance ; area ; chi ; slope ; ksn ; r2_slope ; r2_ksn
         
         path : str
           Path for the output text file
@@ -925,7 +937,7 @@ class Network(PRaster):
         dd = self._dd[I]
         
         chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints, name=name, oid=oid)
+        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, name=name, oid=oid)
         
     def get_chi_shapefile(self, out_shp, distance):
         """
@@ -1130,8 +1142,8 @@ class BNetwork(Network):
             self._ncells = basin_cl.size
             self._threshold = net._threshold
             self._thetaref = net._thetaref
-            self._slp_npoints = net._slp_npoints
-            self._ksn_npoints = net._ksn_npoints
+            self._slp_np = net._slp_np
+            self._ksn_np = net._ksn_np
             
             # Get only points inside the basin
             # The last receiver (ixc) will be outside of the basin
@@ -1247,7 +1259,7 @@ class BNetwork(Network):
         params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
                   self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
         header = ";".join([str(param) for param in params]) + "\n"  
-        params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
+        params = [self._thetaref, self._threshold, self._slp_np, self._ksn_np]
         header += ";".join([str(param) for param in params]) + "\n" 
         header += str(self._proj) + "\n"
         params = [str(head) for head in self._heads]
@@ -1337,7 +1349,7 @@ class BNetwork(Network):
         dd = self._dd[I]
         
         chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np)
         
         
         
@@ -1369,7 +1381,7 @@ class BNetwork(Network):
 
 #         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
 #         if aschannel == True:
-#             return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
+#             return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np)
 #         else:
 #             return outarr
 
@@ -1733,25 +1745,50 @@ class Channel(PRaster):
           Window to analyze slopes. Slopes are calculated by linear regression using a window
           of npoints * 2 + 1 pixel (using the central pixel)
           
-        kind : *str* {'slp', 'ksn'}
+        kind : *str* {'slp', 'ksn'} 
+          Calculates the gradients for slope (distance-elevation) or kwn (chi-elevation)
         """
+        if npoints < 3:
+            return
 
-        winlen = npoints * 2 + 1
-        
         # Get arrays depending on type
         y_arr = self._zx
         if kind == 'ksn':
             x_arr = self._chi
-            self._ksn_np = npoints
         else:
             x_arr = self._dx
-            self._slp_np = npoints
         
-        # Window with points
-        head = 0
-        mid_cell = 1
-        mouth_cell = 2
+        for n in range(self._ix.size):
+            low = n - npoints
+            high = n + npoints
         
+            if low < 0:
+                low = 0
+        
+            xi = x_arr[low:high + 1]
+            yi = y_arr[low:high + 1]
+            poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
+            
+            if yi.size * yi.var() == 0:
+                R2 = 0.0
+            else:
+                R2 = float(1 - SCR/(yi.size * yi.var()))
+        
+            g = poli[0]
+            r2 = abs(R2)
+        
+            if abs(g) < 0.001:
+               g = 0.001
+               
+               
+            if kind == 'ksn':
+                self._ksn[n] = g
+                self._R2ksn[n] = r2
+                self._ksn_np = npoints
+            else:
+                self._slp[n] = g
+                self._R2slp[n] = r2
+                self._slp_np = npoints
         
         
     

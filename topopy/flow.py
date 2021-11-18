@@ -422,7 +422,7 @@ class Flow(PRaster):
         
         Parameters:
         ===========
-        array : *numpy.ndarray*
+        input_points : *numpy.ndarray*
           Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         threshold : *int*
           Flow accumulation threshold (in number of cells) to extract channel cells or stream POI 

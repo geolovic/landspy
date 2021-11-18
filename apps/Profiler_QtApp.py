@@ -158,6 +158,7 @@ class MainWindow(QMainWindow):
             self.current_regression = []
 
         else:
+            self.statusBar.clearMessage()
             self.current_regression = []
             self.canvas.mpl_disconnect(self.pc_id)
             self.tb_button_KP.setEnabled(True)
@@ -176,6 +177,7 @@ class MainWindow(QMainWindow):
 
         else:
             self.canvas.mpl_disconnect(self.pc_id)
+            self.statusBar.clearMessage()
             if self._mode == 2:
                 self.tb_button_reg.setEnabled(True)
                 self.tb_button_dam.setEnabled(True)
@@ -308,6 +310,14 @@ class MainWindow(QMainWindow):
             self._enable_spinBox(npoints) 
             self._draw()
             
+        if self.tb_button_KP.isChecked():
+            self.tb_button_reg.setEnabled(False)
+            self.tb_button_dam.setEnabled(False)
+            
+        if self.tb_button_reg.isChecked():
+            self.tb_button_KP.setEnabled(False)
+            self.tb_button_dam.setEnabled(False)
+            
     def _enable_spinBox(self, value):
         self.npointSpinBox.setValue(value) 
         self.npointSpinBox.setEnabled(True)
@@ -388,7 +398,7 @@ class MainWindow(QMainWindow):
             self.ax.set_ylabel("Slope")
             ai= canal.get_a(cells=False)
             slp = canal.get_slope()
-            self.ax.plot(ai, slp, "b.",mfc="k", ms=6 , picker=True, pickradius=5)
+            self.ax.plot(ai, slp, marker=".", ls = "", color="k", mfc="k", ms=5, picker=True, pickradius=5)
             self.ax.set_xscale("log")
             self.ax.set_yscale("log")
             
@@ -414,6 +424,20 @@ class MainWindow(QMainWindow):
             if len(canal._kp) > 0:
                 for k in canal._kp:
                     self.ax.plot(di[k[0]], ksn[k[0]], **self.kp_types[k[1]])
+                    
+            # Draw regressions
+            if len(canal._regressions) > 0:
+                # Channel regressions are tuples (p1, p2, poli, R2)
+                # p1, p2 >> positions of first and second point of the regression
+                # poli >> Polinomial with the regression
+                # R2 >> Determination coeficient of the regression
+                for reg in canal._regressions:
+                    ksn = reg[2][0]
+                    d1 = di[reg[0]]
+                    d2 = di[reg[1]]
+                    self.ax.plot([d1, d2], [ksn, ksn], c="r", ls="--", lw=1.5)
+                    
+                    
             
         self.canvas.draw()
 
