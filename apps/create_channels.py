@@ -20,4 +20,4 @@ canales = np.array(canales)
 canal = canales[0]
 
 
-np.save("canales2.npy", canales)
+np.save("canales.npy", canales)

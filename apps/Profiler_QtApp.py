@@ -53,10 +53,10 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.statusBar)
         
         # Tipos para knickpoints
-        self.kp_types = {0 : {'ls':"", 'marker':"*", 'mec':"k", 'mew':0.5, 'mfc':"r", 'ms':8}, 
-                         1 : {'ls':"", 'marker':"*", 'mec':"k", 'mew':0.5, 'mfc':"b", 'ms':8},
-                         2 : {'ls':"", 'marker':"o", 'mec':"k", 'mew':0.5, 'mfc':"g", 'ms':4},
-                         3 : {'ls':"", 'marker':"o", 'mec':"k", 'mew':0.5, 'mfc':"y", 'ms':4}}
+        self.kp_types = {0 : {'ls':"", 'marker':"*", 'mec':"k", 'mew':0.5, 'mfc':"r", 'ms':10}, 
+                         1 : {'ls':"", 'marker':"*", 'mec':"k", 'mew':0.5, 'mfc':"b", 'ms':10},
+                         2 : {'ls':"", 'marker':"o", 'mec':"k", 'mew':0.5, 'mfc':"g", 'ms':6},
+                         3 : {'ls':"", 'marker':"o", 'mec':"k", 'mew':0.5, 'mfc':"y", 'ms':6}}
         
         # Modos de dibujo (distintos tipos de perfiles)
         self._mode = 1 # 1. Long. profile, 2. Chi profile, 3. Area-slope profile, 4. ksn profile
@@ -223,14 +223,25 @@ class MainWindow(QMainWindow):
                 
         # If self._pick_mode == 2 --> Selecting regression
         elif self._pick_mode == 2:
-            if ind > 0:
-            if len(self.current_regression) == 0:
-                self.current_regression.append(ind)
-                self.ax.plot(event.mouseevent.xdata, event.mouseevent.ydata, ls="", marker="+")
-                return
-            elif len(self.current_regression) == 1:
-                
-
+            # Left button >> Add regression point
+            if event.mouseevent.button==1:
+                if len(self.current_regression) == 0:
+                    # Si no hay ningun punto introducido
+                    # Introducimos el punto, lo dibujamos y salimos sin llamar a self._draw()
+                    self.current_regression.append(ind)
+                    self.ax.plot(event.mouseevent.xdata, event.mouseevent.ydata, ls="", marker="+", ms=10)
+                    self.canvas.draw()
+                    return
+                elif len(self.current_regression) == 1:
+                    # Si hay un punto introducido, añadimos la regresión
+                    self.current_regression.append(ind)
+                    canal.add_regression(self.current_regression[0], self.current_regression[1])
+                    self.current_regression = []
+            
+            # Right button >> Remove regression
+            if event.mouseevent.button==3:
+                canal.remove_regression(ind)
+                self.current_regression = []
 
         self._draw()
 
@@ -351,7 +362,22 @@ class MainWindow(QMainWindow):
             if len(canal._kp) > 0:
                 for k in canal._kp:
                     self.ax.plot(chi[k[0]], zi[k[0]], **self.kp_types[k[1]])
-            
+                    
+            # Draw regressions
+            if len(canal._regressions) > 0:
+                # Channel regressions are tuples (p1, p2, poli, R2)
+                # p1, p2 >> positions of first and second point of the regression
+                # poli >> Polinomial with the regression
+                # R2 >> Determination coeficient of the regression
+                for reg in canal._regressions:
+                    chi1 = chi[reg[0]]
+                    chi2 = chi[reg[1]]
+                    poli = reg[2]
+                    z1 = np.polyval(poli, chi1)
+                    z2 = np.polyval(poli, chi2)
+                    
+                    self.ax.plot([chi1, chi2], [z1, z2], c="r", ls="--", lw=1.5)
+    
         
         elif self._mode == 3: # Area-slope profile
             title = "Area-slope profile"
@@ -362,7 +388,7 @@ class MainWindow(QMainWindow):
             self.ax.set_ylabel("Slope")
             ai= canal.get_a(cells=False)
             slp = canal.get_slope()
-            self.ax.plot(ai, slp, "b.", picker=True, pickradius=5)
+            self.ax.plot(ai, slp, "b.",mfc="k", ms=6 , picker=True, pickradius=5)
             self.ax.set_xscale("log")
             self.ax.set_yscale("log")
             
@@ -394,7 +420,7 @@ class MainWindow(QMainWindow):
 # 3. Creamos aplicación        
 app = QApplication(sys.argv)
 
-canales = np.load("canales2.npy", allow_pickle=True)
+canales = np.load("canales.npy", allow_pickle=True)
 
 # 4. Creamos ventana con la nueva clase y la mostramos
 win = MainWindow(canales)

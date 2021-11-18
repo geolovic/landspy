@@ -1501,11 +1501,32 @@ class Channel(PRaster):
         self._kp = np.delete(self._kp, pos, axis=0) 
     
     def add_regression(self, p1, p2):
-        self._regressions.append((p1, p2))
+        # If p2 is greater than p1, change values
+        if p2 < p1:
+            p2, p1 = p1, p2
+        
+        # Return if p1 or p2 are equal or not valid indexes
+        if p1 == p2 or p1 < 0 or p2 >= self._ix.size:
+            return
+        
+        # Get values of Chi-Elevation for regression
+        chi = self._chi[p1:p2]
+        zi = self._zx[p1:p2]
+        
+        # Calculate gradient by regression 
+        poli, SCR = np.polyfit(chi, zi, deg = 1, full = True)[:2]
+        
+        # Calculate R2 
+        if zi.size * zi.var() == 0:
+            R2 = 1 # Puntos colineares
+        else:
+            R2 = float(1 - SCR/(zi.size * zi.var()))
+        
+        self._regressions.append((p1, p2, poli, R2))
     
     def remove_regression(self, ind):
         for reg in self._regressions:
-            if reg[0] <= ind <= reg[2]:
+            if reg[0] <= ind <= reg[1]:
                 remove_reg = reg
                 break
             
@@ -1725,7 +1746,14 @@ class Channel(PRaster):
         else:
             x_arr = self._dx
             self._slp_np = npoints
-        pass
+        
+        # Window with points
+        head = 0
+        mid_cell = 1
+        mouth_cell = 2
+        
+        
+        
     
     
     def get_slope(self, head=True):
