@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QToolBar, QLabel, QAction
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QMenu
 import sys
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -42,7 +43,9 @@ class MainWindow(QMainWindow):
 
         # Hacemos que el Figure Canvas sea el widget central
         self.setCentralWidget(self.canvas)
+        self._create_actions()
         self._create_toolbar()
+        self._create_menu()
         
         # Cargamos canales  
         self.load_channels(canales)
@@ -77,26 +80,21 @@ class MainWindow(QMainWindow):
         self._channels = channels
         self._nchannels = len(channels)
         self._active = 0
-    
-    def _create_toolbar(self):
-        """
-        Función interna para crear la barra de herramientas principal de Aplicación
-        """
-        # Creamos barra de herramientas
-        toolbar = QToolBar("Action toolbar")
-        toolbar.setIconSize(QSize(20,20))
-        self.addToolBar(toolbar)
         
-        # Creamos botones
+    def _create_actions(self):
+        """
+        Función interna que crea QActions (botones y acciones para menu y toolbar)
+        """
         # Desplazamiento entre perfiles (no ncesaria referencia, los creamos y los conectamos con funciones)
-        tb_button_prev = QAction(QIcon("icons/arrow-180.png"), "Previous", self)
-        tb_button_next = QAction(QIcon("icons/arrow-000.png"), "Next", self)
+        self.tb_button_prev = QAction(QIcon("icons/arrow-180.png"), "Previous", self)
+        self.tb_button_next = QAction(QIcon("icons/arrow-000.png"), "Next", self)
+        
         # Tipos de gráficos
-        tb_button_longP = QAction(QIcon("icons/long_prof.ico"), "Longitudinal profile", self)
-        tb_button_chiP = QAction(QIcon("icons/chi_prof.ico"), "Chi profile", self)
-        tb_button_ASP = QAction(QIcon("icons/loglog_prof.ico"), "log(a)-log(s) profile", self)
-        tb_button_ksnP = QAction(QIcon("icons/ksn_prof.ico"), "ksn profile", self)
-       
+        self.tb_button_longP = QAction(QIcon("icons/long_prof.ico"), "Longitudinal profile", self)
+        self.tb_button_chiP = QAction(QIcon("icons/chi_prof.ico"), "Chi profile", self)
+        self.tb_button_ASP = QAction(QIcon("icons/loglog_prof.ico"), "log(a)-log(s) profile", self)
+        self.tb_button_ksnP = QAction(QIcon("icons/ksn_prof.ico"), "ksn profile", self)
+        
         # Modos de captura de puntos (necesaria referencia para poder cambiarles el estado)
         self.tb_button_KP = QAction(QIcon("icons/flag.ico"), "Set Knickpoint", self)
         self.tb_button_reg = QAction(QIcon("icons/reg.ico"), "Create regression", self)
@@ -110,31 +108,26 @@ class MainWindow(QMainWindow):
         self.npointSpinBox = QSpinBox()
         self.tb_button_refresh = QAction(QIcon("icons/arrow-circle.png"), "Refresh", self)
         self.npointSpinBox.setFocusPolicy(Qt.NoFocus)
-    
-        # Añadimos botones a toolbar
-        toolbar.addAction(tb_button_prev)
-        toolbar.addAction(tb_button_next)
-        toolbar.addAction(tb_button_longP)
-        toolbar.addAction(tb_button_chiP)
-        toolbar.addAction(tb_button_ASP)
-        toolbar.addAction(tb_button_ksnP)
-        toolbar.addAction(self.tb_button_KP)
-        toolbar.addAction(self.tb_button_reg)
-        toolbar.addAction(self.tb_button_dam)
-        toolbar.addWidget(self.npointLabel)
-        toolbar.addWidget(self.npointSpinBox)
-        toolbar.addAction(self.tb_button_refresh) 
-        toolbar.setStyleSheet("QToolBar{spacing:2px;}")
         
+        # Acciones del menú File
+        self.menu_load = QAction("Load Channels", self) 
+        self.menu_save = QAction("Save Channels", self)
+        self.menu_add = QAction("Add Channel", self)
+        self.menu_remove = QAction("Remove Channel", self)
+        
+        
+        
+        # ===============================================================================
+        # Conectamos QActions y Widgets con funciones
         # Conectamos los 4 botones de tipos de perfiles a la función change_profile_graph
-        tb_button_longP.triggered.connect(lambda x: self.change_profile_graph(1))
-        tb_button_chiP.triggered.connect(lambda x: self.change_profile_graph(2))
-        tb_button_ASP.triggered.connect(lambda x: self.change_profile_graph(3))
-        tb_button_ksnP.triggered.connect(lambda x: self.change_profile_graph(4))
+        self.tb_button_longP.triggered.connect(lambda x: self.change_profile_graph(1))
+        self.tb_button_chiP.triggered.connect(lambda x: self.change_profile_graph(2))
+        self.tb_button_ASP.triggered.connect(lambda x: self.change_profile_graph(3))
+        self.tb_button_ksnP.triggered.connect(lambda x: self.change_profile_graph(4))
         
         # Conectamos botones de desplazamiento a función
-        tb_button_prev.triggered.connect(lambda x: self.next_profile(-1))
-        tb_button_next.triggered.connect(lambda x: self.next_profile(1))
+        self.tb_button_prev.triggered.connect(lambda x: self.next_profile(-1))
+        self.tb_button_next.triggered.connect(lambda x: self.next_profile(1))
         
         # Conectamos boton de refresh a función
         self.tb_button_refresh.triggered.connect(self.calculate_gradients)
@@ -145,7 +138,52 @@ class MainWindow(QMainWindow):
         # Conectamos boton de Regression a funcion
         self.tb_button_reg.triggered.connect(self.button_reg_click)
     
+        
+    def _create_menu(self):
+        """
+        Función interna para crear el menú de la aplicación
+        """
+        # Creamos barra de menú vacía
+        menubar = self.menuBar()
+        filemenu = menubar.addMenu("&File")
+        editmenu =menubar.addMenu("&Edit")
+        
+        # Añadimos opciones
+        filemenu.addAction(self.menu_load)
+        filemenu.addAction(self.menu_save)
+        filemenu.addAction(self.menu_add)
+        filemenu.addAction(self.menu_remove)
+        
+        
+        
+        
+        
     
+    def _create_toolbar(self):
+        """
+        Función interna para crear la barra de herramientas principal de Aplicación
+        """
+        # Creamos barra de herramientas
+        toolbar = QToolBar("Action toolbar")
+        toolbar.setIconSize(QSize(20,20))
+        self.addToolBar(toolbar)
+           
+        # Añadimos botones a toolbar
+        toolbar.addAction(self.tb_button_prev)
+        toolbar.addAction(self.tb_button_next)
+        toolbar.addAction(self.tb_button_longP)
+        toolbar.addAction(self.tb_button_chiP)
+        toolbar.addAction(self.tb_button_ASP)
+        toolbar.addAction(self.tb_button_ksnP)
+        toolbar.addAction(self.tb_button_KP)
+        toolbar.addAction(self.tb_button_reg)
+        toolbar.addAction(self.tb_button_dam)
+        toolbar.addWidget(self.npointLabel)
+        toolbar.addWidget(self.npointSpinBox)
+        toolbar.addAction(self.tb_button_refresh) 
+        toolbar.setStyleSheet("QToolBar{spacing:2px;}")
+        
+
     def button_reg_click(self):
         # Handler para botón de regressions
         
