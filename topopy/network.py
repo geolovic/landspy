@@ -1315,11 +1315,11 @@ class BNetwork(Network):
         Parameters
         ----------
         aschannel : bool
-          Channel is returned as an array (False) or as a Channel instance (True).
+          Channel is returned as a Channel instance (True) or as numpy array (False)
 
         Returns
         -------
-        numpy array or Channel instance
+        Channel instance or numpy array
 
         """
         head = self._heads[0]       
@@ -1491,8 +1491,8 @@ class Channel(PRaster):
         self._chi = chandata[:, 4]
         self._slp = chandata[:, 5]
         self._ksn = chandata[:, 6]
-        self._R2slp = chandata[:, 7]
-        self._R2ksn = chandata[:, 8]
+        self._r2slp = chandata[:, 7]
+        self._r2ksn = chandata[:, 8]
         self._dd = chandata[:, 9]
         self._thetaref = thetaref
         self._chi0 = chi0
@@ -1506,13 +1506,56 @@ class Channel(PRaster):
 
 
     def add_kp(self, ind, tipo=0):
+        """
+        Adds a knickpoint at a given position
+
+        Parameters
+        ----------
+        ind : int
+            Knickpoint position (index of the knickpoint within the channel)
+        tipo : int, optional
+            Integer representing knickpoint type.
+
+        Returns
+        -------
+        None.
+
+        """
         self._kp = np.append(self._kp, [[ind, tipo]], axis=0)
         
     def remove_kp(self, ind):
+        """
+        Remove knickoint from channel
+
+        Parameters
+        ----------
+        ind : int
+            Knickpoint position (index of the knickpoint within the channel)
+
+        Returns
+        -------
+        None.
+
+        """
         pos = np.where(self._kp[:,0] == ind)[0]
         self._kp = np.delete(self._kp, pos, axis=0) 
     
     def add_regression(self, p1, p2):
+        """
+        Add regression in chi-elevation space.
+
+        Parameters
+        ----------
+        p1 : int
+            Position of the start of the regression (index within the channel)
+        p2 : int
+            Position of the end of the regression (index within the channel)
+
+        Returns
+        -------
+        None.
+
+        """
         # If p2 is greater than p1, change values
         if p2 < p1:
             p2, p1 = p1, p2
@@ -1537,6 +1580,19 @@ class Channel(PRaster):
         self._regressions.append((p1, p2, poli, R2))
     
     def remove_regression(self, ind):
+        """
+        Remove regression from channel
+
+        Parameters
+        ----------
+        ind : int
+            Index within the regression. If more than one regression pass through this index, only the first will be removed. 
+
+        Returns
+        -------
+        None.
+
+        """
         for reg in self._regressions:
             if reg[0] <= ind <= reg[1]:
                 remove_reg = reg
@@ -1547,7 +1603,7 @@ class Channel(PRaster):
     
     def save(self, path):
         """
-        Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
+        Saves the Channel instance to disk. It will be saved as a numpy array in text format with a header.
         The first three lines will have the information of the raster:
             Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
             Line2::   thetaref; threshold; slp_np; ksn_np
@@ -1580,8 +1636,8 @@ class Channel(PRaster):
         header += str(self._regressions)
         # Create data array
         data_arr = np.array((self._ix, self._ax, self._dx, self._zx,
-                             self._chi, self._slp, self._ksn, self._R2slp, 
-                             self._R2ksn, self._dd)).T
+                             self._chi, self._slp, self._ksn, self._r2slp, 
+                             self._r2ksn, self._dd)).T
         #, self._knickpoints, self._regressions
         # Save the network instance as numpy.ndarray in text format
         np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
@@ -1630,8 +1686,8 @@ class Channel(PRaster):
         self._chi = data_arr[:, 4]
         self._slp = data_arr[:, 5]
         self._ksn = data_arr[:, 6]
-        self._R2slp = data_arr[:, 7]
-        self._R2ksn = data_arr[:, 8]
+        self._r2slp = data_arr[:, 7]
+        self._r2ksn = data_arr[:, 8]
         self._dd = data_arr[:, 9]
 
     def set_name(self, name):
@@ -1783,11 +1839,11 @@ class Channel(PRaster):
                
             if kind == 'ksn':
                 self._ksn[n] = g
-                self._R2ksn[n] = r2
+                self._r2ksn[n] = r2
                 self._ksn_np = npoints
             else:
                 self._slp[n] = g
-                self._R2slp[n] = r2
+                self._r2slp[n] = r2
                 self._slp_np = npoints
         
         
@@ -1873,9 +1929,9 @@ class Channel(PRaster):
                 feat.SetField('z', float(self._zx[n]))
                 feat.SetField('chi', float(self._chi[n]))
                 feat.SetField('ksn', float(self._ksn[n]))
-                feat.SetField('rksn', float(self._R2ksn[n]))
+                feat.SetField('rksn', float(self._r2ksn[n]))
                 feat.SetField('slope', float(self._slp[n]))
-                feat.SetField('rslope', float(self._R2slp[n]))
+                feat.SetField('rslope', float(self._r2slp[n]))
                 
                 # Create geometry
                 geom = ogr.Geometry(ogr.wkbPoint25D)
