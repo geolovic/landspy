@@ -1351,56 +1351,65 @@ class BNetwork(Network):
         chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
         return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np)
         
-        
-        
-#         chcells = [self._heads[0]]
-#         ixcix = np.zeros(self._ncells, np.int)
-#         ixcix[self._ix] = np.arange(self._ix.size)
-#         nextcell = self._ixc[ixcix[self._heads[0]]]
-        
-#         while ixcix[nextcell] != 0:
-#             chcells.append(nextcell)
-#             nextcell = self._ixc[ixcix[nextcell]]
-                     
-#         row, col = self.ind_2_cell(chcells)
-#         xi, yi = self.cell_2_xy(row, col)
-#         auxarr = np.zeros(self._ncells).astype(np.bool)
-#         auxarr[chcells] = True
-#         I = auxarr[self._ix]
-#         ai = self._ax[I]
-#         zi = self._zx[I]
-#         di = self._dx[I]
-#         chi = self._chi[I]
-#         slp = self._slp[I]
-#         ksn = self._ksn[I]
-#         r2slp = self._r2slp[I]
-#         r2ksn = self._r2ksn[I]
-# #        length = di[0] - di[-1]
-# #        di -= di[-1]
-# #        di = length - di
+    
+    def get_channels(self, nchannels=None):
+        """
+        Get all channels in the basin. 
 
-#         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
-#         if aschannel == True:
-#             return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np)
-#         else:
-#             return outarr
+        Parameters
+        ----------
+        nchannels : int // None // "ALL", optional
+            Number of channel that will be returned. If None (default) only channel corresponding to 
+            Channel heads will be returned, otherwise, an specific number of channels will return. If nchannels 
+            is greater than the Channel main heads, other channel will be returned for Network heads (sorted
+            by elevation). To get all channels in the basin pass "ALL"
 
-    def get_channels(self, nchannels=0):
-        aux_arr = np.zeros(self._ncells, np.bool)
-        ixcix = np.zeros(self._ncells, np.int)
+        Returns
+        -------
+        canales : Numpy ndArray
+            Numpy array of topopy.Channel objects
+
+        """
+        # Create auxiliary array to walk through the network cells
+        aux_arr = np.zeros(self.get_ncells(), "int")
+        aux_arr.fill(-1)
+        ixcix = np.zeros(self.get_ncells(), "int")
         ixcix[self._ix] = np.arange(self._ix.size)
+        # Empty list for returned Channel objects
         canales = []
+        getflow = False
         
-        if nchannels == 0:
+        # If nchannels is None, only Channel main heads will be returned
+        if nchannels == None:
             heads = self._heads
+       
+        # Else, we generate all heads for the basin (keeping main heads firts)
         else:
+            # Get a list with all the heads and their elevations
             heads = self.get_stream_poi("heads", "IND")
-            ixcix = np.zeros(self._ncells, np.int)
-            ixcix[self._ix] = np.arange(self._ix.size)
-            pos = np.argsort(-self._zx[ixcix[heads]])
-            heads = heads[pos][:nchannels]
+            heads_z = self._zx[ixcix[heads]]
+            
+            # Sort heads by elevation (from highest to lowest)
+            sorted_heads = heads[np.argsort(-heads_z)]
+            
+            # Merge sorted heads and main Channel heads
+            all_heads = np.append(self._heads, sorted_heads)
+            
+            # Remove duplicates
+            unique_val, unique_pos = np.unique(all_heads, return_index=True)
+            
+            # Sorted indexes (otherwise will be ordered according unique values)
+            pos = np.sort(unique_pos)
+            heads = all_heads[pos]
+            
+            # If nchannels == "ALL", return all the channels (also flow will be computed)
+            if nchannels == "ALL":
+                nchannels = heads.size
+                getflow = True
         
-        for head in heads:
+        # Iterate heads and get Channels
+        for idx, head in enumerate(heads[:nchannels]):
+            flowto = -1
             chcells = [head]
             aux_arr[head] = True
             nextcell = self._ixc[ixcix[head]]
@@ -1408,9 +1417,11 @@ class BNetwork(Network):
             while ixcix[nextcell] != 0:
                 chcells.append(nextcell)
                 nextcell = self._ixc[ixcix[nextcell]]
-                if aux_arr[nextcell]==False:
-                    aux_arr[nextcell] = True
+                if aux_arr[nextcell]==-1:
+                    aux_arr[nextcell] = idx
                 else:
+                    if getflow:
+                        flowto = aux_arr[nextcell]
                     chcells.append(nextcell)
                     break
             
@@ -1423,14 +1434,15 @@ class BNetwork(Network):
             zi = self._zx[I]
             di = self._dx[I]
             chi = self._chi[I]
+            dd = self._dd[I]
             slp = self._slp[I]
             ksn = self._ksn[I]
             r2slp = self._r2slp[I]
             r2ksn = self._r2ksn[I]
-            chandata = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
-            canales.append(chandata)
-        
-        return canales
+            chandata = np.array([chcells, ai, di, zi,  chi, slp, ksn, r2slp, r2ksn, dd]).T
+            canales.append(Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, str(idx), idx, flowto))
+            
+        return np.array(canales)
      
 
 class Channel(PRaster):
