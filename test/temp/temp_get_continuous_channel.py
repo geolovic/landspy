@@ -6,7 +6,7 @@ Este es un archivo temporal
 """
 
 from topopy import Network, Channel, Flow, BNetwork
-import ogr, osr
+from osgeo import ogr, osr
 import numpy as np
 
 net = Network("../data/in/tunez_net.dat")
@@ -23,7 +23,7 @@ layer = dataset.CreateLayer("rivers", sp, ogr.wkbLineString25D)
 layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
 
 # Get ixcix auxiliar array
-ixcix = np.zeros(self.get_ncells(), np.int)
+ixcix = np.zeros(self.get_ncells(), np.int64)
 ixcix[self._ix] = np.arange(self._ix.size)
 
 # Get heads, confluences, outlets and orders
@@ -40,12 +40,14 @@ for conf in confs:
     if giv_orders.max() < conf_order:
         strahler_confs.append(conf)
         
-# Append strahler confluences to heads
-heads = np.append(heads, np.array(strahler_confs))
+# Create head array with orders (by append confluences where index increases)
+heads = np.array((heads, np.ones(heads.size, np.int64))).T
+strahler_confs = np.array([strahler_confs, ch_ord[strahler_confs]]).T
+heads = np.vstack((heads, strahler_confs))
 
 # Iterate heads
 for head in heads:
-    cell = head
+    cell = head[0]
     river_data = [cell]
     processing = True
     while processing:
@@ -54,11 +56,14 @@ for head in heads:
                    
         if ixcix[next_cell] == 0: # next_cell is an outlet
             processing = False
-        elif next_cell in strahler_confs: # next_cell is in strahler_confs
-            processing = False
+        elif next_cell in confs: # next_cell is a confluence
+            if head[1] < ch_ord[next_cell]:
+                processing = False
+            else:
+                cell = next_cell
         else:
             cell = next_cell    
-                    
+               
     # Add feature
     feat = ogr.Feature(layer.GetLayerDefn())
     row, col = self.ind_2_cell(river_data)
