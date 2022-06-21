@@ -28,10 +28,31 @@ def canales_to_shapefile(path, canales):
     # Creamos layer
     layer = dataset.CreateLayer("canales", sp, ogr.wkbLineString)
     
-    
     # Add fields
+    campos = ["oid", "name", "flowto", "thetaref", "chi0", "slp_np", "ksn_np"]
+    tipos = [0, 4, 0, 2, 2, 0, 0]
     
+    for n in range(len(tipos)):
+        layer.CreateField(ogr.FieldDefn(campos[n], tipos[n]))
     
+    # Add channels to shapefile
+    for canal in canales:
+        feat = ogr.Feature(layer.GetLayerDefn())
+        feat.SetField("oid", canal.get_oid())
+        feat.SetField("name", canal.get_name())
+        feat.SetField("flowto", canal.get_flow())
+        feat.SetField("thetaref", canal._thetaref)
+        feat.SetField("chi0", canal._chi0)
+        feat.SetField("slp_np", canal._slp_np)
+        feat.SetField("ksn_np", canal._ksn_np)
+        geom = ogr.Geometry(ogr.wkbLineString)
+        xy = canal.get_xy()
+        for row in xy:
+            geom.AddPoint(row[0], row[1])
+            
+        feat.SetGeometry(geom)
+        layer.CreateFeature(feat)
+        
 
 class BNetworkGetMainChannelTest(unittest.TestCase):
 
