@@ -251,7 +251,7 @@ class Network(PRaster):
         self._thetaref = thetaref
    
     def polynomial_fit(self, x, y):
-        '''Calculate gradient and R2''' 
+        '''Calculate gradient and R2 for two variables''' 
        
         # Calculate slope of central cell by regression 
         poli, SCR = np.polyfit(x, y, deg = 1, full = True)[:2]
@@ -906,6 +906,12 @@ class Network(PRaster):
         """
         if mouth is None:
             mouth = head
+            
+        # Check if head and mouth are inside the grid
+        if not self.is_inside(head[0], head[1]):
+            return
+        elif not self.is_inside(mouth[0], mouth[1]):
+            mouth = head
         
         # Snap head and mouth to channel cells
         snap_points = self.snap_points(np.array((head, mouth)))
@@ -1452,7 +1458,7 @@ class BNetwork(Network):
 
 class Channel(PRaster):
 
-    def __init__(self, praster, chandata, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5, name="", oid=-1, flowto=-1):
+    def __init__(self, praster=None, chandata=None, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5, name="", oid=-1, flowto=-1):
         """
         Class that defines a channel (cells from head to mouth)
         
@@ -1497,6 +1503,15 @@ class Channel(PRaster):
         Channel object
         """
        
+        # If praster is empty, create an empty Channel instancee
+        if praster is None:
+            self._create_empty()
+            return
+        # If praster parameter is a str, we load the Channel object from path
+        elif type(praster)== str:
+            self.load(praster)
+            return
+        
         # Initalize internal properties
         self._size = praster._size
         self._geot = praster._geot
@@ -1505,6 +1520,7 @@ class Channel(PRaster):
         self._ax = chandata[:, 1]
         self._dx = chandata[:, 2]
         self._zx = chandata[:, 3]
+        self._zx0 = np.copy(chandata[:, 3]) # Original elevations
         self._chi = chandata[:, 4]
         self._slp = chandata[:, 5]
         self._ksn = chandata[:, 6]
@@ -1521,7 +1537,35 @@ class Channel(PRaster):
         self._oid = oid
         self._flowto = flowto
 
-
+    def _create_empty(self):
+        """
+        Creates an empty instance of the Channel class
+        """
+        # Set the empty PRaster properties
+        super().__init__()
+        
+        # Set remaining properties
+        self._ix =  np.array([0])
+        self._ax = np.array([1])
+        self._dx = np.array([0])
+        self._zx = np.array([0])
+        self._zx0 = np.array([0])
+        self._chi = np.array([0])
+        self._slp = np.array([0])
+        self._ksn = np.array([0])
+        self._r2slp = np.array([0])
+        self._r2ksn = np.array([0])
+        self._dd = np.array([1])
+        self._thetaref = 0.45
+        self._chi0 = 0
+        self._slp_np = 0
+        self._ksn_np = 0
+        self._kp = np.empty((0, 2), int)
+        self._regressions = []
+        self._name = ''
+        self._oid = -1
+        self._flowto = -1
+        
     def add_kp(self, ind, tipo=0):
         """
         Adds a knickpoint at a given position
@@ -1616,15 +1660,15 @@ class Channel(PRaster):
                 break
             
         self._regressions.remove(remove_reg)
-                
-    
+                  
     def save(self, path):
         """
         Saves the Channel instance to disk. It will be saved as a numpy array in text format with a header.
         The first three lines will have the information of the raster:
-            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
-            Line2::   thetaref; threshold; slp_np; ksn_np
-            Line3::   String with the projection (WKT format)
+            Line1::   name; oid; flowto
+            Line2::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
+            Line3::   thetaref; threshold; slp_np; ksn_np
+            Line4::   String with the projection (WKT format)
         xsize, ysize >> Dimensions of the raster
         cx, cy >> Cellsizes in X and Y
         Tx, Ty >> Rotation factors (for geotransformation matrix)
@@ -1643,52 +1687,86 @@ class Channel(PRaster):
         path = os.path.splitext(path)[0] + ".dat"
         
         # Create header with properties
-        params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
-                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
-        header = ";".join([str(param) for param in params]) + "\n"  
-        params = [self._thetaref, self._chi0, self._slp_np, self._ksn_np]
-        header += ";".join([str(param) for param in params]) + "\n" 
+        # Line 1: name; oid; flowto
+        header = ";".join([self._name, str(self._oid), str(self._flowto)]) + "\n"
+        
+        # Line2: xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
+        header += ";".join([str(param) for param in [self._size[0], self._size[1], self._geot[1], self._geot[5], 
+                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]]) + "\n"
+        
+        # Line 3: thetaref; chi0; slp_np; ksn_np
+        header += ";".join([str(param) for param in [self._thetaref, self._chi0, self._slp_np, self._ksn_np]]) + "\n"  
+        
+        # Line 4: proj
         header += str(self._proj) + "\n" 
-        header += str(self._knickpoints) + "\n" 
-        header += str(self._regressions)
+        
+        # Line 5: knickpoints
+        kp_line = ""
+        for kp in self._kp:
+            kp_line += str(kp[0]) + ";" + str(kp[1]) + ";"
+        header += kp_line[:-1] + "\n"
+        
+        # Line 6: regressions
+        reg_line = ""
+        for reg in self._regressions:
+            reg_line += str(reg[0]) + ";" + str(reg[1]) + ";"
+        header += reg_line[:-1]   
+            
         # Create data array
         data_arr = np.array((self._ix, self._ax, self._dx, self._zx,
                              self._chi, self._slp, self._ksn, self._r2slp, 
-                             self._r2ksn, self._dd)).T
-        #, self._knickpoints, self._regressions
-        # Save the network instance as numpy.ndarray in text format
+                             self._r2ksn, self._dd, self._zx0)).T
+        
+        # Save the Channel instance as numpy.ndarray in text format
         np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
         
-    def _load(self, path):
+    def load(self, path):
         """
         Loads a Network instance saved in the disk.
         
         Parameter:
         ==========
-           Path to the saved network object
+           Path to the Channel object
         """
         # Open the file as normal text file to get its properties
         fr = open(path, "r")
-        # Line 1: First and last characters will be "#" and "\n"
+        
+        # For all the first 6 lines, first and last characters will be "#" and "\n" respectively 
+        
+        # Line 1: name; oid; flowto
+        linea = fr.readline()[1:-1]
+        data = linea.split(";")
+        self._name = data[0]
+        self._oid = int(data[1])
+        self._flowto = int(data[2])
+        
+        # Line 2: xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
         linea = fr.readline()[1:-1]
         data = linea.split(";")
         self._size = (int(data[0]), int(data[1]))
         self._geot = (float(data[4]), float(data[2]), float(data[6]), 
                       float(data[5]), float(data[7]), float(data[3]))       
-        # Line2: First and last characters will be "#" and "\n"
+       
+        # Line3: thetaref; chi0; slp_np; ksn_np
         linea = fr.readline()[1:-1]
         data = linea.split(";")
         self._thetaref = float(data[0])
         self._chi0 = float(data[1])
         self._slp_np = int(data[2])
         self._ksn_np = int(data[3])
-        # Line3: First and last characters will be "#" and "\n"
+        
+        # Line4: Proj (wkt)
         linea = fr.readline()[1:-1]
         self._proj = linea
-        linea = fr.readline()[1:-1]
-        self._knickpoints = linea
-        linea = fr.readline()[1:-1]
-        self._regressions = linea
+        
+        # Line5: Knickpoints
+        self._kp = np.empty((0, 2), int)
+        kp_line = fr.readline()[1:-1]
+            
+        # Line6: Regressions
+        self._regressions = []
+        reg_line = fr.readline()[1:-1]
+        
         fr.close()
         
         # Load array data
@@ -1706,6 +1784,24 @@ class Channel(PRaster):
         self._r2slp = data_arr[:, 7]
         self._r2ksn = data_arr[:, 8]
         self._dd = data_arr[:, 9]
+        self._zx0 = data_arr[:, 10]
+        
+        
+        # Add knickpoints and regressions
+        if kp_line:
+            data = kp_line.split(";")
+            for n in range(0, len(data), 2):
+                ind = int(data[n])
+                tipo = int(data[n+1])
+                self.add_kp(ind, tipo)
+            
+        if reg_line:
+            data = reg_line.split(";")
+            for n in range(0, len(data), 2):
+                p1 = int(data[n])
+                p2 = int(data[n+1])
+                self.add_regression(p1, p2)
+        
 
     def set_name(self, name):
         """
@@ -1718,6 +1814,20 @@ class Channel(PRaster):
         Returns the name (label) of the channel
         """
         return self._name
+    
+    def get_oid(self):
+        """
+        """
+        return self._oid
+
+    def set_oid(self, oid):
+        self._oid = oid
+        
+    def get_flow(self):
+        return self._flowto
+    
+    def set_flow(self, flowto):
+        self._flowto = flowto
 
     def get_length(self):
         """
@@ -1805,7 +1915,6 @@ class Channel(PRaster):
 
         return ai    
     
-  
     def calculate_gradients(self, npoints, kind='slp'):
         """
         This function calculates gradients (slope or ksn) for all the cells. 
@@ -1863,9 +1972,6 @@ class Channel(PRaster):
                 self._r2slp[n] = r2
                 self._slp_np = npoints
         
-        
-    
-    
     def get_slope(self, head=True):
         """
         Returns channel slope values
@@ -1927,36 +2033,6 @@ class Channel(PRaster):
             ksn = ksn[::-1]
         return ksn
 
-    def knickpoints_shp(self, path=""):          
-
-        if len(self._knickpoints) > 0:
-            driver = ogr.GetDriverByName("ESRI Shapefile")
-            dataset = driver.CreateDataSource(path)
-            sp = osr.SpatialReference()
-            sp.ImportFromWkt(self._proj)
-            layer = dataset.CreateLayer("Knickpoints", sp, geom_type=ogr.wkbPoint25D)    
-    
-            campos = ['z', 'chi', 'ksn', 'rksn', 'slope', 'rslope']
-            tipos = [2, 2, 2, 2, 2, 2]
-            for n in range(len(campos)):
-                layer.CreateField(ogr.FieldDefn(campos[n], tipos[n]))
-
-            for n in self._knickpoints:
-                feat = ogr.Feature(layer.GetLayerDefn())             
-                feat.SetField('z', float(self._zx[n]))
-                feat.SetField('chi', float(self._chi[n]))
-                feat.SetField('ksn', float(self._ksn[n]))
-                feat.SetField('rksn', float(self._r2ksn[n]))
-                feat.SetField('slope', float(self._slp[n]))
-                feat.SetField('rslope', float(self._r2slp[n]))
-                
-                # Create geometry
-                geom = ogr.Geometry(ogr.wkbPoint25D)
-                geom.AddPoint(self.get_xy()[n][0], self.get_xy()[n][1], self._zx[n])
-                feat.SetGeometry(geom)            
-                layer.CreateFeature(feat)
-        else:
-            raise NetworkError('The Channel object has no Knickpoints')
 
 class NetworkError(Exception):
     pass

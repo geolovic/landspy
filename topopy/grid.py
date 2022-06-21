@@ -365,7 +365,7 @@ class Grid(PRaster):
         Return the positions of the NoData values as a tuple of two arrays (rows, columns)
         """
         if self._nodata is None:
-            return (np.array([], np.int), np.array([], np.int))
+            return (np.array([], np.int64), np.array([], np.int64))
         else:
             return np.where(self._array == self._nodata)
         

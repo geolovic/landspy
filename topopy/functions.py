@@ -56,7 +56,7 @@ def extract_points(path, idfield=""):
     return np.array(points)
 
 
-def rivers_to_channels(path, net, name_field=""):
+def shp_to_channels(path, net, id_field="", name_field=""):
     """
     Extracts channels from river shapefile. Shapefile geometry must be polyline. Only the first point (head)
     and the last point (mouth) of each line are used, the channel is extracted from the Network object. Only no-multipart
@@ -68,6 +68,8 @@ def rivers_to_channels(path, net, name_field=""):
       Path to the polyline shapefile
     net : topopy.Network
       Network instance
+    id_field : str 
+      Field with the OId for the channel. If not provided, the oid will be an integer number (order of the line)
     name_field : str 
       Field with the label for the channel. If not provided, the name will be an integer number (order of the line)
       
@@ -83,6 +85,7 @@ def rivers_to_channels(path, net, name_field=""):
     layer = dataset.GetLayer()
     lydef = layer.GetLayerDefn()
     namefield = lydef.GetFieldIndex(name_field)
+    idfield = lydef.GetFieldIndex(id_field)
     
     
     channels = []
@@ -90,19 +93,26 @@ def rivers_to_channels(path, net, name_field=""):
     for n, feat in enumerate(layer):
         geom = feat.GetGeometryRef()
         
+        # If the feature is multigeometry (more than one geometry), discard that feature
         if geom.GetGeometryCount() > 1:
             continue
         
+        # Get first and last points
         head = geom.GetPoint(0)
         mouth = geom.GetPoint(geom.GetPointCount() - 1)
         
+        # If namefield is in the shapefile, get it
         if namefield >= 0:
             name = feat.GetField(namefield)
         else:
-            name = n
+            name = str(n)
+            
+        if idfield >= 0:
+            oid = feat.GetField(idfield)
+        else:
+            oid = n
         
-        channel = net.get_channel(head, mouth)
-        channel.set_name(str(name))
+        channel = net.get_channel(head, mouth, name, oid)
         channels.append(channel)
 
     return channels
