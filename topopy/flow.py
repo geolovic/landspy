@@ -374,7 +374,7 @@ class Flow(PRaster):
             temp_ix = self._ix
             temp_ixc = self._ixc
             nbasins = 0
-            basin_arr = np.zeros(self.get_ncells(), np.int)
+            basin_arr = np.zeros(self.get_ncells(), np.int64)
             nix = len(temp_ix)
             for n in range(nix-1,-1,-1):
                 # If receiver is zero, add a new basin
@@ -391,7 +391,7 @@ class Flow(PRaster):
             xi, yi = self.cell_2_xy(row, col)
             temp_ix = self._ix
             temp_ixc = self._ixc
-            basin_arr = np.zeros(self.get_ncells(), np.int)
+            basin_arr = np.zeros(self.get_ncells(), np.int64)
 
             # Change basin array outlets by the basin id (starting to 1)
             if inds.size == 1:
@@ -757,7 +757,7 @@ def sort_dem(dem_arr, weights, order="C"):
     ix_flats = np.argsort(-rweights, kind='mergesort')
     
     # Sort the rest of the pixels from the DEM
-    ndx = np.arange(ncells, dtype=np.int)
+    ndx = np.arange(ncells, dtype=np.int64)
     ndx = ndx[ix_flats]
     ix = ndx[np.argsort(-rdem[ndx], kind='mergesort')]
     
@@ -812,7 +812,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     # Get cardinal neighbors
     footprint= np.array([[0, 1, 0],
                          [1, 1, 1],
-                         [0, 1, 0]], dtype=np.int)
+                         [0, 1, 0]], dtype=np.int8)
     IXC1 = ndimage.morphology.grey_dilation(pp, footprint=footprint)
     xxx1 = np.copy(IXC1)
     IX = IXC1.ravel(order=order)[ix]
@@ -822,7 +822,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     # Get diagonal neighbors
     footprint= np.array([[1, 0, 1],
                          [0, 1, 0],
-                         [1, 0, 1]], dtype=np.int)
+                         [1, 0, 1]], dtype=np.int8)
     IXC2 = ndimage.morphology.grey_dilation(pp, footprint=footprint)
     xxx2 = np.copy(IXC2)
     IX = IXC2.ravel(order=order)[ix]

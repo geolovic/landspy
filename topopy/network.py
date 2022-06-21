@@ -1520,7 +1520,11 @@ class Channel(PRaster):
         self._ax = chandata[:, 1]
         self._dx = chandata[:, 2]
         self._zx = chandata[:, 3]
+<<<<<<< HEAD
         self._zx0 = chandata[:, 3] # Original elevations
+=======
+        self._zx0 = np.copy(chandata[:, 3]) # Original elevations
+>>>>>>> 414f9c5dcec965eeaceef3965fbaf0782da88177
         self._chi = chandata[:, 4]
         self._slp = chandata[:, 5]
         self._ksn = chandata[:, 6]
