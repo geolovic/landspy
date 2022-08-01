@@ -824,6 +824,8 @@ class Network(PRaster):
         # Iterate heads
         for head in heads:
             cell = head[0]
+            if ixcix[cell] == 0: # Head is also an outlet, discard and continue
+                continue
             river_data = [cell]
             processing = True
             while processing:
@@ -1288,9 +1290,7 @@ class BNetwork(Network):
         super()._create_empty()
         self._heads = np.array([0])
     
-### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
-    
-    def chi_plot(self, ax=None):
+    def chiPlot(self, ax=None):
         """
         This function plot the Chi-elevation graphic for all the channels of the basin. 
         
@@ -1306,9 +1306,14 @@ class BNetwork(Network):
         if ax is None:
             fig, ax = plt.subplots()
             
-        main_ch = self.get_main_channel()
-        ax.plot(self._chi, self._zx, color="0.75", ls="None", marker=".", ms=1)
-        ax.plot(main_ch[:, 5], main_ch[:, 2], ls="-", c="0.3", lw=1)
+        canales = self.getChannels(nchannels="ALL")
+        main_ch = canales[0]
+        
+        for canal in canales:
+            ax.plot(canal.get_chi(), canal.get_z(), color="0.75", lw=0.75)
+        
+        ax.plot(main_ch.get_chi(), main_ch.get_z(), color="k", lw=1)
+        
         ax.set_xlim(xmin=0)
         ax.set_ylim(ymin=min(self._zx))
         
@@ -1319,66 +1324,42 @@ class BNetwork(Network):
     def chi_analysis(self, draw=False):
         pass
 
-    def get_main_channel(self, aschannel=True): 
+    def getChannel(self, id): 
         """
-        Get the main Channel
+        Get the channel at specific index
         
         Parameters
         ----------
-        aschannel : bool
-          Channel is returned as a Channel instance (True) or as numpy array (False)
+        id : int
+          Channel index
 
         Returns
         -------
-        Channel instance or numpy array
+        Channel instance
 
         """
-        head = self._heads[0]       
-        # Get ixcix auxiliar array
-        ixcix = np.zeros(self.get_ncells(), np.int)
-        ixcix[self._ix] = np.arange(self._ix.size)
+        channels = self.getChannels(nchannels="ALL")
+        if id >= len(channels):
+            raise NetworkError("Index ERROR")
+        return channels[id]
         
-        # Get channel cells
-        chcells = [head]
-        next_cell = self._ixc[ixcix[head]]
-        while ixcix[next_cell] != 0:
-            chcells.append(next_cell)
-            next_cell = self._ixc[ixcix[next_cell]]
-
-        chcells = np.array(chcells)
-        auxarr = np.zeros(self.get_ncells()).astype(np.bool)
-        auxarr[chcells] = True
-        I = auxarr[self._ix]
-        ax = self._ax[I]
-        dx = self._dx[I]
-        zx = self._zx[I]
-        chi = self._chi[I]
-        slp = self._slp[I]
-        ksn = self._ksn[I]
-        r2_slp = self._r2slp[I]
-        r2_ksn = self._r2ksn[I]
-        dd = self._dd[I]
-        
-        chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np)
-        
-    
-    def get_channels(self, nchannels=None):
+    def getChannels(self, nchannels=None, min_length=0):
         """
         Get all channels in the basin. 
 
         Parameters
         ----------
         nchannels : int // None // "ALL", optional
-            Number of channel that will be returned. If None (default) only channel corresponding to 
+            Number of channel that will be returned. If None (default) only channels corresponding to 
             Channel heads will be returned, otherwise, an specific number of channels will return. If nchannels 
             is greater than the Channel main heads, other channel will be returned for Network heads (sorted
             by elevation). To get all channels in the basin pass "ALL"
-
+        min_length : float
+            Minimun channel length. Channels of the BNetwork with lower lengths will be discarded
         Returns
         -------
-        canales : Numpy ndArray
-            Numpy array of topopy.Channel objects
+        canales : list
+            List of topopy.Channel objects
 
         """
         # Create auxiliary array to walk through the network cells
@@ -1394,7 +1375,7 @@ class BNetwork(Network):
         if nchannels == None:
             heads = self._heads
        
-        # Else, we generate all heads for the basin (keeping main heads firts)
+        # Else, generate all heads for the basin (keeping main heads firts)
         else:
             # Get a list with all the heads and their elevations
             heads = self.get_stream_poi("heads", "IND")
@@ -1451,9 +1432,11 @@ class BNetwork(Network):
             r2slp = self._r2slp[I]
             r2ksn = self._r2ksn[I]
             chandata = np.array([chcells, ai, di, zi,  chi, slp, ksn, r2slp, r2ksn, dd]).T
-            canales.append(Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, str(idx), idx, flowto))
+            canal = Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, str(idx), idx, flowto)
+            if canal.get_length() >= min_length:
+                canales.append(canal)
             
-        return np.array(canales)
+        return canales
      
 
 class Channel(PRaster):
@@ -1520,11 +1503,7 @@ class Channel(PRaster):
         self._ax = chandata[:, 1]
         self._dx = chandata[:, 2]
         self._zx = chandata[:, 3]
-<<<<<<< HEAD
-        self._zx0 = chandata[:, 3] # Original elevations
-=======
         self._zx0 = np.copy(chandata[:, 3]) # Original elevations
->>>>>>> 414f9c5dcec965eeaceef3965fbaf0782da88177
         self._chi = chandata[:, 4]
         self._slp = chandata[:, 5]
         self._ksn = chandata[:, 6]
@@ -1806,7 +1785,6 @@ class Channel(PRaster):
                 p2 = int(data[n+1])
                 self.add_regression(p1, p2)
         
-
     def set_name(self, name):
         """
         Sets the name (label) of the channel
@@ -2037,6 +2015,13 @@ class Channel(PRaster):
             ksn = ksn[::-1]
         return ksn
 
+    def plot(self, type="long", line_props = {}, kp_props={}):
+        # Set the line properties
+        lprops = {"c":"k", "ls":"-", "lw":1}
+        lprops.update(line_props)
+        # Set the knickpoint properties
+        #TODO Terminar función
+        return
 
 class NetworkError(Exception):
     pass
