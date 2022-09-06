@@ -1587,6 +1587,11 @@ class Channel(PRaster):
     def add_regression(self, p1, p2):
         """
         Add regression in chi-elevation space.
+        A regression is defined by a tuple of 5 elements: [id, pos1, pos2, poly, r2ksn]
+          id: index of the regression. Is the middle possition (pos2-pos1)/2
+          pos1, pos2: positions of the first and last points of the regression
+          poly: 1nd order polynomial with the regression >> [a, b] (y = ax + b)
+          r2ksn: R2 of the regression
 
         Parameters
         ----------
@@ -1612,7 +1617,7 @@ class Channel(PRaster):
         chi = self._chi[p1:p2]
         zi = self._zx[p1:p2]
         
-        # Calculate gradient by regression 
+        # Calculate gradient by linear regression ()
         poli, SCR = np.polyfit(chi, zi, deg = 1, full = True)[:2]
         
         # Calculate R2 
@@ -1620,29 +1625,60 @@ class Channel(PRaster):
             R2 = 1 # Puntos colineares
         else:
             R2 = float(1 - SCR/(zi.size * zi.var()))
+            
+        # Get Id (mid-point of the regression)
+        idx = int(p1 + (p2 - p1)/2)
         
-        self._regressions.append((p1, p2, poli, R2))
+        # Append regression and returns regression id
+        self._regressions.append((idx, p1, p2, poli, R2))
+        return idx
     
-    def remove_regression(self, ind):
+    def get_regression(self, ind):
+        """
+        Get regression from Channel based on a position. In case of multiple regressions passing through the position,
+        returns the closest to the mid-point of the regression. 
+        """
+        if len(self._regressions) == 0:
+            return
+        
+        regs = []
+        for reg in self._regressions:
+            if reg[1] <= ind <= reg[2]:
+                regs.append(reg)
+        min_dist = 99999999
+        out_reg = None
+        for reg in regs:
+            diff = abs(reg[0] - ind)
+            if diff < min_dist:
+                out_reg = reg
+        
+        return out_reg
+    
+    def remove_regression(self, idx):
         """
         Remove regression from channel
 
         Parameters
         ----------
-        ind : int
-            Index within the regression. If more than one regression pass through this index, only the first will be removed. 
+        idx : int
+            Regression index
 
         Returns
         -------
         None.
 
         """
+        # Get the regression to remove (equal index of idx)
+        remove_reg = None
         for reg in self._regressions:
-            if reg[0] <= ind <= reg[1]:
+            if reg[0] == idx:
                 remove_reg = reg
-                break
-            
-        self._regressions.remove(remove_reg)
+        
+        if remove_reg:
+            self._regressions.remove(remove_reg)
+            return True
+        else:
+            return False
                   
     def save(self, path):
         """
@@ -2014,7 +2050,11 @@ class Channel(PRaster):
         if not head:
             ksn = ksn[::-1]
         return ksn
-
+    
+    def getKsnn(self, ksn):
+       # TODO - Get Normalized ksn value
+        return ksn
+        
     def plot(self, type="long", line_props = {}, kp_props={}):
         # Set the line properties
         lprops = {"c":"k", "ls":"-", "lw":1}
