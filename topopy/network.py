@@ -2051,17 +2051,38 @@ class Channel(PRaster):
             ksn = ksn[::-1]
         return ksn
     
-    def getKsnn(self, ksn):
-       # TODO - Get Normalized ksn value
-        return ksn
+    def smoothChannel(self, winsize=0, recalculate_gradients=True):
+        """
+        This function smooth channel elevations win a moving window
+        Parameters:
+        ===========
+        winsize : *double*
+          Size of the moving windows (meters or profile units). The window size will be transformed to number of pixels. 
+          
+        recalculate_gradients : *boolean*
+          Flag to indicate if recalulate gradients (slope and ksn) with the new elevation values
+        """
+        # Remove peaks and flat segments
+        for n in range(self._zx.size - 1):
+            if self._zx[n + 1] >= self._zx[n]:
+                self._zx[n + 1] = self._zx[n] - 0.001
+
+        # Smooth elevations if window distance > 0
+        if winsize > 0:
+            n_cells = int(int((winsize / self.get_cellsize()[0]) + 0.5) / 2)
+            z_copy = np.copy(self._zx)
+            for ind in range(self._zx.size):
+                low = ind - n_cells
+                high = ind + n_cells + 1
+                if low < 0:
+                    low = 0
         
-    def plot(self, type="long", line_props = {}, kp_props={}):
-        # Set the line properties
-        lprops = {"c":"k", "ls":"-", "lw":1}
-        lprops.update(line_props)
-        # Set the knickpoint properties
-        #TODO Terminar función
-        return
+                elevations = z_copy[low:high]
+                self._zx[ind] = np.mean(elevations)
+            
+            if recalculate_gradients:
+                self.calculate_gradients(self._ksn_np, kind='ksn')
+                self.calculate_gradients(self._slp_np, kind='slp')
 
 class NetworkError(Exception):
     pass
