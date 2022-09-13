@@ -42,9 +42,15 @@ class Network(PRaster):
       m/n coeficient to calculate chi values in each channel cell    
     npoints : *int*
       Number of points to calculate slope and ksn in each cell. Slope and ksn values
-      are cc
+    gradients : *bool*
+      Flag to determinate if gradients are calculated or not when creating the Network 
+      (calculate gradients can be slow for big grids)
+    verbose : boolean
+      Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
+    verb_func : str
+      Function to output verbose messages (only needed if topopy is embeded in other application)
     """
-    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False):
+    def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False, verbose=False, verb_func=print):
 
         # The Network object has the following properties:
         # ._ix >> Giver cells
@@ -114,10 +120,10 @@ class Network(PRaster):
         else:
             self._slp = np.zeros(self._ix.size)
             self._r2slp = np.zeros(self._ix.size)
-            self._slp_npoints = 0
+            self._slp_np = 0
             self._ksn = np.zeros(self._ix.size)
             self._r2ksn = np.zeros(self._ix.size)
-            self._ksn_npoints = 0
+            self._ksn_np = 0
 
     def _create_empty(self):
         """
@@ -138,8 +144,8 @@ class Network(PRaster):
         self._r2ksn = np.array([0])
         self._dd = np.array([1])
         self._thetaref = 0.45
-        self._slp_npoints = 0
-        self._ksn_npoints = 0
+        self._slp_np = 0
+        self._ksn_np = 0
         self._threshold = 0
         
     def save(self, path):
@@ -170,7 +176,7 @@ class Network(PRaster):
         params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
                   self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
         header = ";".join([str(param) for param in params]) + "\n"  
-        params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
+        params = [self._thetaref, self._threshold, self._slp_np, self._ksn_np]
         header += ";".join([str(param) for param in params]) + "\n" 
         header += str(self._proj)
 
@@ -203,8 +209,8 @@ class Network(PRaster):
         data = linea.split(";")
         self._thetaref = float(data[0])
         self._threshold = int(data[1])
-        self._slp_npoints = int(data[2])
-        self._ksn_npoints = int(data[3])
+        self._slp_np = int(data[2])
+        self._ksn_np = int(data[3])
         # Line3: First and last characters will be "#" and "\n"
         linea = fr.readline()[1:-1]
         self._proj = linea
@@ -229,7 +235,7 @@ class Network(PRaster):
          
     def calculate_chi(self, thetaref=0.45, a0=1.0):
         """
-        Function that calculate chi_values for channel cells
+        Function that calculates chi_values for channel cells
         
         Parameters:
         -----------
@@ -245,7 +251,7 @@ class Network(PRaster):
         self._thetaref = thetaref
    
     def polynomial_fit(self, x, y):
-        '''Calculate gradient and R2''' 
+        '''Calculate gradient and R2 for two variables''' 
        
         # Calculate slope of central cell by regression 
         poli, SCR = np.polyfit(x, y, deg = 1, full = True)[:2]
@@ -272,9 +278,10 @@ class Network(PRaster):
         ===========
         npoints : *int*
           Window to analyze slopes. Slopes are calculated by linear regression using a window
-          of npoints * 2 + 1 pixel (using the central pixel)
+          of (npoints * 2 + 1) pixels (using the central pixel)
           
         kind : *str* {'slp', 'ksn'}
+          Kind of gradient to calculate Slope (slp) or Ksn (ksn)
         """
 
         winlen = npoints * 2 + 1
@@ -397,11 +404,11 @@ class Network(PRaster):
         if kind == 'ksn':
             self._ksn = gi[self._ix]
             self._r2ksn = r2[self._ix]
-            self._ksn_npoints = npoints
+            self._ksn_np = npoints
         else:
             self._slp = gi[self._ix]
             self._r2slp = r2[self._ix]
-            self._slp_npoints = npoints
+            self._slp_np = npoints
 
     def hierarchy_channels(self, heads="", asgrid=True):
         """
@@ -530,7 +537,10 @@ class Network(PRaster):
         input_points : *numpy.ndarray*
           Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
-            Kind of point to snap input points
+          Kind of point to snap input points
+        remove_duplicates : *bool*
+          Remove duplicate points. When snapping points, two points can be snapped to the same poi. If True, 
+          these duplicate points will be removed. 
         
         Returns:
         ===========
@@ -573,6 +583,8 @@ class Network(PRaster):
     def export_to_points(self, path):
         """
         Export channel points to a semicolon-delimited text file
+        This file will contain  data of 
+        id ; x ; y ; z ; distance ; area ; chi ; slope ; ksn ; r2_slope ; r2_ksn
         
         path : str
           Path for the output text file
@@ -787,7 +799,7 @@ class Network(PRaster):
         layer.CreateField(ogr.FieldDefn("order", ogr.OFTInteger))
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self.get_ncells(), np.int)
+        ixcix = np.zeros(self.get_ncells(), np.int64)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get heads, confluences, outlets and orders
@@ -804,25 +816,32 @@ class Network(PRaster):
             if giv_orders.max() < conf_order:
                 strahler_confs.append(conf)
                 
-        # Append strahler confluences to heads
-        heads = np.append(heads, np.array(strahler_confs))
+        # Create head array with orders (by append confluences where index increases)
+        heads = np.array((heads, np.ones(heads.size, np.int64))).T
+        strahler_confs = np.array([strahler_confs, ch_ord[strahler_confs]]).T
+        heads = np.vstack((heads, strahler_confs))
         
         # Iterate heads
         for head in heads:
-            cell = head
+            cell = head[0]
+            if ixcix[cell] == 0: # Head is also an outlet, discard and continue
+                continue
             river_data = [cell]
             processing = True
-
             while processing:
                 next_cell = self._ixc[ixcix[cell]]
                 river_data.append(next_cell)
+                           
                 if ixcix[next_cell] == 0: # next_cell is an outlet
                     processing = False
-                elif next_cell in strahler_confs: # next_cell is in strahler_confs
-                    processing = False
+                elif next_cell in confs: # next_cell is a confluence
+                    if head[1] < ch_ord[next_cell]:
+                        processing = False
+                    else:
+                        cell = next_cell
                 else:
                     cell = next_cell    
-                            
+                       
             # Add feature
             feat = ogr.Feature(layer.GetLayerDefn())
             row, col = self.ind_2_cell(river_data)
@@ -889,6 +908,12 @@ class Network(PRaster):
         """
         if mouth is None:
             mouth = head
+            
+        # Check if head and mouth are inside the grid
+        if not self.is_inside(head[0], head[1]):
+            return
+        elif not self.is_inside(mouth[0], mouth[1]):
+            mouth = head
         
         # Snap head and mouth to channel cells
         snap_points = self.snap_points(np.array((head, mouth)))
@@ -925,7 +950,7 @@ class Network(PRaster):
         dd = self._dd[I]
         
         chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints, name=name, oid=oid)
+        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, name=name, oid=oid)
         
     def get_chi_shapefile(self, out_shp, distance):
         """
@@ -1130,8 +1155,8 @@ class BNetwork(Network):
             self._ncells = basin_cl.size
             self._threshold = net._threshold
             self._thetaref = net._thetaref
-            self._slp_npoints = net._slp_npoints
-            self._ksn_npoints = net._ksn_npoints
+            self._slp_np = net._slp_np
+            self._ksn_np = net._ksn_np
             
             # Get only points inside the basin
             # The last receiver (ixc) will be outside of the basin
@@ -1247,7 +1272,7 @@ class BNetwork(Network):
         params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
                   self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
         header = ";".join([str(param) for param in params]) + "\n"  
-        params = [self._thetaref, self._threshold, self._slp_npoints, self._ksn_npoints]
+        params = [self._thetaref, self._threshold, self._slp_np, self._ksn_np]
         header += ";".join([str(param) for param in params]) + "\n" 
         header += str(self._proj) + "\n"
         params = [str(head) for head in self._heads]
@@ -1265,9 +1290,7 @@ class BNetwork(Network):
         super()._create_empty()
         self._heads = np.array([0])
     
-### ^^^^ UP HERE ALL FUNCTIONS TESTED ^^^^
-    
-    def chi_plot(self, ax=None):
+    def chiPlot(self, ax=None):
         """
         This function plot the Chi-elevation graphic for all the channels of the basin. 
         
@@ -1283,9 +1306,14 @@ class BNetwork(Network):
         if ax is None:
             fig, ax = plt.subplots()
             
-        main_ch = self.get_main_channel()
-        ax.plot(self._chi, self._zx, color="0.75", ls="None", marker=".", ms=1)
-        ax.plot(main_ch[:, 5], main_ch[:, 2], ls="-", c="0.3", lw=1)
+        canales = self.getChannels(nchannels="ALL")
+        main_ch = canales[0]
+        
+        for canal in canales:
+            ax.plot(canal.get_chi(), canal.get_z(), color="0.75", lw=0.75)
+        
+        ax.plot(main_ch.get_chi(), main_ch.get_z(), color="k", lw=1)
+        
         ax.set_xlim(xmin=0)
         ax.set_ylim(ymin=min(self._zx))
         
@@ -1296,99 +1324,84 @@ class BNetwork(Network):
     def chi_analysis(self, draw=False):
         pass
 
-    def get_main_channel(self, aschannel=True): 
+    def getChannel(self, id): 
         """
-        Get the main Channel
+        Get the channel at specific index
         
         Parameters
         ----------
-        aschannel : bool
-          Channel is returned as an array (False) or as a Channel instance (True).
+        id : int
+          Channel index
 
         Returns
         -------
-        numpy array or Channel instance
+        Channel instance
 
         """
-        head = self._heads[0]       
-        # Get ixcix auxiliar array
-        ixcix = np.zeros(self.get_ncells(), np.int)
+        channels = self.getChannels(nchannels="ALL")
+        if id >= len(channels):
+            raise NetworkError("Index ERROR")
+        return channels[id]
+        
+    def getChannels(self, nchannels=None, min_length=0):
+        """
+        Get all channels in the basin. 
+
+        Parameters
+        ----------
+        nchannels : int // None // "ALL", optional
+            Number of channel that will be returned. If None (default) only channels corresponding to 
+            Channel heads will be returned, otherwise, an specific number of channels will return. If nchannels 
+            is greater than the Channel main heads, other channel will be returned for Network heads (sorted
+            by elevation). To get all channels in the basin pass "ALL"
+        min_length : float
+            Minimun channel length. Channels of the BNetwork with lower lengths will be discarded
+        Returns
+        -------
+        canales : list
+            List of topopy.Channel objects
+
+        """
+        # Create auxiliary array to walk through the network cells
+        aux_arr = np.zeros(self.get_ncells(), "int")
+        aux_arr.fill(-1)
+        ixcix = np.zeros(self.get_ncells(), "int")
         ixcix[self._ix] = np.arange(self._ix.size)
-        
-        # Get channel cells
-        chcells = [head]
-        next_cell = self._ixc[ixcix[head]]
-        while ixcix[next_cell] != 0:
-            chcells.append(next_cell)
-            next_cell = self._ixc[ixcix[next_cell]]
-
-        chcells = np.array(chcells)
-        auxarr = np.zeros(self.get_ncells()).astype(np.bool)
-        auxarr[chcells] = True
-        I = auxarr[self._ix]
-        ax = self._ax[I]
-        dx = self._dx[I]
-        zx = self._zx[I]
-        chi = self._chi[I]
-        slp = self._slp[I]
-        ksn = self._ksn[I]
-        r2_slp = self._r2slp[I]
-        r2_ksn = self._r2ksn[I]
-        dd = self._dd[I]
-        
-        chandata = np.array([chcells, ax, dx, zx, chi, slp, ksn, r2_slp, r2_ksn, dd]).T
-        return Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
-        
-        
-        
-#         chcells = [self._heads[0]]
-#         ixcix = np.zeros(self._ncells, np.int)
-#         ixcix[self._ix] = np.arange(self._ix.size)
-#         nextcell = self._ixc[ixcix[self._heads[0]]]
-        
-#         while ixcix[nextcell] != 0:
-#             chcells.append(nextcell)
-#             nextcell = self._ixc[ixcix[nextcell]]
-                     
-#         row, col = self.ind_2_cell(chcells)
-#         xi, yi = self.cell_2_xy(row, col)
-#         auxarr = np.zeros(self._ncells).astype(np.bool)
-#         auxarr[chcells] = True
-#         I = auxarr[self._ix]
-#         ai = self._ax[I]
-#         zi = self._zx[I]
-#         di = self._dx[I]
-#         chi = self._chi[I]
-#         slp = self._slp[I]
-#         ksn = self._ksn[I]
-#         r2slp = self._r2slp[I]
-#         r2ksn = self._r2ksn[I]
-# #        length = di[0] - di[-1]
-# #        di -= di[-1]
-# #        di = length - di
-
-#         outarr = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
-#         if aschannel == True:
-#             return Channel(self, outarr, self._thetaref, self._chi[-1], self._slp_npoints, self._ksn_npoints)
-#         else:
-#             return outarr
-
-    def get_channels(self, nchannels=0):
-        aux_arr = np.zeros(self._ncells, np.bool)
-        ixcix = np.zeros(self._ncells, np.int)
-        ixcix[self._ix] = np.arange(self._ix.size)
+        # Empty list for returned Channel objects
         canales = []
+        getflow = False
         
-        if nchannels == 0:
+        # If nchannels is None, only Channel main heads will be returned
+        if nchannels == None:
             heads = self._heads
+       
+        # Else, generate all heads for the basin (keeping main heads firts)
         else:
+            # Get a list with all the heads and their elevations
             heads = self.get_stream_poi("heads", "IND")
-            ixcix = np.zeros(self._ncells, np.int)
-            ixcix[self._ix] = np.arange(self._ix.size)
-            pos = np.argsort(-self._zx[ixcix[heads]])
-            heads = heads[pos][:nchannels]
+            heads_z = self._zx[ixcix[heads]]
+            
+            # Sort heads by elevation (from highest to lowest)
+            sorted_heads = heads[np.argsort(-heads_z)]
+            
+            # Merge sorted heads and main Channel heads
+            all_heads = np.append(self._heads, sorted_heads)
+            
+            # Remove duplicates
+            unique_val, unique_pos = np.unique(all_heads, return_index=True)
+            
+            # Sorted indexes (otherwise will be ordered according unique values)
+            pos = np.sort(unique_pos)
+            heads = all_heads[pos]
+            
+            # If nchannels == "ALL", return all the channels (also flow will be computed)
+            if nchannels == "ALL":
+                nchannels = heads.size
+                getflow = True
         
-        for head in heads:
+        # Iterate heads and get Channels
+        for idx, head in enumerate(heads[:nchannels]):
+            flowto = -1
             chcells = [head]
             aux_arr[head] = True
             nextcell = self._ixc[ixcix[head]]
@@ -1396,9 +1409,11 @@ class BNetwork(Network):
             while ixcix[nextcell] != 0:
                 chcells.append(nextcell)
                 nextcell = self._ixc[ixcix[nextcell]]
-                if aux_arr[nextcell]==False:
-                    aux_arr[nextcell] = True
+                if aux_arr[nextcell]==-1:
+                    aux_arr[nextcell] = idx
                 else:
+                    if getflow:
+                        flowto = aux_arr[nextcell]
                     chcells.append(nextcell)
                     break
             
@@ -1411,19 +1426,22 @@ class BNetwork(Network):
             zi = self._zx[I]
             di = self._dx[I]
             chi = self._chi[I]
+            dd = self._dd[I]
             slp = self._slp[I]
             ksn = self._ksn[I]
             r2slp = self._r2slp[I]
             r2ksn = self._r2ksn[I]
-            chandata = np.array([xi, yi, zi, di, ai, chi, slp, ksn, r2slp, r2ksn]).T
-            canales.append(chandata)
-        
+            chandata = np.array([chcells, ai, di, zi,  chi, slp, ksn, r2slp, r2ksn, dd]).T
+            canal = Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, str(idx), idx, flowto)
+            if canal.get_length() >= min_length:
+                canales.append(canal)
+            
         return canales
      
 
 class Channel(PRaster):
 
-    def __init__(self, praster, chandata, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5, name="", oid=-1, flowto=-1):
+    def __init__(self, praster=None, chandata=None, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5, name="", oid=-1, flowto=-1):
         """
         Class that defines a channel (cells from head to mouth)
         
@@ -1468,6 +1486,15 @@ class Channel(PRaster):
         Channel object
         """
        
+        # If praster is empty, create an empty Channel instancee
+        if praster is None:
+            self._create_empty()
+            return
+        # If praster parameter is a str, we load the Channel object from path
+        elif type(praster)== str:
+            self.load(praster)
+            return
+        
         # Initalize internal properties
         self._size = praster._size
         self._geot = praster._geot
@@ -1476,11 +1503,12 @@ class Channel(PRaster):
         self._ax = chandata[:, 1]
         self._dx = chandata[:, 2]
         self._zx = chandata[:, 3]
+        self._zx0 = np.copy(chandata[:, 3]) # Original elevations
         self._chi = chandata[:, 4]
         self._slp = chandata[:, 5]
         self._ksn = chandata[:, 6]
-        self._R2slp = chandata[:, 7]
-        self._R2ksn = chandata[:, 8]
+        self._r2slp = chandata[:, 7]
+        self._r2ksn = chandata[:, 8]
         self._dd = chandata[:, 9]
         self._thetaref = thetaref
         self._chi0 = chi0
@@ -1492,33 +1520,174 @@ class Channel(PRaster):
         self._oid = oid
         self._flowto = flowto
 
-
+    def _create_empty(self):
+        """
+        Creates an empty instance of the Channel class
+        """
+        # Set the empty PRaster properties
+        super().__init__()
+        
+        # Set remaining properties
+        self._ix =  np.array([0])
+        self._ax = np.array([1])
+        self._dx = np.array([0])
+        self._zx = np.array([0])
+        self._zx0 = np.array([0])
+        self._chi = np.array([0])
+        self._slp = np.array([0])
+        self._ksn = np.array([0])
+        self._r2slp = np.array([0])
+        self._r2ksn = np.array([0])
+        self._dd = np.array([1])
+        self._thetaref = 0.45
+        self._chi0 = 0
+        self._slp_np = 0
+        self._ksn_np = 0
+        self._kp = np.empty((0, 2), int)
+        self._regressions = []
+        self._name = ''
+        self._oid = -1
+        self._flowto = -1
+        
     def add_kp(self, ind, tipo=0):
+        """
+        Adds a knickpoint at a given position
+
+        Parameters
+        ----------
+        ind : int
+            Knickpoint position (index of the knickpoint within the channel)
+        tipo : int, optional
+            Integer representing knickpoint type.
+
+        Returns
+        -------
+        None.
+
+        """
         self._kp = np.append(self._kp, [[ind, tipo]], axis=0)
         
     def remove_kp(self, ind):
+        """
+        Remove knickoint from channel
+
+        Parameters
+        ----------
+        ind : int
+            Knickpoint position (index of the knickpoint within the channel)
+
+        Returns
+        -------
+        None.
+
+        """
         pos = np.where(self._kp[:,0] == ind)[0]
         self._kp = np.delete(self._kp, pos, axis=0) 
     
     def add_regression(self, p1, p2):
-        self._regressions.append((p1, p2))
-    
-    def remove_regression(self, ind):
-        for reg in self._regressions:
-            if reg[0] <= ind <= reg[2]:
-                remove_reg = reg
-                break
+        """
+        Add regression in chi-elevation space.
+        A regression is defined by a tuple of 5 elements: [id, pos1, pos2, poly, r2ksn]
+          id: index of the regression. Is the middle possition (pos2-pos1)/2
+          pos1, pos2: positions of the first and last points of the regression
+          poly: 1nd order polynomial with the regression >> [a, b] (y = ax + b)
+          r2ksn: R2 of the regression
+
+        Parameters
+        ----------
+        p1 : int
+            Position of the start of the regression (index within the channel)
+        p2 : int
+            Position of the end of the regression (index within the channel)
+
+        Returns
+        -------
+        None.
+
+        """
+        # If p2 is greater than p1, change values
+        if p2 < p1:
+            p2, p1 = p1, p2
+        
+        # Return if p1 or p2 are equal or not valid indexes
+        if p1 == p2 or p1 < 0 or p2 >= self._ix.size:
+            return
+        
+        # Get values of Chi-Elevation for regression
+        chi = self._chi[p1:p2]
+        zi = self._zx[p1:p2]
+        
+        # Calculate gradient by linear regression ()
+        poli, SCR = np.polyfit(chi, zi, deg = 1, full = True)[:2]
+        
+        # Calculate R2 
+        if zi.size * zi.var() == 0:
+            R2 = 1 # Puntos colineares
+        else:
+            R2 = float(1 - SCR/(zi.size * zi.var()))
             
-        self._regressions.remove(remove_reg)
-                
+        # Get Id (mid-point of the regression)
+        idx = int(p1 + (p2 - p1)/2)
+        
+        # Append regression and returns regression id
+        self._regressions.append((idx, p1, p2, poli, R2))
+        return idx
     
+    def get_regression(self, ind):
+        """
+        Get regression from Channel based on a position. In case of multiple regressions passing through the position,
+        returns the closest to the mid-point of the regression. 
+        """
+        if len(self._regressions) == 0:
+            return
+        
+        regs = []
+        for reg in self._regressions:
+            if reg[1] <= ind <= reg[2]:
+                regs.append(reg)
+        min_dist = 99999999
+        out_reg = None
+        for reg in regs:
+            diff = abs(reg[0] - ind)
+            if diff < min_dist:
+                out_reg = reg
+        
+        return out_reg
+    
+    def remove_regression(self, idx):
+        """
+        Remove regression from channel
+
+        Parameters
+        ----------
+        idx : int
+            Regression index
+
+        Returns
+        -------
+        None.
+
+        """
+        # Get the regression to remove (equal index of idx)
+        remove_reg = None
+        for reg in self._regressions:
+            if reg[0] == idx:
+                remove_reg = reg
+        
+        if remove_reg:
+            self._regressions.remove(remove_reg)
+            return True
+        else:
+            return False
+                  
     def save(self, path):
         """
-        Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
+        Saves the Channel instance to disk. It will be saved as a numpy array in text format with a header.
         The first three lines will have the information of the raster:
-            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
-            Line2::   thetaref; threshold; slp_np; ksn_np
-            Line3::   String with the projection (WKT format)
+            Line1::   name; oid; flowto
+            Line2::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
+            Line3::   thetaref; threshold; slp_np; ksn_np
+            Line4::   String with the projection (WKT format)
         xsize, ysize >> Dimensions of the raster
         cx, cy >> Cellsizes in X and Y
         Tx, Ty >> Rotation factors (for geotransformation matrix)
@@ -1537,52 +1706,86 @@ class Channel(PRaster):
         path = os.path.splitext(path)[0] + ".dat"
         
         # Create header with properties
-        params = [self._size[0], self._size[1], self._geot[1], self._geot[5], 
-                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]
-        header = ";".join([str(param) for param in params]) + "\n"  
-        params = [self._thetaref, self._chi0, self._slp_np, self._ksn_np]
-        header += ";".join([str(param) for param in params]) + "\n" 
+        # Line 1: name; oid; flowto
+        header = ";".join([self._name, str(self._oid), str(self._flowto)]) + "\n"
+        
+        # Line2: xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
+        header += ";".join([str(param) for param in [self._size[0], self._size[1], self._geot[1], self._geot[5], 
+                  self._geot[0], self._geot[3], self._geot[2], self._geot[4]]]) + "\n"
+        
+        # Line 3: thetaref; chi0; slp_np; ksn_np
+        header += ";".join([str(param) for param in [self._thetaref, self._chi0, self._slp_np, self._ksn_np]]) + "\n"  
+        
+        # Line 4: proj
         header += str(self._proj) + "\n" 
-        header += str(self._knickpoints) + "\n" 
-        header += str(self._regressions)
+        
+        # Line 5: knickpoints
+        kp_line = ""
+        for kp in self._kp:
+            kp_line += str(kp[0]) + ";" + str(kp[1]) + ";"
+        header += kp_line[:-1] + "\n"
+        
+        # Line 6: regressions
+        reg_line = ""
+        for reg in self._regressions:
+            reg_line += str(reg[0]) + ";" + str(reg[1]) + ";"
+        header += reg_line[:-1]   
+            
         # Create data array
         data_arr = np.array((self._ix, self._ax, self._dx, self._zx,
-                             self._chi, self._slp, self._ksn, self._R2slp, 
-                             self._R2ksn, self._dd)).T
-        #, self._knickpoints, self._regressions
-        # Save the network instance as numpy.ndarray in text format
+                             self._chi, self._slp, self._ksn, self._r2slp, 
+                             self._r2ksn, self._dd, self._zx0)).T
+        
+        # Save the Channel instance as numpy.ndarray in text format
         np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
         
-    def _load(self, path):
+    def load(self, path):
         """
         Loads a Network instance saved in the disk.
         
         Parameter:
         ==========
-           Path to the saved network object
+           Path to the Channel object
         """
         # Open the file as normal text file to get its properties
         fr = open(path, "r")
-        # Line 1: First and last characters will be "#" and "\n"
+        
+        # For all the first 6 lines, first and last characters will be "#" and "\n" respectively 
+        
+        # Line 1: name; oid; flowto
+        linea = fr.readline()[1:-1]
+        data = linea.split(";")
+        self._name = data[0]
+        self._oid = int(data[1])
+        self._flowto = int(data[2])
+        
+        # Line 2: xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
         linea = fr.readline()[1:-1]
         data = linea.split(";")
         self._size = (int(data[0]), int(data[1]))
         self._geot = (float(data[4]), float(data[2]), float(data[6]), 
                       float(data[5]), float(data[7]), float(data[3]))       
-        # Line2: First and last characters will be "#" and "\n"
+       
+        # Line3: thetaref; chi0; slp_np; ksn_np
         linea = fr.readline()[1:-1]
         data = linea.split(";")
         self._thetaref = float(data[0])
         self._chi0 = float(data[1])
         self._slp_np = int(data[2])
         self._ksn_np = int(data[3])
-        # Line3: First and last characters will be "#" and "\n"
+        
+        # Line4: Proj (wkt)
         linea = fr.readline()[1:-1]
         self._proj = linea
-        linea = fr.readline()[1:-1]
-        self._knickpoints = linea
-        linea = fr.readline()[1:-1]
-        self._regressions = linea
+        
+        # Line5: Knickpoints
+        self._kp = np.empty((0, 2), int)
+        kp_line = fr.readline()[1:-1]
+            
+        # Line6: Regressions
+        self._regressions = []
+        reg_line = fr.readline()[1:-1]
+        
         fr.close()
         
         # Load array data
@@ -1597,10 +1800,27 @@ class Channel(PRaster):
         self._chi = data_arr[:, 4]
         self._slp = data_arr[:, 5]
         self._ksn = data_arr[:, 6]
-        self._R2slp = data_arr[:, 7]
-        self._R2ksn = data_arr[:, 8]
+        self._r2slp = data_arr[:, 7]
+        self._r2ksn = data_arr[:, 8]
         self._dd = data_arr[:, 9]
-
+        self._zx0 = data_arr[:, 10]
+        
+        
+        # Add knickpoints and regressions
+        if kp_line:
+            data = kp_line.split(";")
+            for n in range(0, len(data), 2):
+                ind = int(data[n])
+                tipo = int(data[n+1])
+                self.add_kp(ind, tipo)
+            
+        if reg_line:
+            data = reg_line.split(";")
+            for n in range(0, len(data), 2):
+                p1 = int(data[n])
+                p2 = int(data[n+1])
+                self.add_regression(p1, p2)
+        
     def set_name(self, name):
         """
         Sets the name (label) of the channel
@@ -1612,6 +1832,20 @@ class Channel(PRaster):
         Returns the name (label) of the channel
         """
         return self._name
+    
+    def get_oid(self):
+        """
+        """
+        return self._oid
+
+    def set_oid(self, oid):
+        self._oid = oid
+        
+    def get_flow(self):
+        return self._flowto
+    
+    def set_flow(self, flowto):
+        self._flowto = flowto
 
     def get_length(self):
         """
@@ -1699,7 +1933,6 @@ class Channel(PRaster):
 
         return ai    
     
-  
     def calculate_gradients(self, npoints, kind='slp'):
         """
         This function calculates gradients (slope or ksn) for all the cells. 
@@ -1712,22 +1945,51 @@ class Channel(PRaster):
           Window to analyze slopes. Slopes are calculated by linear regression using a window
           of npoints * 2 + 1 pixel (using the central pixel)
           
-        kind : *str* {'slp', 'ksn'}
+        kind : *str* {'slp', 'ksn'} 
+          Calculates the gradients for slope (distance-elevation) or kwn (chi-elevation)
         """
+        if npoints < 3:
+            return
 
-        winlen = npoints * 2 + 1
-        
         # Get arrays depending on type
         y_arr = self._zx
         if kind == 'ksn':
             x_arr = self._chi
-            self._ksn_np = npoints
         else:
             x_arr = self._dx
-            self._slp_np = npoints
-        pass
-    
-    
+        
+        for n in range(self._ix.size):
+            low = n - npoints
+            high = n + npoints
+        
+            if low < 0:
+                low = 0
+        
+            xi = x_arr[low:high + 1]
+            yi = y_arr[low:high + 1]
+            poli, SCR = np.polyfit(xi, yi, deg = 1, full = True)[:2]
+            
+            if yi.size * yi.var() == 0:
+                R2 = 0.0
+            else:
+                R2 = float(1 - SCR/(yi.size * yi.var()))
+        
+            g = poli[0]
+            r2 = abs(R2)
+        
+            if abs(g) < 0.001:
+               g = 0.001
+               
+               
+            if kind == 'ksn':
+                self._ksn[n] = g
+                self._r2ksn[n] = r2
+                self._ksn_np = npoints
+            else:
+                self._slp[n] = g
+                self._r2slp[n] = r2
+                self._slp_np = npoints
+        
     def get_slope(self, head=True):
         """
         Returns channel slope values
@@ -1788,37 +2050,39 @@ class Channel(PRaster):
         if not head:
             ksn = ksn[::-1]
         return ksn
-
-    def knickpoints_shp(self, path=""):          
-
-        if len(self._knickpoints) > 0:
-            driver = ogr.GetDriverByName("ESRI Shapefile")
-            dataset = driver.CreateDataSource(path)
-            sp = osr.SpatialReference()
-            sp.ImportFromWkt(self._proj)
-            layer = dataset.CreateLayer("Knickpoints", sp, geom_type=ogr.wkbPoint25D)    
     
-            campos = ['z', 'chi', 'ksn', 'rksn', 'slope', 'rslope']
-            tipos = [2, 2, 2, 2, 2, 2]
-            for n in range(len(campos)):
-                layer.CreateField(ogr.FieldDefn(campos[n], tipos[n]))
+    def smoothChannel(self, winsize=0, recalculate_gradients=True):
+        """
+        This function smooth channel elevations win a moving window
+        Parameters:
+        ===========
+        winsize : *double*
+          Size of the moving windows (meters or profile units). The window size will be transformed to number of pixels. 
+          
+        recalculate_gradients : *boolean*
+          Flag to indicate if recalulate gradients (slope and ksn) with the new elevation values
+        """
+        # Remove peaks and flat segments
+        for n in range(self._zx.size - 1):
+            if self._zx[n + 1] >= self._zx[n]:
+                self._zx[n + 1] = self._zx[n] - 0.001
 
-            for n in self._knickpoints:
-                feat = ogr.Feature(layer.GetLayerDefn())             
-                feat.SetField('z', float(self._zx[n]))
-                feat.SetField('chi', float(self._chi[n]))
-                feat.SetField('ksn', float(self._ksn[n]))
-                feat.SetField('rksn', float(self._R2ksn[n]))
-                feat.SetField('slope', float(self._slp[n]))
-                feat.SetField('rslope', float(self._R2slp[n]))
-                
-                # Create geometry
-                geom = ogr.Geometry(ogr.wkbPoint25D)
-                geom.AddPoint(self.get_xy()[n][0], self.get_xy()[n][1], self._zx[n])
-                feat.SetGeometry(geom)            
-                layer.CreateFeature(feat)
-        else:
-            raise NetworkError('The Channel object has no Knickpoints')
+        # Smooth elevations if window distance > 0
+        if winsize > 0:
+            n_cells = int(int((winsize / self.get_cellsize()[0]) + 0.5) / 2)
+            z_copy = np.copy(self._zx)
+            for ind in range(self._zx.size):
+                low = ind - n_cells
+                high = ind + n_cells + 1
+                if low < 0:
+                    low = 0
+        
+                elevations = z_copy[low:high]
+                self._zx[ind] = np.mean(elevations)
+            
+            if recalculate_gradients:
+                self.calculate_gradients(self._ksn_np, kind='ksn')
+                self.calculate_gradients(self._slp_np, kind='slp')
 
 class NetworkError(Exception):
     pass

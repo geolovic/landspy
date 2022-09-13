@@ -18,7 +18,6 @@ outfolder = "data/out"
 
 class ChannelClassTest(unittest.TestCase):
 
-    
     def test_get_channel(self, plot_canales=False):
         """
         Test Obtiene shapefile con canales, selecciona 5 grupos de 10 canales

@@ -32,6 +32,13 @@ NTYPES = {'int8': 3, 'int16': 3, 'int32': 5, 'int64': 5, 'uint8': 1, 'uint16': 2
 class PRaster():
     
     def __init__(self, path=""):
+        """
+        Defines a Raster object. It defines raster properties and methods. 
+        This class is used by other class to retreive raster properties
+        
+        path : str
+          Path to the raster, if left blank creates an empty PRaster
+        """
         
         if path:
             self._raster = gdal.Open(path)
@@ -98,7 +105,7 @@ class PRaster():
     
     def is_inside(self, x, y):
         """
-        Check if points are inside the rectangular extent of the rasterr
+        Checks if points are inside the rectangular extent of the raster
         
         Parameters:
         ===========
@@ -308,7 +315,7 @@ class Grid(PRaster):
     
     def set_value(self, row, col, value):
         """
-        Set the value for a cell of the grid at (row, col)
+        Sets the value for a cell of the grid at (row, col)
         
         Parameters:
         ================
@@ -321,7 +328,7 @@ class Grid(PRaster):
     
     def get_value(self, row, col):
         """
-        Get the value for a cell/s of the grid at (row, col)
+        Gets the value for a cell/s of the grid at (row, col)
         
         Parameters:
         ================
@@ -332,8 +339,8 @@ class Grid(PRaster):
     
     def get_nodata(self):
         """
-        Return the value for NoData in the grid. This value could be None if NoData
-        are not defined in the grid.
+        Returns the value for NoData cells in the grid. This value could be None if NoData
+        is not defined in the grid.
         """
         return self._nodata
     
@@ -358,13 +365,13 @@ class Grid(PRaster):
         Return the positions of the NoData values as a tuple of two arrays (rows, columns)
         """
         if self._nodata is None:
-            return (np.array([], np.int), np.array([], np.int))
+            return (np.array([], np.int64), np.array([], np.int64))
         else:
             return np.where(self._array == self._nodata)
         
     def nan_2_nodata(self):
         """
-        Change nan values to NoData (if Grid nodata is defined). 
+        Changes nan values to NoData (if Grid nodata is defined). 
         """
         if self._nodata is None:
             return
@@ -377,7 +384,7 @@ class Grid(PRaster):
         
         Parameters:
         ===========
-        value : Value or sequence of values that will be changed to NoData
+        value : int, float, sequence. Value or sequence of values that will be changed to NoData
         """
         if self._nodata is None:
             return
@@ -414,12 +421,12 @@ class Grid(PRaster):
     
     def is_inside(self, x, y, NoData=True):
         """
-        Check if points are inside the rasterr
+        Checks if points are inside the rasterr
         
         Parameters:
         ===========
         x, y : coordinates (number, list, or numpy.ndarray)
-        NoData : Flag to set if NoData are considered (If NoData == True > Points in NoData are outside)
+        NoData : Flag consider or not NoData values (If NoData == True > Points in NoData are outside)
         
         Returns:
         ========
