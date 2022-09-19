@@ -6,6 +6,7 @@ Testing suite for Network.get_chi_shapefile() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 11 February, 2020
+@last_modified: 19 september, 2022
 """
 
 import unittest

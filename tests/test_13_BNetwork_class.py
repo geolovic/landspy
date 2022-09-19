@@ -5,7 +5,7 @@ Created on 09 february, 2021
 Testing suite for BNetwork class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
-@date: 09 february, 2021
+@last_modified: 19 september, 2022
 """
 
 import unittest

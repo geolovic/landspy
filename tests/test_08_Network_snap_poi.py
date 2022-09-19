@@ -6,7 +6,7 @@ Testing suite for topopy.Network.get_stream_poi() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: October 3, 2018
-@modified:  07 february, 2021
+@last_modified: 19 september, 2022
 """
 
 import unittest

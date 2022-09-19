@@ -6,7 +6,7 @@ Testing suite for Network class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 11 August, 2018
-@modified:  16 february, 2021
+@last_modified: 19 september, 2022
 """
 
 import unittest

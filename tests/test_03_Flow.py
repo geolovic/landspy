@@ -5,6 +5,7 @@ Created on Thrusday 08 Feb 2018
 Testing suite for topopy Flow class
 @author: J. Vicente Perez
 @email: geolovic@gmail.com
+@last_modified: 19 september, 2022
 """
 
 import unittest

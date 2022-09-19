@@ -6,7 +6,7 @@ Testing suite for Network export_to_shp function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 23 October, 2018
-@modified:  07 february, 2021
+@last_modified: 19 september, 2022
 """
 
 import unittest

@@ -6,6 +6,7 @@ Testing suite for topopy.Flow.get_stream_poi() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: September 25, 2018
+@last_modified: 19 september, 2022
 """
 
 import unittest
