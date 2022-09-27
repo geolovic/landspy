@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 26 13:58:02 2017
-Testing suite for topopy Grid class
+Testing suite for landspy Grid class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @last_modified: 19 september, 2022
@@ -14,7 +14,7 @@ from osgeo import gdal
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Grid
+from landspy import Grid
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -33,8 +33,8 @@ class TestGrid01(unittest.TestCase):
         # Set data to an empty array and to an array with differnt dimensions
         arr = np.arange(25).reshape(5,5).astype(np.int8)
         dem = Grid()
-        res01 = dem.set_array(arr)
-        res02 = dem.set_array(np.arange(9).reshape(3,3).astype(np.int8))
+        res01 = dem.setArray(arr)
+        res02 = dem.setArray(np.arange(9).reshape(3,3).astype(np.int8))
         computed = (res01, res02)
         self.assertEqual(computed, (None, 0))
     
@@ -42,10 +42,10 @@ class TestGrid01(unittest.TestCase):
         # Read array (NOT Sharing memory)
         arr = np.arange(25).reshape(5,5).astype(np.int8)
         dem = Grid()
-        dem.set_array(arr)
-        out_arr = dem.read_array(True)
+        dem.setArray(arr)
+        out_arr = dem.readArray(True)
         out_arr[0, 0] = 99
-        computed = dem.get_value(0, 0)
+        computed = dem.getValue(0, 0)
         expected = 0
         self.assertEqual(computed, expected)    
         
@@ -53,10 +53,10 @@ class TestGrid01(unittest.TestCase):
         # Read array (Sharing memory)
         arr = np.arange(25).reshape(5,5).astype(np.int8)
         dem = Grid()
-        dem.set_array(arr)
-        out_arr = dem.read_array(False)
+        dem.setArray(arr)
+        out_arr = dem.readArray(False)
         out_arr[0, 0] = 99
-        computed = dem.get_value(0, 0)
+        computed = dem.getValue(0, 0)
         expected = 99
         self.assertEqual(computed, expected)    
             
@@ -64,10 +64,10 @@ class TestGrid01(unittest.TestCase):
         arr = np.arange(9).reshape((3, 3))
         arr[[1, 2], [2, 1]] = 8
         dem = Grid()
-        dem.set_nodata(8)
-        dem.set_array(arr)
-        row, col = dem.get_nodata_pos()
-        computed = dem.get_value(row, col)
+        dem.setNodata(8)
+        dem.setArray(arr)
+        row, col = dem.getNodataPos()
+        computed = dem.getValue(row, col)
         expected = np.array([8, 8, 8])
         self.assertEqual(np.array_equal(computed, expected), True)
           
@@ -75,8 +75,8 @@ class TestGrid01(unittest.TestCase):
         dem = Grid(infolder + "/small25.tif")
         dem.save(outfolder + "/a_dummy_dem.tif")
         dem2 = Grid(outfolder + "/a_dummy_dem.tif")
-        expected = dem.get_value([20, 30, 40, 50], [20, 30, 40, 50])
-        computed = dem2.get_value([20, 30, 40, 50], [20, 30, 40, 50])
+        expected = dem.getValue([20, 30, 40, 50], [20, 30, 40, 50])
+        computed = dem2.getValue([20, 30, 40, 50], [20, 30, 40, 50])
         self.assertEqual(np.array_equal(computed, expected), True)
 
     def test_save_02(self):
@@ -85,8 +85,8 @@ class TestGrid01(unittest.TestCase):
         np.random.seed(1)
         arr = np.random.randint(0, 100, (25, 25))
         arr[np.where(arr%5==0)] = 0
-        dem.set_array(arr)
-        dem.set_nodata(0)
+        dem.setArray(arr)
+        dem.setNodata(0)
         dem.save(outfolder + "/a_dummy_dem2.tif")
         # Open with gdal
         raster = gdal.Open(outfolder + "/a_dummy_dem2.tif")
@@ -96,11 +96,11 @@ class TestGrid01(unittest.TestCase):
            
     def test_values_2_nodata(self):
         dem = Grid()
-        dem.set_array(np.arange(25).reshape((5, 5)))
-        dem.set_nodata(-99.)
-        dem.values_2_nodata([10, 11, 12, 13, 14])
-        row, col = dem.ind_2_cell([10, 11, 12, 13, 14])
-        computed = dem.get_value(row, col)
+        dem.setArray(np.arange(25).reshape((5, 5)))
+        dem.setNodata(-99.)
+        dem.valuesToNodata([10, 11, 12, 13, 14])
+        row, col = dem.indToCell([10, 11, 12, 13, 14])
+        computed = dem.getValue(row, col)
         expected = np.array([-99, -99, -99, -99, -99])
         res = np.array_equal(computed, expected)
         self.assertEqual(res, True)
@@ -110,7 +110,7 @@ class TestGrid01(unittest.TestCase):
         # Taking row, col in a nan position (88)
         ind = 88
         row, col = self.rows[ind], self.cols[ind]
-        computed = dem.get_value(row, col)
+        computed = dem.getValue(row, col)
         self.assertEqual(computed, -9999)
 
     def test_get_value_02(self):
@@ -119,34 +119,34 @@ class TestGrid01(unittest.TestCase):
         ind = 25
         row, col = self.rows[ind], self.cols[ind]
         expected = self.zi[ind]
-        computed = dem.get_value(row, col)
+        computed = dem.getValue(row, col)
         self.assertEqual(computed, expected)
         
     def test_get_value_03(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col outside array
         row, col = 199, 133
-        self.assertRaises(IndexError, dem.get_value, row, col)
+        self.assertRaises(IndexError, dem.getValue, row, col)
     
     def test_get_value_04(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col as numpy arrays
         expected = self.zi
-        computed = dem.get_value(self.rows, self.cols)
+        computed = dem.getValue(self.rows, self.cols)
         self.assertEqual(np.nansum(computed),np.nansum(expected))
         
     def test_get_value_05(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col as lists
         expected = np.nansum(self.zi.tolist())
-        res =  dem.get_value(self.rows.tolist(), self.cols.tolist())
+        res =  dem.getValue(self.rows.tolist(), self.cols.tolist())
         computed = np.nansum(res)
         self.assertEqual(computed, expected)
         
     def test_get_nodata_pos(self):
         dem = Grid(infolder + "/small25.tif")
         arr = dem._array        
-        row, col = dem.get_nodata_pos()
+        row, col = dem.getNodataPos()
         crow, ccol= np.where(arr == -9999)
         self.assertEqual((np.array_equal(row, crow), np.array_equal(col, ccol)), (True, True))
         
@@ -167,7 +167,7 @@ class TestGrid01(unittest.TestCase):
         x = puntos[:,0]
         y = puntos[:,1]
         raster = Grid(infolder + "/small25.tif")
-        computed = raster.is_inside(x, y)
+        computed = raster.isInside(x, y)
         expected = np.array([False, False, False, False, False, True, True ,False, True])
         self.assertEqual(np.array_equal(computed, expected), True)
         

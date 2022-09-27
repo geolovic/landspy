@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on October 3, 2018
-Testing suite for topopy.Network.get_stream_poi() function
+Testing suite for landspy.Network.get_stream_poi() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: October 3, 2018
@@ -14,7 +14,7 @@ import sys
 import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network
+from landspy import Network
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -29,15 +29,15 @@ class SnapPoiTest(unittest.TestCase):
             net = Network(net_path)
             
             # Obtenemos 20 puntos aleatorios
-            x1, x2, y1, y2 = net.get_extent()
+            x1, x2, y1, y2 = net.getExtent()
             xi = (x2 - x1) * np.random.random(25) + x1
             yi = (y2 - y1) * np.random.random(25) + y1
             puntos = np.array((xi, yi)).T
             
             # Hacemos snap a los stream poi
             for kind in ["heads", "confluences", "outlets"]:
-                poi = net.get_stream_poi(kind, "XY")
-                snap_pp = net.snap_points(puntos, kind)
+                poi = net.streamPoi(kind, "XY")
+                snap_pp = net.snapPoints(puntos, kind)
                 # Comprobamos que punto esta entre los POI
                 for row in snap_pp:
                     res = row in poi
@@ -52,15 +52,15 @@ class SnapPoiTest(unittest.TestCase):
             net = Network(net_path)
             
             # Obtenemos 20 puntos aleatorios
-            x1, x2, y1, y2 = net.get_extent()
+            x1, x2, y1, y2 = net.getExtent()
             xi = (x2 - x1) * np.random.random(25) + x1
             yi = (y2 - y1) * np.random.random(25) + y1
             puntos = np.array((xi, yi)).T
             
             # Hacemos snap a celdas de canal
-            snap_pp = net.snap_points(puntos, kind="channel")
-            row, col = net.xy_2_cell(snap_pp[:, 0], snap_pp[:, 1])
-            inds = net.cell_2_ind(row, col)
+            snap_pp = net.snapPoints(puntos, kind="channel")
+            row, col = net.xyToCell(snap_pp[:, 0], snap_pp[:, 1])
+            inds = net.cellToInd(row, col)
             # Comprobamos que punto esta entre los POI
             for ind in inds:
                 res = ind in net._ix

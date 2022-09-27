@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on September 25, 2018
-Testing suite for topopy.Flow.get_stream_poi() function
+Testing suite for landspy.Flow.get_stream_poi() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: September 25, 2018
@@ -14,7 +14,7 @@ import sys
 import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Flow
+from landspy import Flow
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -25,9 +25,9 @@ class StreamPoiTest(unittest.TestCase):
         for file in files:
             flw_path = outfolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.0025)
+            thr = int(fd.getNCells() * 0.0025)
             for kind in ["heads", "confluences", "outlets"]:
-                poi = fd.get_stream_poi(thr, kind, "XY")
+                poi = fd.streamPoi(thr, kind, "XY")
                 spoi = np.loadtxt(infolder +  "/{0}_{1}.txt".format(file, kind), delimiter=";", skiprows=1)
                 compare = np.array_equal(poi, spoi)
                 self.assertEqual(compare, True)
@@ -37,10 +37,10 @@ class StreamPoiTest(unittest.TestCase):
         for file in files:
             flw_path = outfolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.0025)
+            thr = int(fd.getNCells() * 0.0025)
             for kind in ["heads", "confluences", "outlets"]:
-                poi = fd.get_stream_poi(thr, kind, "CELL")
-                x, y = fd.cell_2_xy(poi[:, 0], poi[:, 1])
+                poi = fd.streamPoi(thr, kind, "CELL")
+                x, y = fd.cellToXY(poi[:, 0], poi[:, 1])
                 poi = np.array((x, y)).T
                 spoi = np.loadtxt(infolder +  "/{0}_{1}.txt".format(file, kind), delimiter=";", skiprows=1)
                 compare = np.array_equal(poi, spoi)
@@ -51,11 +51,11 @@ class StreamPoiTest(unittest.TestCase):
         for file in files:
             flw_path = outfolder +  "/{0}_fd.tif".format(file)
             fd = Flow(flw_path)
-            thr = int(fd.get_ncells() * 0.0025)
+            thr = int(fd.getNCells() * 0.0025)
             for kind in ["heads", "confluences", "outlets"]:
-                poi = fd.get_stream_poi(thr, kind, "IND")
-                row, col = fd.ind_2_cell(poi)
-                x, y = fd.cell_2_xy(row, col)
+                poi = fd.streamPoi(thr, kind, "IND")
+                row, col = fd.indToCell(poi)
+                x, y = fd.cellToXY(row, col)
                 poi = np.array((x, y)).T
                 spoi = np.loadtxt(infolder +  "/{0}_{1}.txt".format(file, kind), delimiter=";", skiprows=1)
                 compare = np.array_equal(poi, spoi)

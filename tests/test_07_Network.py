@@ -14,7 +14,7 @@ import numpy as np
 import sys, os
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Flow, Network
+from landspy import Flow, Network
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -24,19 +24,19 @@ class NetworkClassTest(unittest.TestCase):
         net = Network()
         
         # Test PRaster properties
-        self.assertEqual(net.get_cellsize(), (1.0, -1.0))
-        self.assertEqual(net.get_dims(), (1, 1))
-        self.assertEqual(net.get_size(), (1, 1))
-        self.assertEqual(net.get_extent(), (0.0, 1.0, 0.0, 1.0))
-        self.assertEqual(net.get_geotransform(), (0.0, 1.0, 0.0, 1.0, 0.0, -1.0))
-        self.assertEqual(net.get_ncells(), 1)
-        self.assertEqual(net.get_projection(), "")
+        self.assertEqual(net.getCellSize(), (1.0, -1.0))
+        self.assertEqual(net.getDims(), (1, 1))
+        self.assertEqual(net.getSize(), (1, 1))
+        self.assertEqual(net.getExtent(), (0.0, 1.0, 0.0, 1.0))
+        self.assertEqual(net.getGeot(), (0.0, 1.0, 0.0, 1.0, 0.0, -1.0))
+        self.assertEqual(net.getNCells(), 1)
+        self.assertEqual(net.getCRS(), "")
         
         # Test PRaster functions
-        self.assertEqual(net.cell_2_ind(0, 0), .0)
-        self.assertEqual(net.cell_2_xy(0, 0), (0.5, 0.5))
-        self.assertEqual(net.xy_2_cell(1, 1), (0, 1))
-        self.assertEqual(net.ind_2_cell(0), (0, 0))
+        self.assertEqual(net.cellToInd(0, 0), .0)
+        self.assertEqual(net.cellToXY(0, 0), (0.5, 0.5))
+        self.assertEqual(net.xyToCell(1, 1), (0, 1))
+        self.assertEqual(net.indToCell(0), (0, 0))
         
         # Test saving functions
         path = outfolder + "/net_delete.dat"
@@ -44,37 +44,37 @@ class NetworkClassTest(unittest.TestCase):
         self.assertEqual(os.path.exists(path), True)
         
         path = outfolder + "/points_delete.txt"
-        net.export_to_points(path)
+        net.exportPoints(path)
         self.assertEqual(os.path.exists(path), True)
         
         path = outfolder +"/shp_delete.shp"
-        net.export_to_shp(path)
+        net.exportShp(path)
         self.assertEqual(os.path.exists(path), True)
         
         path = outfolder +"/chi_delete.shp"
-        net.get_chi_shapefile(path, 0)
+        net.chiShapefile(path, 0)
         self.assertEqual(os.path.exists(path), True)
 
 
         # Test other functions
-        self.assertEqual(np.array_equal(net.get_streams(False), np.array([1]).reshape(1, 1)), True)
-        self.assertEqual(np.array_equal(net.get_stream_segments(False), np.array([0]).reshape(1, 1)), True)
-        self.assertEqual(np.array_equal(net.get_stream_orders("strahler", False), np.array([1]).reshape(1, 1)), True)
-        self.assertEqual(np.array_equal(net.get_stream_orders('shreeve', False), np.array([1]).reshape(1, 1)), True)
-        self.assertEqual(np.array_equal(net.get_stream_orders('dinosaur', False), np.array([1]).reshape(1, 1)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("heads", "XY"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("heads", "CELL"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("heads", "IND"), np.array([])), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("confluences", "XY"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("confluences", "CELL"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("confluences", "IND"), np.array([])), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("outlets", "XY"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("outlets", "CELL"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("outlets", "IND"), np.array([])), True)
-        self.assertEqual(np.array_equal(net.get_stream_poi("dinosaur", "dinosaur"), np.array([]).reshape(0, 2)), True)
-        self.assertEqual(np.array_equal(net.snap_points(np.array((5, 5)).reshape(1, 2)), np.array([[0.5, 0.5]])), True)
-        self.assertEqual(net.is_inside(0, 0), False)
-        net.calculate_gradients(0)
+        self.assertEqual(np.array_equal(net.getStreams(False), np.array([1]).reshape(1, 1)), True)
+        self.assertEqual(np.array_equal(net.getStreamSegments(False), np.array([0]).reshape(1, 1)), True)
+        self.assertEqual(np.array_equal(net.getStreamOrders("strahler", False), np.array([1]).reshape(1, 1)), True)
+        self.assertEqual(np.array_equal(net.getStreamOrders('shreeve', False), np.array([1]).reshape(1, 1)), True)
+        self.assertEqual(np.array_equal(net.getStreamOrders('dinosaur', False), np.array([1]).reshape(1, 1)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("heads", "XY"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("heads", "CELL"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("heads", "IND"), np.array([])), True)
+        self.assertEqual(np.array_equal(net.streamPoi("confluences", "XY"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("confluences", "CELL"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("confluences", "IND"), np.array([])), True)
+        self.assertEqual(np.array_equal(net.streamPoi("outlets", "XY"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("outlets", "CELL"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.streamPoi("outlets", "IND"), np.array([])), True)
+        self.assertEqual(np.array_equal(net.streamPoi("dinosaur", "dinosaur"), np.array([]).reshape(0, 2)), True)
+        self.assertEqual(np.array_equal(net.snapPoints(np.array((5, 5)).reshape(1, 2)), np.array([[0.5, 0.5]])), True)
+        self.assertEqual(net.isInside(0, 0), False)
+        net.calculateGradients(0)
     
     def test_create_network(self):
         files = ["small25", "tunez", "jebja30"]

@@ -13,7 +13,7 @@ import numpy as np
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network, Channel, shp_to_channels
+from landspy import Network, Channel, shp_to_channels
 import ogr
 infolder = "data/in"
 outfolder = "data/out"
@@ -36,10 +36,10 @@ class ChannelSaveTest(unittest.TestCase):
             for n in range(5):
                 index = np.random.randint(0, canal._ix.size)
                 tipo = np.random.choice([0, 1, 2, 3])
-                canal.add_kp(index, tipo)
+                canal.addKP(index, tipo)
             # Creamos una regression
-            canal.add_regression(0, canal._ix.size-1)
-            path = outfolder + "/jebja_chan{}.dat".format(canal.get_oid())
+            canal.addRegression(0, canal._ix.size-1)
+            path = outfolder + "/jebja_chan{}.dat".format(canal.getOid())
             
             # Guardamos canal creado
             canal.save(path)

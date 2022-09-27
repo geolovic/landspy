@@ -12,7 +12,7 @@ Testing suite for Network.get_chi_shapefile() function
 import unittest, sys, os
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network
+from landspy import Network
 import numpy as np
 from osgeo import ogr, osr
 import sys
@@ -28,7 +28,7 @@ def canales_to_shapefile(path, canales):
     driver = ogr.GetDriverByName("ESRI Shapefile")
     dataset = driver.CreateDataSource(path)
     sp = osr.SpatialReference()
-    proj = canales[0].get_projection()
+    proj = canales[0].getCRS()
     sp.ImportFromWkt(proj)
     
     # Creamos layer
@@ -45,15 +45,15 @@ def canales_to_shapefile(path, canales):
     for canal in canales:
         
         feat = ogr.Feature(layer.GetLayerDefn())
-        feat.SetField("oid", int(canal.get_oid()))
-        feat.SetField("name", str(canal.get_name()))
-        feat.SetField("flowto", int(canal.get_flow()))
+        feat.SetField("oid", int(canal.getOid()))
+        feat.SetField("name", str(canal.getName()))
+        feat.SetField("flowto", int(canal.getFlow()))
         feat.SetField("thetaref", float(canal._thetaref))
         feat.SetField("chi0", float(canal._chi0))
         feat.SetField("slp_np", int(canal._slp_np))
         feat.SetField("ksn_np", int(canal._ksn_np))
         geom = ogr.Geometry(ogr.wkbLineString)
-        xy = canal.get_xy()
+        xy = canal.getXY()
         for row in xy:
             geom.AddPoint(row[0], row[1])
             
@@ -76,7 +76,7 @@ class NetworkGetChannelTest(unittest.TestCase):
             net = Network(net_path)
             
             # Generamos 5 puntos aleatorios dentro de extension
-            xmin, xmax, ymin, ymax = net.get_extent()
+            xmin, xmax, ymin, ymax = net.getExtent()
             puntos = []
             for n in range(5):
                 x = np.random.randint(int(xmin), int(xmax))
@@ -93,7 +93,7 @@ class NetworkGetChannelTest(unittest.TestCase):
             canales = []
             
             for idx, pto in enumerate(puntos):
-                canal = net.get_channel(pto, None, str(idx), idx)
+                canal = net.getChannel(pto, None, str(idx), idx)
                 if canal:
                     canales.append(canal)
 
@@ -118,7 +118,7 @@ class NetworkGetChannelTest(unittest.TestCase):
             
             # Generamos un shapefile con todos los canales
             out_shp = outfolder +  "/{0}_str.shp".format(file)
-            net.export_to_shp(out_shp)
+            net.exportShp(out_shp)
             
             # Abrimos el shapefile creado
             driver = ogr.GetDriverByName("ESRI Shapefile")
@@ -139,7 +139,7 @@ class NetworkGetChannelTest(unittest.TestCase):
                 
                 head = geom.GetPoint(0)
                 mouth = geom.GetPoint(geom.GetPointCount()- 1)
-                canal = net.get_channel(head, mouth, str(oid), oid )
+                canal = net.getChannel(head, mouth, str(oid), oid )
                 if canal:
                     canales.append(canal)
             out_shp = outfolder + "/shp_channels_{}.shp".format(file)

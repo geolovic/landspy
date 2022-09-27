@@ -14,7 +14,7 @@ import numpy as np
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Flow, Basin, DEM
+from landspy import Flow, Basin, DEM
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -29,9 +29,9 @@ class BasinClassTest(unittest.TestCase):
             dem = DEM(dem_path)
             fd = Flow(flw_path)
             # Obtenemos cuencas
-            cuencas = fd.get_drainage_basins(min_area = 0.0025)
+            cuencas = fd.drainageBasins(min_area = 0.0025)
             # Mayor, menor, y random
-            bids, counts = np.unique(cuencas.read_array(), return_counts=True)
+            bids, counts = np.unique(cuencas.readArray(), return_counts=True)
             if 0 in bids:
                 bids = bids[1:]
                 counts = counts[1:]
@@ -48,7 +48,7 @@ class BasinClassTest(unittest.TestCase):
                 basin_path = "{}/{}_basin{}.tif".format(outfolder, file, lbls[n])
                 basin.save(basin_path)
                 basin2 = Basin(basin_path)
-                computed = np.array_equal(basin.read_array(), basin2.read_array())
+                computed = np.array_equal(basin.readArray(), basin2.readArray())
                 self.assertEqual(computed, True)
 
 if __name__ == "__main__":

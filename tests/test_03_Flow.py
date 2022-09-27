@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thrusday 08 Feb 2018
-Testing suite for topopy Flow class
+Testing suite for landspy Flow class
 @author: J. Vicente Perez
 @email: geolovic@gmail.com
 @last_modified: 19 september, 2022
@@ -13,7 +13,7 @@ import sys
 import numpy as np
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Flow, DEM
+from landspy import Flow, DEM
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -36,7 +36,7 @@ class FlowValueTest(unittest.TestCase):
         rows = self.rows
         cols = self.cols
         expected = (rows, cols)
-        computed = self.fd.xy_2_cell(xi, yi)
+        computed = self.fd.xyToCell(xi, yi)
         comparison = (computed[0] == expected[0]).all() and (computed[1] == expected[1]).all()
         self.assertEqual(comparison, True)
         
@@ -47,7 +47,7 @@ class FlowValueTest(unittest.TestCase):
         row = self.rows[ind]
         col = self.cols[ind]
         expected = (row, col)
-        computed = self.fd.xy_2_cell(x, y)
+        computed = self.fd.xyToCell(x, y)
         self.assertEqual(computed, expected)
         
     def test_xy_2_cell_03(self):
@@ -55,7 +55,7 @@ class FlowValueTest(unittest.TestCase):
         yi = self.yi.tolist()
         rows = self.rows
         cols = self.cols
-        crows, ccols = self.fd.xy_2_cell(xi, yi)
+        crows, ccols = self.fd.xyToCell(xi, yi)
         computed = (np.array_equal(rows, crows), np.array_equal(cols, ccols))
         self.assertEqual(computed, (True, True))
         
@@ -65,14 +65,14 @@ class FlowValueTest(unittest.TestCase):
         row = self.rows[idx]
         col = self.cols[idx]
         expected = (row, col)
-        computed = self.fd.ind_2_cell(ind)
+        computed = self.fd.indToCell(ind)
         self.assertEqual(computed, expected)
         
     def test_ind_2_cell_02(self):
         ind = self.ids
         row = self.rows
         col = self.cols
-        crow, ccol = self.fd.ind_2_cell(ind)
+        crow, ccol = self.fd.indToCell(ind)
         computed = (np.array_equal(row, crow), np.array_equal(col, ccol))
         self.assertEqual(computed, (True, True))
         
@@ -81,7 +81,7 @@ class FlowValueTest(unittest.TestCase):
         row = self.rows
         col = self.cols
         expected = (row, col)
-        computed = self.fd.ind_2_cell(ind)
+        computed = self.fd.indToCell(ind)
         comparison = (computed[0] == expected[0]).all() and (computed[1] == expected[1]).all()
         self.assertEqual(comparison, True)
         
@@ -91,7 +91,7 @@ class FlowValueTest(unittest.TestCase):
         row = self.rows[idx]
         col = self.cols[idx]
         expected = ind
-        computed = self.fd.cell_2_ind(row, col)
+        computed = self.fd.cellToInd(row, col)
         self.assertEqual(computed, expected)
         
     def test_cell_2_ind_02(self):
@@ -99,7 +99,7 @@ class FlowValueTest(unittest.TestCase):
         row = self.rows
         col = self.cols
         expected = ind
-        computed = self.fd.cell_2_ind(row, col)
+        computed = self.fd.cellToInd(row, col)
         res = np.array_equal(expected, computed)
         self.assertEqual(res, True)
         
@@ -108,7 +108,7 @@ class FlowValueTest(unittest.TestCase):
         row = self.rows
         col = self.cols
         expected = ind
-        computed = self.fd.cell_2_ind(row, col)
+        computed = self.fd.cellToInd(row, col)
         comparison = (computed == expected).all()
         self.assertEqual(comparison, True)
         
@@ -118,7 +118,7 @@ class FlowValueTest(unittest.TestCase):
         rows = self.rows
         cols = self.cols
         expected = (xi, yi)
-        computed = self.fd.cell_2_xy(rows, cols)
+        computed = self.fd.cellToXY(rows, cols)
         res = (np.array_equal(expected[0], computed[0]), np.array_equal(expected[1], computed[1]))
         self.assertEqual(res, (True, True))
         
@@ -129,7 +129,7 @@ class FlowValueTest(unittest.TestCase):
         rows = self.rows[ind]
         cols = self.cols[ind]
         expected = (xi, yi)
-        computed = self.fd.cell_2_xy(rows, cols)
+        computed = self.fd.cellToXY(rows, cols)
         res = (np.array_equal(expected[0], computed[0]), np.array_equal(expected[1], computed[1]))
         self.assertEqual(res, (True, True))
         
@@ -139,7 +139,7 @@ class FlowValueTest(unittest.TestCase):
         rows = self.rows
         cols = self.cols
         expected = (xi, yi)
-        computed = self.fd.cell_2_xy(rows, cols)
+        computed = self.fd.cellToXY(rows, cols)
         res = (np.array_equal(expected[0], computed[0]), np.array_equal(expected[1], computed[1]))
         self.assertEqual(res, (True, True))
 
@@ -151,16 +151,16 @@ class FlowPropertiesTest(unittest.TestCase):
         for file in files:
             dem = DEM(infolder + "/{0}.tif".format(file))
             fd = Flow(dem)
-            computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
-            expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+            computed = (fd.getSize(), fd.getDims(), fd.getNCells(), fd.getCRS(), fd.getCellSize(), fd.getGeot())
+            expected = (dem.getSize(), dem.getDims(), dem.getNCells(), dem.getCRS(), dem.getCellSize(), dem.getGeot())
             self.assertEqual(computed, expected)
     
     def test_flow_properties_02(self):
         # Testing an empty Flow object
         dem = DEM()
         fd = Flow()
-        computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
-        expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+        computed = (fd.getSize(), fd.getDims(), fd.getNCells(), fd.getCRS(), fd.getCellSize(), fd.getGeot())
+        expected = (dem.getSize(), dem.getDims(), dem.getNCells(), dem.getCRS(), dem.getCellSize(), dem.getGeot())
         self.assertEqual(computed, expected)    
 
 
@@ -176,8 +176,8 @@ class FlowCreateTest(unittest.TestCase):
             fd = Flow(dem, auxtopo=False, filled=False, verbose=False)
             # Save the flow object for later tests
             fd.save(outfolder + "/{0}_fd.tif".format(file))
-            computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
-            expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+            computed = (fd.getSize(), fd.getDims(), fd.getNCells(), fd.getCRS(), fd.getCellSize(), fd.getGeot())
+            expected = (dem.getSize(), dem.getDims(), dem.getNCells(), dem.getCRS(), dem.getCellSize(), dem.getGeot())
             self.assertEqual(computed, expected)    
     
     def test_create_Flow_02(self):
@@ -188,8 +188,8 @@ class FlowCreateTest(unittest.TestCase):
             dem = DEM(dem_path)
             # Flow obj without auxiliar topography
             fd = Flow(dem, auxtopo=True, filled=False, verbose=False)
-            computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
-            expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+            computed = (fd.getSize(), fd.getDims(), fd.getNCells(), fd.getCRS(), fd.getCellSize(), fd.getGeot())
+            expected = (dem.getSize(), dem.getDims(), dem.getNCells(), dem.getCRS(), dem.getCellSize(), dem.getGeot())
             self.assertEqual(computed, expected)    
             
 
@@ -199,11 +199,11 @@ class FlowCreateTest(unittest.TestCase):
         for file in files:
             dem_path = infolder + "/{0}.tif".format(file)
             dem = DEM(dem_path)
-            dem = dem.fill_sinks()
+            dem = dem.fill()
             # Flow obj with filled dem and without auxiliar topography
             fd = Flow(dem, auxtopo=False, filled=True, verbose=False)
-            computed = (fd.get_size(), fd.get_dims(), fd.get_ncells(), fd.get_projection(), fd.get_cellsize(), fd.get_geotransform())
-            expected = (dem.get_size(), dem.get_dims(), dem.get_ncells(), dem.get_projection(), dem.get_cellsize(), dem.get_geotransform())
+            computed = (fd.getSize(), fd.getDims(), fd.getNCells(), fd.getCRS(), fd.getCellSize(), fd.getGeot())
+            expected = (dem.getSize(), dem.getDims(), dem.getNCells(), dem.getCRS(), dem.getCellSize(), dem.getGeot())
             self.assertEqual(computed, expected) 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ import unittest, os
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network
+from landspy import Network
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -27,13 +27,13 @@ class NetworkGetStreams(unittest.TestCase):
             net = Network(net_path)
             
             # Probamos que no haya fallos en las funciones de get_streams
-            streams = net.get_streams()
+            streams = net.getStreams()
             streams.save(outfolder + "/{0}_streams.tif".format(file))
             computed = [os.path.exists(outfolder + "/{0}_streams.tif".format(file))]
-            segments = net.get_stream_segments()
+            segments = net.getStreamSegments()
             segments.save(outfolder + "/{0}_segments.tif".format(file))
             computed.append(os.path.exists(outfolder + "/{0}_segments.tif".format(file)))
-            orders = net.get_stream_orders()
+            orders = net.getStreamOrders()
             orders.save(outfolder + "/{0}_ord.tif".format(file))
             computed.append(os.path.exists(outfolder + "/{0}_ord.tif".format(file)))
             

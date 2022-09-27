@@ -14,8 +14,8 @@ import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
 import numpy as np
-from topopy import Flow, Basin, Network, BNetwork, DEM
-from topopy.network import NetworkError
+from landspy import Flow, Basin, Network, BNetwork, DEM
+from landspy.network import NetworkError
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -40,10 +40,10 @@ class BNetworkClassTest(unittest.TestCase):
             
             # Cargamos outlets y generamos cuencas
             outlets = np.loadtxt("{}/{}_bnet_outlets.txt".format(infolder, file), delimiter=";")
-            outlets = net.snap_points(outlets)
-            cuencas = fd.get_drainage_basins(outlets)
+            outlets = net.snapPoints(outlets)
+            cuencas = fd.drainageBasins(outlets)
             
-            for bid in np.unique(cuencas.read_array()):
+            for bid in np.unique(cuencas.readArray()):
                 if bid == 0:
                     continue
                 bnet = BNetwork(net, cuencas, None, bid)
@@ -63,10 +63,10 @@ class BNetworkClassTest(unittest.TestCase):
             
             # Cargamos outlets y generamos cuencas
             outlets = np.loadtxt("{}/{}_bnet_outlets.txt".format(infolder, file), delimiter=";")
-            outlets = net.snap_points(outlets)
-            cuencas = fd.get_drainage_basins(outlets)
+            outlets = net.snapPoints(outlets)
+            cuencas = fd.drainageBasins(outlets)
             
-            for bid in np.unique(cuencas.read_array()):
+            for bid in np.unique(cuencas.readArray()):
                 if bid == 0:
                     continue
                 basin = Basin(dem, cuencas, bid)
@@ -89,8 +89,8 @@ class BNetworkClassTest(unittest.TestCase):
         # Cargamos outlets, heads y generamos cuencas
         outlets = np.loadtxt("{}/{}_bnet_outlets.txt".format(infolder, "small25"), delimiter=";")
         heads = np.loadtxt("{}/{}_bnet_heads.txt".format(infolder, "small25"), delimiter=";")
-        outlets = net.snap_points(outlets)
-        cuencas = fd.get_drainage_basins(outlets)
+        outlets = net.snapPoints(outlets)
+        cuencas = fd.drainageBasins(outlets)
         
         bid = 1
         bnet = BNetwork(net, cuencas, heads, bid)
@@ -111,8 +111,8 @@ class BNetworkClassTest(unittest.TestCase):
         heads = np.loadtxt("{}/{}_bnet_heads.txt".format(infolder, "small25"), delimiter=";")
         # Remove the id column
         heads = heads[:,:-1]
-        outlets = net.snap_points(outlets)
-        cuencas = fd.get_drainage_basins(outlets)
+        outlets = net.snapPoints(outlets)
+        cuencas = fd.drainageBasins(outlets)
         
         bid = 1
         bnet = BNetwork(net, cuencas, heads, bid)
@@ -131,17 +131,17 @@ class BNetworkClassTest(unittest.TestCase):
             dem = DEM("{}/{}.tif".format(infolder, file))
             
             # Generamos todas las cuencas
-            cuencas = fd.get_drainage_basins(min_area = 0.0025)
+            cuencas = fd.drainageBasins(min_area = 0.0025)
             
             # Generamos 50 puntos aleatorios dentro de la extensión del objeto Network
             # Estos 50 puntos se usaran como cabeceras
-            xmin, xmax, ymin, ymax = net.get_extent()
+            xmin, xmax, ymin, ymax = net.getExtent()
             xi = np.random.randint(xmin, xmax, 50)
             yi = np.random.randint(ymin, ymax, 50)
             heads = np.array((xi, yi)).T
             
             # Cogemos 5 cuencas aleatorias
-            bids = np.random.choice(np.unique(cuencas.read_array())[1:], 5)
+            bids = np.random.choice(np.unique(cuencas.readArray())[1:], 5)
             for bid in bids:
                 try:
                     if np.random.randint(100) < 70:

@@ -1,0 +1,25 @@
+[metadata]
+name = topopy
+version = 0.0.1
+author = J. Vicente Perez
+author_email = vperez@ugr.es
+description = "Python package for topographic analysis from DEMs",
+long_description = file: README.md, LICENSE.txt
+long_description_content_type = text/markdown
+url = https://github.com/geolovic/topopy
+project_urls =
+    Bug Tracker = https://github.com/geolovic/topopy/issues
+    repository = https://github.com/geolovic/topopy
+classifiers =
+    Programming Language :: Python :: 3
+    License :: OSI Approved :: MIT License
+    Operating System :: OS Independent
+
+[options]
+package_dir =
+    = src
+packages = find:
+python_requires = >=3.6
+
+[options.packages.find]
+where = src

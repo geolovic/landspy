@@ -13,8 +13,8 @@ import os, sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
 import numpy as np
-from topopy import Flow, Basin, Network, BNetwork, DEM
-from topopy.network import NetworkError
+from landspy  import Flow, Basin, Network, BNetwork, DEM
+from landspy.network import NetworkError
 from osgeo import ogr, osr
 infolder = "data/in"
 outfolder = "data/out"
@@ -24,7 +24,7 @@ def canales_to_shapefile(path, canales):
     driver = ogr.GetDriverByName("ESRI Shapefile")
     dataset = driver.CreateDataSource(path)
     sp = osr.SpatialReference()
-    proj = canales[0].get_projection()
+    proj = canales[0].getCRS()
     sp.ImportFromWkt(proj)
     
     # Creamos layer
@@ -40,15 +40,15 @@ def canales_to_shapefile(path, canales):
     # Add channels to shapefile
     for canal in canales:
         feat = ogr.Feature(layer.GetLayerDefn())
-        feat.SetField("oid", canal.get_oid())
-        feat.SetField("name", canal.get_name())
-        feat.SetField("flowto", canal.get_flow())
+        feat.SetField("oid", canal.getOid())
+        feat.SetField("name", canal.getName())
+        feat.SetField("flowto", canal.getFlow())
         feat.SetField("thetaref", canal._thetaref)
         feat.SetField("chi0", canal._chi0)
         feat.SetField("slp_np", canal._slp_np)
         feat.SetField("ksn_np", canal._ksn_np)
         geom = ogr.Geometry(ogr.wkbLineString)
-        xy = canal.get_xy()
+        xy = canal.getXY()
         for row in xy:
             geom.AddPoint(row[0], row[1])
             
@@ -72,21 +72,21 @@ class BNetworkGetMainChannelTest(unittest.TestCase):
             
             # Cargamos outlets y generamos cuencas
             outlets = np.loadtxt("{}/{}_bnet_outlets.txt".format(infolder, file), delimiter=";")
-            outlets = net.snap_points(outlets)
-            cuencas = fd.get_drainage_basins(outlets)
+            outlets = net.snapPoints(outlets)
+            cuencas = fd.drainageBasins(outlets)
             cuencas.save("{}/{}_tempbasins.tif".format(outfolder, file))
             
             heads = np.loadtxt("{}/{}_bnet_heads.txt".format(infolder, file), delimiter=";")
-            outlets = net.snap_points(outlets)
+            outlets = net.snapPoints(outlets)
             
-            for bid in np.unique(cuencas.read_array()):
+            for bid in np.unique(cuencas.readArray()):
                 if bid == 0:
                     continue
                 bnet = BNetwork(net, cuencas, heads, bid)
                 # Extraemos canal principal
                 mainc = bnet.getChannels(1)[0]
                 # Guardamos canal principal
-                xy = mainc.get_xy()
+                xy = mainc.getXY()
                 outf = open("{}/{}_tempbasin{}.txt".format(outfolder, file, bid), "w")
                 outf.write("X;Y\n")
                 for row in xy:

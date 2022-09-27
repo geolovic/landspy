@@ -13,7 +13,7 @@ import unittest
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network
+from landspy import Network
 import os
 infolder = "data/in"
 outfolder = "data/out"
@@ -30,8 +30,8 @@ class NetworkExportToShp(unittest.TestCase):
             # Exportamos canales a shapefile
             out_shp = outfolder +  "/{0}_str.shp".format(file)
             out_con_shp = outfolder +  "/{0}_strcon.shp".format(file)
-            net.export_to_shp(out_shp)
-            net.export_to_shp(out_con_shp, True)
+            net.exportShp(out_shp)
+            net.exportShp(out_con_shp, True)
             computed = [os.path.exists(out_shp), os.path.exists(out_con_shp)]
             self.assertEqual(computed, [True, True])
 

@@ -13,7 +13,7 @@ import numpy as np
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network, Channel
+from landspy import Network, Channel
 import ogr
 infolder = "data/in"
 outfolder = "data/out"
@@ -31,7 +31,7 @@ class ChannelClassTest(unittest.TestCase):
             
             net = Network("{}/{}_net.dat".format(outfolder, file))
             shp_path = outfolder + "/canales_{}.shp".format(file)
-            net.export_to_shp(shp_path, False)
+            net.exportShp(shp_path, False)
             
             dataset = ogr.Open(shp_path)
             layer = dataset.GetLayer(0)
@@ -42,7 +42,7 @@ class ChannelClassTest(unittest.TestCase):
                     geom = feat.GetGeometryRef()
                     head = geom.GetPoint(0)
                     mouth = geom.GetPoint(geom.GetPointCount() - 1)
-                    canal = net.get_channel(head, mouth)
+                    canal = net.getChannel(head, mouth)
                     canales.append(canal)
                     # Verificamos que canal se ha creado bien
                     self.assertEqual(isinstance(canal, Channel), True)
@@ -55,9 +55,9 @@ class ChannelClassTest(unittest.TestCase):
 
         for file in files:
             net = Network("{}/{}_net.dat".format(outfolder, file))
-            heads = net.get_stream_poi(kind="heads", coords="XY")
+            heads = net.streamPoi(kind="heads", coords="XY")
             for head in heads:
-                canal = net.get_channel(head)
+                canal = net.getChannel(head)
                 # Verificamos que canal se ha creado bien
                 self.assertEqual(isinstance(canal, Channel), True)
 

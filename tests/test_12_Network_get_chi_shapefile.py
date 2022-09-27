@@ -13,7 +13,7 @@ import unittest, os
 import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
-from topopy import Network
+from landspy import Network
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -28,7 +28,7 @@ class NetworkGetChiShapefile(unittest.TestCase):
             
             # Exportamos canales a shapefile
             out_shp = outfolder +  "/{0}_chi.shp".format(file)
-            net.get_chi_shapefile(out_shp, 250)
+            net.chiShapefile(out_shp, 250)
             
             computed = os.path.exists(out_shp)
             self.assertEqual(computed, True)

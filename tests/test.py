@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 26 13:58:02 2017
-Testing suite for topopy Grid class
+Testing suite for landspy Grid class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @last_modified: 19 september, 2022
