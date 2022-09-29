@@ -7,12 +7,12 @@ with open("README.md", "r", encoding = "utf-8") as fh:
 
 setuptools.setup(
     name = "landspy",
-    version = "1.0",
+    version = "1.0.1",
     author = "J. Vicente Perez Pena",
     author_email = "geolovic@gmail.com",
     description = "Python library for topographic analysis from DEMs",
     long_description = long_description,
-    long_description_content_type = text/markdown,
+    long_description_content_type = 'text/markdown',
     url =  "https://github.com/geolovic/landspy",
     project_urls = {
             "Bug Tracker" : "https://github.com/geolovic/landspylandspy/issues"
