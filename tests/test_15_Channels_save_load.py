@@ -14,7 +14,7 @@ import sys
 # Add to the path code folder and data folder
 sys.path.append("../src/")
 from landspy import Network, Channel, shp_to_channels
-import ogr
+from osgeo import ogr
 infolder = "data/in"
 outfolder = "data/out"
 
