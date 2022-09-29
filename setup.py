@@ -12,6 +12,7 @@ setuptools.setup(
     author_email = "geolovic@gmail.com",
     description = "Python library for topographic analysis from DEMs",
     long_description = long_description,
+    long_description_content_type = text/markdown,
     url =  "https://github.com/geolovic/landspy",
     project_urls = {
             "Bug Tracker" : "https://github.com/geolovic/landspylandspy/issues"
