@@ -833,7 +833,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     xxx2 = np.copy(IXC2)
     IX = IXC2.ravel(order=order)[ix]
     IXC2 = ix[IX]
-    G2   = (rdem[ix]-rdem[IXC2])/(cellsize * np.sqrt(2))
+    G2 = (rdem[ix]-rdem[IXC2])/(cellsize * np.sqrt(2))
     
     # Get the steepest one
     I  = (G1<=G2) & (xxx2.ravel(order=order)[ix]>xxx1.ravel(order=order)[ix])

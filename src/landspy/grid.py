@@ -238,7 +238,7 @@ class Grid(PRaster):
                   
         else:
             self._nodata = None
-            self._array = np.array([[0]], dtype=np.float)
+            self._array = np.array([[0]], dtype='float')
             self._tipo = str(self._array.dtype)
            
     def setArray(self, array):

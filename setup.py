@@ -10,7 +10,7 @@ setuptools.setup(
     version = "1.0.1",
     author = "J. Vicente Perez Pena",
     author_email = "geolovic@gmail.com",
-    description = "Python library for topographic analysis from DEMs",
+    description = "Python library for landscape analysis with DEMs",
     long_description = long_description,
     long_description_content_type = 'text/markdown',
     url =  "https://github.com/geolovic/landspy",
@@ -26,6 +26,6 @@ setuptools.setup(
     package_dir = {"": "src"},
     packages = setuptools.find_packages(where="src"),
     python_requires = ">=3.6",
-    install_requires=["GDAL>=3", "numpy", "matplotlib", "scikit-image", "scipy"],
+    install_requires=["GDAL", "numpy", "matplotlib", "scikit-image", "scipy"],
     tests_require=['unittest']
 )
