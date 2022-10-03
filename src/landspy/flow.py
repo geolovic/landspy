@@ -78,9 +78,9 @@ class Flow(PRaster):
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
                 if raw_z:
-                    self._zx = dem.readArray().ravel()[self._ix].astype(np.float)
+                    self._zx = dem.readArray().ravel()[self._ix].astype(np.float64)
                 else:
-                    self._zx = dem.fill(True).ravel()[self._ix].astype(np.float)
+                    self._zx = dem.fill(True).ravel()[self._ix].astype(np.float64)
                 # Recalculate NoData values
                 self._nodata_pos = self._get_nodata_pos()
             except:
@@ -272,7 +272,7 @@ class Flow(PRaster):
         ixc = self._ixc[I]
         
         # Recalculate grid channel cells
-        w = np.zeros(self.getNCells(), dtype=np.bool)
+        w = np.zeros(self.getNCells(), dtype='bool')
         w[ix] = True
         w[ixc] = True
         

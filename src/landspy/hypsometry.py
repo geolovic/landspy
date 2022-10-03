@@ -14,6 +14,7 @@
 
 from . import DEM, Basin, Grid
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 
 
@@ -25,7 +26,7 @@ class HCurve():
     -----------
     dem : *landspy.DEM* | *landspy.Basin* | *str*
       DEM, Basin instance or path to a previous saved hypsometric Curve. If it's a Basin or a string, the rest of the arguments will be ignored.
-      If its a DEM, a Grid with the basin and the basin_id are needed.
+      If it's a DEM, a Grid with the basin and the basin_id are needed.
 
     basin : None, str, Grid
         Drainage basin. If dem is a Basin or a str, this argument is ignored. Needs to have the same dimensions and cellsize than the input DEM.
@@ -210,15 +211,34 @@ class HCurve():
     def getDensitySkewness(self):
         return self.moments[4]
 
-    def plot(self, ax=None, clear_ax=False, **kwargs):
+    def plot(self, ax=None, clear_ax=False, grids=True, **kwargs):
+        """
+        This function plots the hypsometric curve in an Axe
+        :param ax: Axes instance. If None, a new Axe will be created
+        :param grids: Show grids in Axe
+        :param kwargs: Any matplotlib.Line2D plot property
+        :return:
+        """
         aa = self.getA()
         hh = self.getH()
         if not ax:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.set_xlabel("Relative area (a/A)")
-            ax.set_ylabel("Relative elevation (h/H)")
-            ax.set_aspect("equal")
+        if clear_ax:
+            ax.clear()
+        ax.set_xlabel("Relative area (a/A)")
+        ax.set_ylabel("Relative elevation (h/H)")
+        ax.set_aspect("equal")
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.1))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.1))
+        ax.set_xlim((0, 1))
+        ax.set_ylim((0, 1))
+
+        if grids:
+            ax.grid(True, which='minor', axis="both", linestyle="--", c="0.4", lw=0.25)
+            ax.grid(True, which='major', axis="both", linestyle="-", c="0.8", lw=0.75)
 
         ax.plot(aa, hh, **kwargs)
 
