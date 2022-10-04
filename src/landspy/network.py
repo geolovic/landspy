@@ -221,8 +221,8 @@ class Network(PRaster):
         # Fix to avoid errors in networks with only one cell...
         if data_arr.ndim < 2:
             data_arr = data_arr.reshape((1, data_arr.size))
-        self._ix = data_arr[:, 0].astype(np.int)
-        self._ixc = data_arr[:, 1].astype(np.int)
+        self._ix = data_arr[:, 0].astype(np.int64)
+        self._ixc = data_arr[:, 1].astype(np.int64)
         self._ax = data_arr[:, 2]
         self._dx = data_arr[:, 3]
         self._zx = data_arr[:, 4]
@@ -294,7 +294,7 @@ class Network(PRaster):
             x_arr = self._dx
             
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int)
+        ixcix = np.zeros(self.getNCells(), np.int64)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get heads array and confluences dictionary
@@ -431,7 +431,7 @@ class Network(PRaster):
         # Prepare auxiliary arrays
         ladder = np.zeros(self.getNCells())
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int)
+        ixcix = np.zeros(self.getNCells(), np.int64)
         ixcix[self._ix] = np.arange(self._ix.size)   
         
         if heads == "":
@@ -495,7 +495,7 @@ class Network(PRaster):
             """
 
             # Get grid channel cells
-            w = np.zeros(self.getNCells(), dtype=np.bool)
+            w = np.zeros(self.getNCells(), dtype="bool")
             w[self._ix] = True
             w[self._ixc] = True
             
@@ -735,7 +735,7 @@ class Network(PRaster):
         ch_shre = ch_shre[self._ix]  
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int)
+        ixcix = np.zeros(self.getNCells(), np.int64)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         seg_ids = np.unique(ch_seg)
@@ -923,7 +923,7 @@ class Network(PRaster):
         mouth = idx[1]
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int)
+        ixcix = np.zeros(self.getNCells(), np.int64)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get channel cells
@@ -936,7 +936,7 @@ class Network(PRaster):
             next_cell = self._ixc[ixcix[next_cell]]
 
         chcells = np.array(chcells)
-        auxarr = np.zeros(self.getNCells()).astype(np.bool)
+        auxarr = np.zeros(self.getNCells()).astype("bool")
         auxarr[chcells] = True
         I = auxarr[self._ix]
         ax = self._ax[I]
@@ -989,7 +989,7 @@ class Network(PRaster):
             layer.CreateField(ogr.FieldDefn(campos[n], tipos[n]))
         
         # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int)
+        ixcix = np.zeros(self.getNCells(), np.int64)
         ixcix[self._ix] = np.arange(self._ix.size)
         
         # Get heads and sort them by elevation and iterate them
@@ -997,7 +997,7 @@ class Network(PRaster):
         zpos = np.argsort(self._zx[ixcix[heads]])
         heads = heads[zpos][::-1]
         
-        aux_arr = np.zeros(self.getNCells(), np.bool)
+        aux_arr = np.zeros(self.getNCells(), "bool")
         id_profile = 0
         for head in heads:
             id_profile += 1
@@ -1161,7 +1161,7 @@ class BNetwork(Network):
             # Get only points inside the basin
             # The last receiver (ixc) will be outside of the basin
             # This can give index problems. We will throw away the last point in arrays
-            basin_bool = basin.astype(np.bool).ravel()
+            basin_bool = basin.astype("bool").ravel()
             I = basin_bool[net._ix]
             self._ax = net._ax[I][:-1]
             self._zx = net._zx[I][:-1]
@@ -1216,7 +1216,7 @@ class BNetwork(Network):
                 
             if self._heads.size == 0:
                 heads = self.streamPoi("heads", "IND")
-                ixcix = np.zeros(self._ncells, np.int)
+                ixcix = np.zeros(self._ncells, np.int64)
                 ixcix[self._ix] = np.arange(self._ix.size)
                 pos = np.argsort(-self._zx[ixcix[heads]])
                 self._heads = heads[pos][0:1] #Take only the first (highest) head as a list
@@ -1238,7 +1238,7 @@ class BNetwork(Network):
             fr.readline()
         head_line = fr.readline()
         if  head_line[0] == "#":
-            self._heads = np.array(head_line[1:-1].split(";")).astype(np.int)
+            self._heads = np.array(head_line[1:-1].split(";")).astype(np.int64)
         # If the file hasn't got a four line in the header (with the heads) is not a BNetwork file
         else:
             raise NetworkError("The selected file is not a BNetwork objetct")
@@ -1419,7 +1419,7 @@ class BNetwork(Network):
             
             row, col = self.indToCell(chcells)
             xi, yi = self.cellToXY(row, col)
-            auxarr = np.zeros(self.getNCells()).astype(np.bool)
+            auxarr = np.zeros(self.getNCells()).astype("bool")
             auxarr[chcells] = True
             I = auxarr[self._ix]
             ai = self._ax[I]
@@ -1499,7 +1499,7 @@ class Channel(PRaster):
         self._size = praster._size
         self._geot = praster._geot
         self._proj = praster._proj
-        self._ix = chandata[:, 0].astype(np.int)
+        self._ix = chandata[:, 0].astype(np.int64)
         self._ax = chandata[:, 1]
         self._dx = chandata[:, 2]
         self._zx = chandata[:, 3]
@@ -1793,7 +1793,7 @@ class Channel(PRaster):
         # Fix to avoid errors in networks with only one cell...
         if data_arr.ndim < 2:
             data_arr = data_arr.reshape((1, data_arr.size))
-        self._ix = data_arr[:, 0].astype(np.int)
+        self._ix = data_arr[:, 0].astype(np.int64)
         self._ax = data_arr[:, 1]
         self._dx = data_arr[:, 2]
         self._zx = data_arr[:, 3]

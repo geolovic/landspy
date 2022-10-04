@@ -5,7 +5,7 @@ Created on 09 february, 2021
 Testing suite for BNetwork class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
-@last_modified: 19 september, 2022
+@last_modified: 04 october, 2022
 """
 
 import unittest
@@ -21,7 +21,7 @@ outfolder = "data/out"
 
 class ChannelClassTest(unittest.TestCase):
 
-    def test_get_channel(self, plot_canales=False):
+    def test_get_channel(self):
         """
         Test Obtiene shapefile con canales, selecciona 5 grupos de 10 canales
         aleaorios y crea objeto Channel (con puntos inicial y final de línea)
@@ -45,7 +45,7 @@ class ChannelClassTest(unittest.TestCase):
                     canal = net.getChannel(head, mouth)
                     canales.append(canal)
                     # Verificamos que canal se ha creado bien
-                    self.assertEqual(isinstance(canal, Channel), True)
+                    self.assertIsInstance(canal, Channel)
            
     def test_get_channel2(self):
         """
@@ -59,7 +59,7 @@ class ChannelClassTest(unittest.TestCase):
             for head in heads:
                 canal = net.getChannel(head)
                 # Verificamos que canal se ha creado bien
-                self.assertEqual(isinstance(canal, Channel), True)
+                self.assertIsInstance(canal, Channel)
 
 if __name__ == "__main__":
     unittest.main()

@@ -72,7 +72,6 @@ class HCurveTest(unittest.TestCase):
                 self.assertNotEqual(hcurve.getDensityKurtosis(), 0)
                 self.assertNotEqual(hcurve.getDensitySkewness(), 0)
 
-
     def test_HCurve_01b(self):
         # Create hipsometric curves from a DEM and a path to a basins tiff file
         for file in self.files:
@@ -136,6 +135,32 @@ class HCurveTest(unittest.TestCase):
             self.assertNotEqual(hcurve.getDensityKurtosis(), 0)
             self.assertNotEqual(hcurve.getDensitySkewness(), 0)
 
+    def test_HCurve_03(self):
+        # Create hipsometric curve, save and load it
+        for file in self.files:
+            dem_path = "{}/{}.tif".format(infolder, file)
+            basin_path = "{}/{}_basins.tif".format(outfolder, file)
+            dem = DEM(dem_path)
+            basins = Grid(basin_path)
+
+            # Obtain biggest basin (id)
+            bids, counts = np.unique(basins.readArray(), return_counts=True)
+            if 0 in bids:
+                bids = bids[1:]
+                counts = counts[1:]
+
+            idmax = bids[np.argmax(counts)]
+
+            # Create hypsometric curve
+            hcurve = HCurve(dem, basins, idmax)
+
+            # Save it and load it
+            hcurve.save(outfolder + "/temp_curve.txt")
+            curva2 = HCurve(outfolder + "/temp_curve.txt")
+
+            # Compare both curves
+            self.assertEqual(hcurve.moments, curva2.moments)
+            self.assertEqual(np.array_equal(hcurve._data, curva2._data), True)
 
 if __name__ == "__main__":
     unittest.main()

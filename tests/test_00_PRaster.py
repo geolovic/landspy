@@ -4,7 +4,7 @@ Created on Tue Dec 26 13:58:02 2017
 Testing suite for landspy Grid class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
-@last_modified: 19 september, 2022
+@last_modified: 04 october, 2022
 """
 
 import unittest
@@ -35,7 +35,7 @@ class TestPRaster00(unittest.TestCase):
             ggeot = graster.GetGeoTransform()
             expected = ((band.XSize, band.YSize), arr.shape, arr.size, (ggeot[1], ggeot[5]), ggeot)
             self.assertEqual(computed, expected)
-            
+
     def test_projections(self):
         # Test PRaster getters
         files = ["small25.tif", "tunez.tif", "jebja30.tif"]
@@ -194,7 +194,7 @@ class TestPRaster01(unittest.TestCase):
         y = puntos[:,1]
         raster = PRaster(infolder + "/small25.tif")
         computed = raster.isInside(x, y)
-        expected = np.array([False, False, True, False, True, True, True ,False, True])
+        expected = np.array([False, False, True, False, True, True, True, False, True])
         self.assertEqual(np.array_equal(computed, expected), True)
         
 if __name__ == "__main__":

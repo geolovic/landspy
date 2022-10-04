@@ -190,7 +190,7 @@ class Flow(PRaster):
         
         if weights:
             if self._geot == weights._geot and self._size == weights._size:
-                facc = weights.readArray().ravel().astype(np.float)
+                facc = weights.readArray().ravel().astype(np.float64)
 
                 
             elif weights.isInside(self.get_extent()[0],self.getExtent()[2],False) and weights.isInside(self.getExtent()[1],self.getExtent()[3], False):
@@ -666,7 +666,7 @@ def get_presills(filldem, flats, sills, as_positions=True):
         ps_pos = list(zip(ps_rows, ps_cols))
         return ps_pos
     else:
-        presills = np.zeros(dims, dtype=np.bool)
+        presills = np.zeros(dims, dtype="bool")
         presills[ps_rows, ps_cols] = True
         return presills
 
@@ -707,7 +707,7 @@ def get_weights(flats, aux_topo, presills_pos):
 
     Parameters:
     -----------
-    flats : *numpy.array* [dtype = np.bool]
+    flats : *numpy.array* [dtype = "bool"]
       Numpy array with the location of the flats surfaces
     aux_topo: *numpy.array* [dtype = np.float32]
       Numpy array with the auxiliar topography

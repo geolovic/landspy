@@ -40,6 +40,7 @@ class HCurve():
         # If the first parameter is a str (previously saved HCurve), load it
         if isinstance(dem, str):
             self._load(dem)
+            return
         # If is a Basin instance, just take the elevation values
         elif isinstance(dem, Basin):
             values = dem.readArray()
@@ -211,49 +212,40 @@ class HCurve():
     def getDensitySkewness(self):
         return self.moments[4]
 
-    def plot(self, ax=None, clear_ax=False, grids=True, **kwargs):
+    def plot(self, ax=None, **kwargs):
         """
         This function plots the hypsometric curve in an Axe
         :param ax: Axes instance. If None, a new Axe will be created
-        :param grids: Show grids in Axe
         :param kwargs: Any matplotlib.Line2D plot property
         :return:
         """
-        aa = self.getA()
-        hh = self.getH()
         if not ax:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-        if clear_ax:
-            ax.clear()
-        ax.set_xlabel("Relative area (a/A)")
-        ax.set_ylabel("Relative elevation (h/H)")
-        ax.set_aspect("equal")
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
-        ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.1))
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
-        ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.1))
-        ax.set_xlim((0, 1))
-        ax.set_ylim((0, 1))
 
-        if grids:
-            ax.grid(True, which='minor', axis="both", linestyle="--", c="0.4", lw=0.25)
-            ax.grid(True, which='major', axis="both", linestyle="-", c="0.8", lw=0.75)
-
-        ax.plot(aa, hh, **kwargs)
+        ax.plot(self.getA(), self.getH(), **kwargs)
 
     def save(self, path):
-        header = "#" + self.getName() + "\n"
-        moments = [self.getHI(), self.getHI2(), self.getKurtosis(), self.getDensityKurtosis(),
-                   self.getSkewness(), self.getDensitySkewness()]
-        moments = ";".join(moments)
-        header += "#" + moments
-
-        # TODO
+        header = self.getName() + "\n"
+        moments = [self._HI, self._HI2] + self.moments
+        header += ";".join([str(moment) for moment in moments])
+        np.savetxt(path, self._data, header=header, comments="#",  delimiter=";", encoding="utf8")
 
     def _load(self, path):
-        pass
-        # TODO
+        # Open the file as normal text file to get its properties
+        fr = open(path, "r")
+        # Line 1: Name
+        linea = fr.readline()[1:-1]
+        self._name = linea
+        # Line 2: Statistical moments
+        linea = fr.readline()[1:-1]
+        data = linea.split(";")
+        self._HI = float(data[0])
+        self._HI2 = float(data[1])
+        self.moments = [float(dd) for dd in data[2:]]
+        fr.close()
+        # Load array data
+        self._data = np.loadtxt(path, dtype=float, comments='#', delimiter=";", encoding="utf8")
 
 
 class HypsometryError(Exception):
