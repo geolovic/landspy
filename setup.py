@@ -7,7 +7,7 @@ with open("README.md", "r", encoding = "utf-8") as fh:
 
 setuptools.setup(
     name = "landspy",
-    version = "1.0.1",
+    version = "1.2.0",
     author = "J. Vicente Perez Pena",
     author_email = "geolovic@gmail.com",
     description = "Python library for landscape analysis with DEMs",
