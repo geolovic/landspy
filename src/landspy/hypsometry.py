@@ -41,6 +41,7 @@ class HCurve():
         if isinstance(dem, str):
             self._load(dem)
             return
+
         # If is a Basin instance, just take the elevation values
         elif isinstance(dem, Basin):
             values = dem.readArray()
@@ -58,6 +59,16 @@ class HCurve():
 
             pos = np.where(basin.readArray() == bid)
             elev_values = dem.readArray()[pos]
+
+        if elev_values.size < 50:
+            # Not enough values to get a hypsometric curve
+            # Just create an empty one
+            self._data = np.array([[0, 1], [1, 0]])
+            self._name = name
+            self._HI = 0.5
+            self._HI2 = 0.5
+            self.moments = [0, 0, 0, 0, 0]
+            return
 
         elev_values = np.sort(elev_values)[::-1]
         hh = (elev_values - elev_values[-1]) / (elev_values[0] - elev_values[-1])
@@ -223,7 +234,7 @@ class HCurve():
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        ax.plot(self.getA(), self.getH(), **kwargs)
+        ax.plot(self.getA(), self.getH(), label=self.getName(), **kwargs)
 
     def save(self, path):
         header = self.getName() + "\n"
