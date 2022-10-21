@@ -61,6 +61,7 @@ To get an overview of how **landspy** works, we offer some tutorials to perform 
 - [Plot single channel profiles][tut3_link]
 - [Create channels from a polyline shapefile][tut4_link]
 - [Create channels from a drainage basin][tut5_link]
+- [Create hypsometric curves][tut6_link]
 
 The associated python scripts are provided in the `docs` folder.
 
@@ -144,4 +145,5 @@ You can contact me via <geolovic@gmail.com> <vperez@ugr.es>.
 [tut3_link]: https://github.com/geolovic/landspy/tree/master/docs/landspy_tutorial_03.ipynb
 [tut4_link]: https://github.com/geolovic/landspy/tree/master/docs/landspy_tutorial_04.ipynb
 [tut5_link]: https://github.com/geolovic/landspy/tree/master/docs/landspy_tutorial_05.ipynb
+[tut6_link]: https://github.com/geolovic/landspy/tree/master/docs/landspy_tutorial_06.ipynb
 [license_link]: https://github.com/geolovic/landspy/blob/master/LICENSE.txt

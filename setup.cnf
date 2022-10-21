@@ -1,6 +1,6 @@
 [metadata]
 name = topopy
-version = 0.0.1
+version = 1.2.0
 author = J. Vicente Perez
 author_email = vperez@ugr.es
 description = "Python package for topographic analysis from DEMs",
