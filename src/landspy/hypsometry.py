@@ -233,8 +233,9 @@ class HCurve():
         if not ax:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-
-        ax.plot(self.getA(), self.getH(), label=self.getName(), **kwargs)
+        kw = {"c":"olive", "label":self.getName()}
+        kw.update(kwargs)
+        ax.plot(self.getA(), self.getH(), **kw)
 
     def save(self, path):
         header = self.getName() + "\n"
