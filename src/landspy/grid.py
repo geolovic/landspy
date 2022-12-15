@@ -432,12 +432,28 @@ class Grid(PRaster):
         inside = super().isInside(x, y)
 
         if NoData:
-            pos = np.where(inside)
-            x = x[inside]
-            y = y[inside]
-            row, col = self.xyToCell(x, y)
-            in_nodata = self.getValue(row, col) != self.getNodata()
-            inside[pos] = in_nodata
+            # Taking NoData for the analysis
+            # If x and y are a single coordinate (not a list nor array)
+            if type(x) is int or type(x) is float:
+                if not inside:
+                    # Point outside the raster boundary
+                    return False
+                else:
+                    row, col = self.xyToCell(x, y)
+                    if self.getValue(row, col) == self.getNodata():
+                        # Point inside the raster boundary but with a NoData value
+                        return False
+                    else:
+                        # Point inside the raster boundary
+                        return True
+            # X and Y are lists or numpy arrays
+            else:           
+                pos = np.where(inside)
+                x = x[inside]
+                y = y[inside]
+                row, col = self.xyToCell(x, y)
+                in_nodata = self.getValue(row, col) != self.getNodata()
+                inside[pos] = in_nodata
         
         return inside
     

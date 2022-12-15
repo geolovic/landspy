@@ -13,14 +13,14 @@ import numpy as np
 from osgeo import gdal
 import sys
 # Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import Grid
 infolder = "data/in"
 outfolder = "data/out"
 
+
 class TestGrid01(unittest.TestCase):
     
-    def setUp(self):        
+    def setUp(self):
         # Load test data
         self.ids = np.load(infolder + "/np_files/small25_100rnd_id.npy")
         self.rows = np.load(infolder + "/np_files/small25_100rnd_row.npy")
@@ -29,7 +29,7 @@ class TestGrid01(unittest.TestCase):
         self.yi = np.load(infolder + "/np_files/small25_100rnd_Y.npy")
         self.zi = np.load(infolder + "/np_files/small25_100rnd_Z.npy")
         
-    def test_set_read_array_00(self):
+    def test_set_read_array_01(self):
         # Set data to an empty array and to an array with differnt dimensions
         arr = np.arange(25).reshape(5,5).astype(np.int8)
         dem = Grid()
@@ -38,7 +38,7 @@ class TestGrid01(unittest.TestCase):
         computed = (res01, res02)
         self.assertEqual(computed, (None, 0))
     
-    def test_set_read_array_01(self):
+    def test_set_read_array_02(self):
         # Read array (NOT Sharing memory)
         arr = np.arange(25).reshape(5,5).astype(np.int8)
         dem = Grid()
@@ -49,7 +49,7 @@ class TestGrid01(unittest.TestCase):
         expected = 0
         self.assertEqual(computed, expected)    
         
-    def test_set_read_array_02(self):
+    def test_set_read_array_03(self):
         # Read array (Sharing memory)
         arr = np.arange(25).reshape(5,5).astype(np.int8)
         dem = Grid()
@@ -60,7 +60,7 @@ class TestGrid01(unittest.TestCase):
         expected = 99
         self.assertEqual(computed, expected)    
             
-    def test_set_data_00(self):
+    def test_set_data_04(self):
         arr = np.arange(9).reshape((3, 3))
         arr[[1, 2], [2, 1]] = 8
         dem = Grid()
@@ -71,7 +71,7 @@ class TestGrid01(unittest.TestCase):
         expected = np.array([8, 8, 8])
         self.assertEqual(np.array_equal(computed, expected), True)
           
-    def test_save(self):
+    def test_save_05(self):
         dem = Grid(infolder + "/small25.tif")
         dem.save(outfolder + "/a_dummy_dem.tif")
         dem2 = Grid(outfolder + "/a_dummy_dem.tif")
@@ -79,7 +79,7 @@ class TestGrid01(unittest.TestCase):
         computed = dem2.getValue([20, 30, 40, 50], [20, 30, 40, 50])
         self.assertEqual(np.array_equal(computed, expected), True)
 
-    def test_save_02(self):
+    def test_save_06(self):
         # Testing nodata with value of Zero
         dem = Grid()
         np.random.seed(1)
@@ -94,7 +94,7 @@ class TestGrid01(unittest.TestCase):
         nodata = banda.GetNoDataValue()
         self.assertEqual(nodata, 0)
            
-    def test_values_2_nodata(self):
+    def test_values_2_nodata_07(self):
         dem = Grid()
         dem.setArray(np.arange(25).reshape((5, 5)))
         dem.setNodata(-99.)
@@ -105,7 +105,7 @@ class TestGrid01(unittest.TestCase):
         res = np.array_equal(computed, expected)
         self.assertEqual(res, True)
 
-    def test_get_value_01(self):
+    def test_get_value_08(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col in a nan position (88)
         ind = 88
@@ -113,7 +113,7 @@ class TestGrid01(unittest.TestCase):
         computed = dem.getValue(row, col)
         self.assertEqual(computed, -9999)
 
-    def test_get_value_02(self):
+    def test_get_value_09(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col in other position (with value)
         ind = 25
@@ -122,20 +122,20 @@ class TestGrid01(unittest.TestCase):
         computed = dem.getValue(row, col)
         self.assertEqual(computed, expected)
         
-    def test_get_value_03(self):
+    def test_get_value_10(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col outside array
         row, col = 199, 133
         self.assertRaises(IndexError, dem.getValue, row, col)
     
-    def test_get_value_04(self):
+    def test_get_value_11(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col as numpy arrays
         expected = self.zi
         computed = dem.getValue(self.rows, self.cols)
         self.assertEqual(np.nansum(computed),np.nansum(expected))
         
-    def test_get_value_05(self):
+    def test_get_value_12(self):
         dem = Grid(infolder + "/small25.tif")
         # Taking row, col as lists
         expected = np.nansum(self.zi.tolist())
@@ -143,14 +143,14 @@ class TestGrid01(unittest.TestCase):
         computed = np.nansum(res)
         self.assertEqual(computed, expected)
         
-    def test_get_nodata_pos(self):
+    def test_get_nodata_pos_13(self):
         dem = Grid(infolder + "/small25.tif")
         arr = dem._array        
         row, col = dem.getNodataPos()
         crow, ccol= np.where(arr == -9999)
         self.assertEqual((np.array_equal(row, crow), np.array_equal(col, ccol)), (True, True))
         
-    def test_is_inside(self):
+    def test_is_inside_14(self):
         # points 1, 2, 4, 8 --> -Fuera de ráster
         # points 3, 5 --> Dentro de ráster, pero en NoData
         # points 6, 7, 9 --> Dentro de ráster
@@ -170,8 +170,21 @@ class TestGrid01(unittest.TestCase):
         computed = raster.isInside(x, y)
         expected = np.array([False, False, False, False, False, True, True ,False, True])
         self.assertEqual(np.array_equal(computed, expected), True)
-        
-        
-    
+
+    def test_is_inside_15(self):
+        # Test three points, one by one
+        # 476154., 4115084. --> Fuera de ráster
+        # 471317., 4114050. --> Dentro de ráster, pero en NoData
+        # 473877., 4114844. --> Dentro de ráster
+
+        raster = Grid(infolder + "/small25.tif")
+        computed = []
+        for x, y in [(476154., 4115084.), (471317., 4114050.), (473877., 4114844.)]:
+            computed.append(raster.isInside(x, y, NoData=True))
+            computed.append(raster.isInside(x, y, NoData=False))
+
+        self.assertEqual(computed, [False, False, False, True, True, True])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -21,7 +21,9 @@ outfolder = "data/out"
 
 
 class BNetworkClassTest(unittest.TestCase):
-    
+    """"
+    Tests para BNetwork Class
+    """
     # Indices de las cabeceras que deben de salir (para comprobar)
     results = {"small25":dict([(1, 16171), (2, 9354),  (3,1463)]),
                "jebja30":dict([(1, 151755), (2, 44786), (3, 48709), (4, 3819)]),
