@@ -14,6 +14,7 @@
 
 import numpy as np
 from osgeo import gdal
+gdal.UseExceptions()
 from scipy import ndimage
 from skimage import graph
 from scipy.sparse import csc_matrix
@@ -31,7 +32,7 @@ class Flow(PRaster):
           landspy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
           parameter is an empty string, it will create an empty Flow instance.
         auxtopo : boolean
-          Boolean to determine if a auxiliar topography is used (much slower). The auxiliar topography is calculated with 
+          Boolean to determine if an auxiliar topography is used (much slower). The auxiliar topography is calculated with
           elevation differences between filled and un-filled dem. If filled is True, auxtopo is ignored (cannot compute differences)
         filled : boolean
           Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
@@ -560,7 +561,7 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
         if verbose:
             verb_func("4/7 - Auxiliar topography generated")
     else:
-        topodiff = np.zeros(dem_arr.shape, dtype=np.int8)
+        topodiff = np.zeros(dem_arr.shape)
         topodiff[flats] = 1
    
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
@@ -732,6 +733,7 @@ def get_weights(flats, aux_topo, presills_pos):
     surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
     """
     flats = np.invert(flats)
+
     aux_topo[flats] = 99999
     if len(presills_pos) > 0:
         lg = graph.MCP_Geometric(aux_topo)
@@ -819,7 +821,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     footprint= np.array([[0, 1, 0],
                          [1, 1, 1],
                          [0, 1, 0]], dtype=np.int8)
-    IXC1 = ndimage.morphology.grey_dilation(pp, footprint=footprint)
+    IXC1 = ndimage.grey_dilation(pp, footprint=footprint)
     xxx1 = np.copy(IXC1)
     IX = IXC1.ravel(order=order)[ix]
     IXC1 = ix[IX]
@@ -829,7 +831,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     footprint= np.array([[1, 0, 1],
                          [0, 1, 0],
                          [1, 0, 1]], dtype=np.int8)
-    IXC2 = ndimage.morphology.grey_dilation(pp, footprint=footprint)
+    IXC2 = ndimage.grey_dilation(pp, footprint=footprint)
     xxx2 = np.copy(IXC2)
     IX = IXC2.ravel(order=order)[ix]
     IXC2 = ix[IX]

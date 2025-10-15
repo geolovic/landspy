@@ -10,7 +10,7 @@
 # Version: 1.1
 # October 1th, 2018
 #
-# Last modified 07 february 2021
+# Last modified 15 october, 2025
 
 import numpy as np
 import os
@@ -65,7 +65,7 @@ class Network(PRaster):
         # ._r2ksn >> R2 Coeficient of the ksn regression
         # ._dd >> Giver (ix) - Receiver (ixc) distance
                       
-        # If flow is empty, create an empty Network instancee
+        # If flow is empty, create an empty Network instance
         if flow is None:
             self._create_empty()
             return
@@ -264,7 +264,7 @@ class Network(PRaster):
         if y.size * y.var() == 0:
             R2 = 1 # Puntos colineares
         else:
-            R2 = float(1 - SCR/(y.size * y.var()))
+            R2 = float(1 - SCR[0]/(y.size * y.var()))
     
         return (g, R2)  
     
@@ -1052,7 +1052,7 @@ class Network(PRaster):
                     if zx.size * zx.var() == 0:
                         rslope = 1
                     else:
-                        rslope = float(1 - SCR/(zx.size * zx.var()))      
+                        rslope = float(1 - SCR[0]/(zx.size * zx.var()))
                     
                     # Mean ksn for the segment (by min. sqares)
                     poli, SCR = np.polyfit(chi, zx, deg = 1, full = True)[:2]
@@ -1062,7 +1062,7 @@ class Network(PRaster):
                     if zx.size * zx.var() == 0:
                         rksn = 1
                     else:
-                        rksn = float(1 - SCR/(zx.size * zx.var()))
+                        rksn = float(1 - SCR[0]/(zx.size * zx.var()))
                     
                     # Create feature and add attributes
                     feat = ogr.Feature(layer.GetLayerDefn())
@@ -1242,7 +1242,10 @@ class BNetwork(Network):
         # If the file hasn't got a four line in the header (with the heads) is not a BNetwork file
         else:
             raise NetworkError("The selected file is not a BNetwork objetct")
-            
+
+        # Closes *.dat file
+        fr.close()
+
     def save(self, path):
         """
         Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
@@ -1624,7 +1627,7 @@ class Channel(PRaster):
         if zi.size * zi.var() == 0:
             R2 = 1 # Puntos colineares
         else:
-            R2 = float(1 - SCR/(zi.size * zi.var()))
+            R2 = float(1 - SCR[0]/(zi.size * zi.var()))
             
         # Get Id (mid-point of the regression)
         idx = int(p1 + (p2 - p1)/2)

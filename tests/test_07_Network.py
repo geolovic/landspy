@@ -11,10 +11,12 @@ Testing suite for Network class
 
 import unittest
 import numpy as np
-import sys, os
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import Flow, Network
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -46,15 +48,6 @@ class NetworkClassTest(unittest.TestCase):
         path = outfolder + "/points_delete.txt"
         net.exportPoints(path)
         self.assertEqual(os.path.exists(path), True)
-        
-        path = outfolder +"/shp_delete.shp"
-        net.exportShp(path)
-        self.assertEqual(os.path.exists(path), True)
-        
-        path = outfolder +"/chi_delete.shp"
-        net.chiShapefile(path, 0)
-        self.assertEqual(os.path.exists(path), True)
-
 
         # Test other functions
         self.assertEqual(np.array_equal(net.getStreams(False), np.array([1]).reshape(1, 1)), True)

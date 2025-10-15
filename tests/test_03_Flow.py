@@ -9,11 +9,13 @@ Testing suite for landspy Flow class
 """
 
 import unittest
-import sys
 import numpy as np
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import Flow, DEM
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

@@ -30,7 +30,11 @@ from test_14_Channel_class import ChannelClassTest
 from test_15_Channels_save_load import ChannelSaveTest
 
 # Create output directory if does not exits
-import os
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
+
 if not os.path.exists("data/out"):
     os.mkdir("data/out")
 
@@ -65,11 +69,12 @@ suite21 = unittest.TestLoader().loadTestsFromTestCase(BNetworkGetMainChannelTest
 suite22 = unittest.TestLoader().loadTestsFromTestCase(ChannelClassTest)
 suite23 = unittest.TestLoader().loadTestsFromTestCase(ChannelSaveTest)
 
-# Running tests
+#Running tests
 suite = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5, suite6, suite7,
                             suite8, suite9, suite10, suite11, suite12, suite13, suite14,
-                            suite15, suite16, suite17, suite18, suite19, suite20, suite21, 
+                            suite15, suite16, suite17, suite18, suite19, suite20, suite21,
                             suite22, suite23])
+
 
 unittest.TextTestRunner(verbosity=2).run(suite)
 

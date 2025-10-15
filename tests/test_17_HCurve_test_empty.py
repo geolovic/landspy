@@ -6,15 +6,17 @@ Testing suite for HCurve class
 @author: J. Vicente Perez
 @email: geolovic@gmail.com
 @date: 06 October 2022
-@last_modified: 06 October 2022
+@last_modified: 15 October 2025
 """
 
 import unittest
 import numpy as np
-import sys, os
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import DEM, Basin, Grid, Flow, HCurve
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

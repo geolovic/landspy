@@ -6,17 +6,18 @@ Testing suite for Network.get_chi_shapefile() function
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
 @date: 20 January, 2020
-@last_modified: 19 september, 2022
+@last_modified: 15 october, 2025
 """
 
-import unittest, sys, os
-# Add to the path code folder and data folder
-sys.path.append("../src/")
+import unittest
 from landspy import Network
 import numpy as np
 from osgeo import ogr, osr
-import sys
 
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

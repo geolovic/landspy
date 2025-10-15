@@ -9,12 +9,14 @@ Testing suite for landspy Grid class
 """
 
 import unittest
-import sys
 import numpy as np
 import scipy.io as sio
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import DEM
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

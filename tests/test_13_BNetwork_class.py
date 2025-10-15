@@ -5,17 +5,18 @@ Created on 09 february, 2021
 Testing suite for BNetwork class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
-@last_modified: 19 september, 2022
+@last_modified: 15 october, 2025
 """
 
 import unittest
-import os
-import sys
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 import numpy as np
 from landspy import Flow, Basin, Network, BNetwork, DEM
 from landspy.network import NetworkError
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

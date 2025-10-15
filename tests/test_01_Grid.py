@@ -11,9 +11,15 @@ Testing suite for landspy Grid class
 import unittest
 import numpy as np
 from osgeo import gdal
-import sys
+gdal.UseExceptions()
+
 # Add to the path code folder and data folder
 from landspy import Grid
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

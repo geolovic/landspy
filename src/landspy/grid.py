@@ -14,6 +14,7 @@
 
 
 from osgeo import gdal
+gdal.UseExceptions()
 import numpy as np
 from scipy import ndimage
 from skimage.morphology import reconstruction
@@ -557,7 +558,7 @@ class DEM(Grid):
         footprint = np.ones((3, 3), dtype=np.int8)
         # Identify flats throught a image binary erosion
         # Flats will be True where cells don't have lower neighbors
-        flats = ndimage.morphology.grey_erosion(z_arr, footprint=footprint) == z_arr
+        flats = ndimage.grey_erosion(z_arr, footprint=footprint) == z_arr
         
         # Remove flats from the borders
         flats[0,:] = flats[-1,:] = flats[:,0] = flats[:,-1] = False
@@ -566,14 +567,14 @@ class DEM(Grid):
         flats[nodata_ids] = False
         auxmat = np.zeros(flats.shape, dtype="bool")
         auxmat[nodata_ids] = True
-        nodata_bord = ndimage.morphology.grey_dilation(auxmat, footprint=footprint)
+        nodata_bord = ndimage.grey_dilation(auxmat, footprint=footprint)
         flats[nodata_bord] = False
         
         # Identify sills
         sills = np.empty(z_arr.shape)
         sills.fill(-9999.)
         sills[flats] = z_arr[flats]
-        aux_dil = ndimage.morphology.grey_dilation(sills, footprint=footprint)
+        aux_dil = ndimage.grey_dilation(sills, footprint=footprint)
         sills = np.logical_and(aux_dil == z_arr, np.logical_not(flats))
         sills[nodata_ids] = False
         

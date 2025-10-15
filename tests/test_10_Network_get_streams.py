@@ -4,16 +4,18 @@
 Created on 08 October, 2018
 Testing suite for Network get_streams functions
 @author: J. Vicente Perez
-@email: geolovic@hotmail.com
+@email: geolovic@gmail.com
 @date: 08 October, 2018
-@last_modified: 19 september, 2022
+@last_modified: 15 october, 2025
 """
 
-import unittest, os
-import sys
-# Add to the path code folder and data folder
-sys.path.append("../src/")
+import unittest
 from landspy import Network
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 

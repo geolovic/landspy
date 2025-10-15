@@ -5,16 +5,18 @@ Created on 09 february, 2021
 Testing suite for BNetwork class
 @author: J. Vicente Perez
 @email: geolovic@hotmail.com
-@last_modified: 19 september, 2022
+@last_modified: 15 october, 2025
 """
 
 import unittest
 import numpy as np
-import sys
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import Network, Channel, shp_to_channels
 from osgeo import ogr
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 
@@ -27,8 +29,8 @@ class ChannelSaveTest(unittest.TestCase):
         vuelve a cargar
         """
         # Cargamos objetos y obtenemos canales
-        net = Network("data/out/jebja30_net.dat")
-        shp = "data/in/jebja_channels.shp"
+        net = Network("{}/jebja30_net.dat".format(outfolder))
+        shp = "{}/jebja_channels.shp".format(infolder)
         canales = shp_to_channels(shp, net, "segid")
         
         for canal in canales:

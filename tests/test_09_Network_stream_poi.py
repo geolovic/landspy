@@ -11,13 +11,14 @@ Testing suite for landspy.Network.get_stream_poi() function
 
 import unittest
 import numpy as np
-import sys
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import Network
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
-
 
 class StreamPoiTest(unittest.TestCase):
     

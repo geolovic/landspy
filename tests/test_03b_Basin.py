@@ -11,10 +11,12 @@ Testing suite for Network.get_chi_shapefile() function
 
 import unittest
 import numpy as np
-import sys
-# Add to the path code folder and data folder
-sys.path.append("../src/")
 from landspy import Flow, Basin, DEM
+
+import sys, os
+# Forzar el directorio actual al del archivo
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
 
