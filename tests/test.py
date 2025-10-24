@@ -81,4 +81,3 @@ unittest.TextTestRunner(verbosity=2).run(suite)
 # Clean output directory
 for ff in os.listdir("data/out"):
     os.remove("data/out/{}".format(ff))
-    

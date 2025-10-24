@@ -14,77 +14,74 @@
 
 import numpy as np
 from . import DEM
+from shapely import LineString
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 class SwathProfile:
-    def __init__(self, center_line=None, dem=None, width=0, n_lines=None, step_size=0, name=""):
+    def __init__(self, center_line=None, dem=None, width=0, n_lines=0, step_size=0, name=""):
         """
         Class to create a swath profile object and related parameters
 
         :param center_line: shapely.geometry.LineString - LineString the swath profile center line
         :param dem: landspy.DEM - Digital Elevation Model
-        :param width: float - With of the swath profile (in data units)
-        :param n_lines: int - Number of elevation profiles of the SWATH. The swath profile will have n_lines/2 elevation profiles at each side of the center line
+        :param width: float - Half width of the swath profile (in data units)
+        :param n_lines: int - Number of elevation profiles of the SWATH at each side of center line
         :param step_size: float - Step-size to get elevation points along the profile
         :param name: str - Name of the profile
         """
+        # Creates an empty SwathProfile Object
+        if center_line is None:
+            return
 
         self.name = str(name)
         self.width = float(width)
         self.center_line = center_line
 
-        # Get step size (By default dem.cellsize if was not specified)
-        if step_size == 0 or step_size < dem.getCellSize[0]:
-            self.step_size = dem.getCellsize[0]
+        # Get step size (By default dem.getCellsize if was not specified)
+        if step_size == 0 or step_size < dem.getCellSize()[0]:
+            self.step_size = dem.getCellSize()[0]
         else:
             self.step_size = step_size
 
-        # Get number of lines (By default width/dem.cellsize)
-        if n_lines == 0 or n_lines > int(width / dem.getCellSize[0]):
-            self.n_lines = int(width / dem.getCellSize[0])
+        # Get number of lines (By default width/dem.getCellsize)
+        if n_lines == 0 or n_lines > int(width / dem.getCellSize()[0]):
+            self.n_lines = int(width / dem.getCellSize()[0])
         else:
             self.n_lines = n_lines
 
         # Get distance between lines
         self.line_distance = self.width / self.n_lines
 
-        # Get profile distances
+        # Get profile distances for the center line (these will be x coordinates of the swath profile)
         self.li = np.arange(0., self.center_line.length, self.step_size)
 
-        # Creates an empty SwathProfile Object
-        if center_line is None:
-            return
-
-
-
-        # Get distance between lines
-        line_distance = float(width) / n_lines
-
-
-
-
         # Get the number of points for each swath line
-        npoints = self.li.shape[0]
+        self.npoints = self.li.shape[0]
 
         # Create the elevation data array with the first line (baseline)
-        self.data = self._get_zi(line, dem, npoints)
+        self.data = self._get_zi(self.center_line, dem, self.npoints)
 
         # Simplify baseline
-        sline = self.center_line.simplify(tolerance=dem.cellsize * 5)
+        sline = self.center_line.simplify(tolerance=dem.getCellSize()[0] * 5)
+        self.lines = []
 
         # Create the elevation data for the Swath
-        for n in range(n_lines):
-            dist = line_distance * (n + 1)
+        for n in range(self.n_lines):
+            dist = self.line_distance * (n + 1)
             left_line = sline.parallel_offset(dist, side="left")
             right_line = sline.parallel_offset(dist, side="right")
             # Sometimes parallel_offset produces MultiLineStrings
-            if left_line.type == "MultiLineString":
+            if left_line.geom_type == "MultiLineString":
                 left_line = self._combine_multilines(left_line)
-            if right_line.type == "MultiLineString":
+            if right_line.geom_type == "MultiLineString":
                 right_line = self._combine_multilines(right_line)
+            self.lines.append(left_line)
+            self.lines.append(right_line)
 
-            right_line = self._flip(right_line)
-            l_elev = self._get_zi(left_line, dem, npoints)
-            r_elev = self._get_zi(right_line, dem, npoints)
+
+            l_elev = self._get_zi(left_line, dem, self.npoints)
+            r_elev = self._get_zi(right_line, dem, self.npoints)
             self.data = np.append(self.data, r_elev, axis=1)
             self.data = np.append(self.data, l_elev, axis=1)
 
@@ -110,9 +107,9 @@ class SwathProfile:
     def _get_zi(self, line, dem, npoints):
         """
         Get elevations along a line in npoints equally spaced. If any point of the line falls
-        outside the DEM or in a NoData cell, a np.nan value will be asigned.
+        outside the DEM or in a NoData cell, a np.nan value will be assigned.
         :param line : Shapely.LineString object. Input LineString
-        :param dem : pRaster object. DEM with elevatations.
+        :param dem : pRaster object. DEM with elevations.
         :param npoints : int. Number of points along the line to get elevations
         :return zi : Numpy.ndarray. Array with size (npoints, 1) with elevations
         """
@@ -120,23 +117,18 @@ class SwathProfile:
         zi = []
         for idx in range(npoints):
             pt = line.interpolate(step_size * idx, normalized=True)
-            xy = list(pt.coords)[0]
-            z = dem.get_xy_value(xy)
-            if z == dem.nodata or not z:
+            x, y = list(pt.coords)[0]
+            if not dem.isInside(x, y):
+                z = np.nan
+                zi.append(z)
+                continue
+            row, col = dem.xyToCell(x, y)
+            z = dem.getValue(row, col)
+            if z == dem.getNodata() or not z:
                 z = np.nan
             zi.append(z)
 
         return np.array(zi, dtype="float").reshape((len(zi), 1))
-
-    def _flip(self, line):
-        """
-        Flips a LineString object. Returns the new line flipped
-        :param line : Shapely.LineString object. Input LineString
-        :return line : Shapely.LineString object. Fliped LineString
-        """
-        coords = list(line.coords)
-        coords = np.array(coords)[::-1]
-        return LineString(coords)
 
     def _combine_multilines(self, line):
         """
@@ -174,6 +166,7 @@ class SwathProfile:
         if drawbg:
             poly = mpatches.Polygon(self.bg_dat, facecolor="0.85")
             ax.add_patch(poly)
+            drawdata = False
 
         if drawdata:
             for n in range(self.data.shape[1]):

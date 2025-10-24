@@ -14,6 +14,7 @@
 
 import numpy as np
 from osgeo import ogr
+from shapely.geometry import LineString
 
 def extract_points(path, idfield=""):
     """
@@ -29,18 +30,21 @@ def extract_points(path, idfield=""):
     Return:
     ================
     coords : np.dnarray
-      Numpy array with 2 or 3 columns with points X and Y (thrid column will contain point ids
+      Numpy array with 2 or 3 columns with points X and Y (third column will contain point ids
       if idfield was specified)
     """
     driver = ogr.GetDriverByName("ESRI Shapefile")
     dataset = driver.Open(path)
     layer = dataset.GetLayer()
+    if not layer:
+        return None
+
     geom_type = layer.GetGeomType()
     lydef = layer.GetLayerDefn()
     id_fld = lydef.GetFieldIndex(idfield)
     geom_type = layer.GetGeomType()
     if geom_type != 1:
-        return(np.array([0, 0, 0]).reshape(1, 3))
+        return np.array([0, 0, 0]).reshape(1, 3)
     points = []
     for feat in layer:
         geom = feat.GetGeometryRef()
@@ -54,7 +58,6 @@ def extract_points(path, idfield=""):
             points.append((geom.GetX(), geom.GetY()))
 
     return np.array(points)
-
 
 def shp_to_channels(path, net, id_field="", name_field=""):
     """
@@ -116,3 +119,60 @@ def shp_to_channels(path, net, id_field="", name_field=""):
         channels.append(channel)
 
     return channels
+
+def get_line_strings(shapefile, names_field=""):
+    """
+    This function reads a line shapefile and returns a tuple (out_lines, out_names)
+
+    Parameters:
+    ================
+    shapefile : *str*
+      Path to the line shapefile with profile centerline
+    names_field : *str*
+      Name of the field with the profile names. If skipped, profiles will be named sequentially
+
+    Returns:
+    ==============
+    (out_lines, out_names) : *tuple*
+        out_lines : List with shapely.geometry.LineString objects representing shapefile lines
+        out_names : List of string with profile names
+    """
+    # Open the dataset and get the layer
+    driver = ogr.GetDriverByName("ESRI Shapefile")
+    dataset = driver.Open(shapefile)
+    layer = dataset.GetLayer()
+
+    # Check if layer has the right geometry
+    if not layer or layer.GetGeomType() != 2:
+        return None, None
+
+    # Get a list of layer fields
+    layerdef = layer.GetLayerDefn()
+    fields = [layerdef.GetFieldDefn(idx).GetName() for idx in range(layerdef.GetFieldCount())]
+    take_field = True
+    if not names_field in fields:
+        take_field = False
+
+    out_names = []
+    out_lines = []
+    perfil_id = 0
+
+    for feat in layer:
+        if take_field:
+            out_names.append(str(feat.GetField(names_field)))
+        else:
+            out_names.append(str(perfil_id))
+
+        geom = feat.GetGeometryRef()
+        # If the feature is multipart, only the first part is considered
+        if geom.GetGeometryCount() > 0:
+            geom = geom.GetGeometryRef(0)
+
+        coords = []
+        for n in range(geom.GetPointCount()):
+            pt = geom.GetPoint(n)
+            coords.append((pt[0], pt[1]))
+        out_lines.append(LineString(coords))
+        perfil_id += 1
+
+    return out_lines, out_names
