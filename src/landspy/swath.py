@@ -141,44 +141,53 @@ class SwathProfile:
             xyarr = np.append(xyarr, np.array(line.geoms[n].coords), axis=0)
         return LineString(xyarr)
 
-    def draw_swath(self, ax, legend=False, drawdata=False, drawbg=False, q=False, **kwargs):
+    def draw_swath(self, ax, q1=False, q3=False, max=False, min=False, mean=False, central=True, data='RAW', legend=False, **kwargs):
         """
-        Draw the swat profile in an Axe
-        :param ax : Axe where the profile will be painted. Its cleared before drawing
-        :param legend : boolean. Draw the legend
-        :param drawdata: boolean. Draw the data (all the profiles)
-        :param drawbg: boolean. Draw a background instead of the data
-        :param p : boolean. Draw the q1, q3 quartiles
-        :kwargs : Colors and line widths for the profiles. See colors and linew dictionaries
+        Draw the swat profile in an matplotlib Axe object
+        :param ax : Axe object where the profile will be painted. Its cleared before drawing
+        :param q1 : boolean. Draw Q1 profile
+        :param q3 : boolean. Draw Q3 profile
+        :param max : boolean. Draw maximum elevation and Q3 profiles
+        :param min : boolean. Draw minimum elevation profile
+        :param mean : boolean. Draw mean elevation profile
+        :param central : boolean. Draw central line profile (input line).
+        :param data: str. String to select raw data draw mode. 'RAW' draw all profiles, 'POLYGON' draw only boundary polygon, 'NONE' does not draw raw data
+        :param legend: boolean. Show the legend.
+        :kwargs : Dicctionary with line styles (linewidth - linestyle - color)
         """
         ax.clear()
-        colors = {"data": (0.75, 0.75, 0.75),
-                  "min": (202. / 255, 111. / 255, 30. / 255),
-                  "max": (169. / 255, 50. / 255, 38. / 255),
-                  "mean": (22. / 255, 160. / 255, 133. / 255),
-                  "q1": (0. / 255, 191. / 255, 255. / 255),
-                  "q3": (0. / 255, 191. / 255, 255. / 255)}
+        styles = {"q1": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
+                  "q3": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
+                  "max": {'lw': 1.5, 'ls': '-', 'color': (1., 0., 0.)},
+                  "min": {'lw': 1.5, 'ls': '-', 'color': (0., 0., 1.)},
+                  "mean": {'lw': 1.5, 'ls': '-', 'color': (0.93, 0.64, 0.)},
+                  "central": {'lw': 1.5, 'ls': '-', 'color': 'k'},
+                  "data": {'lw':0.75, 'ls': '-', 'color': '0.6'}}
 
-        colors.update(kwargs)
-        linew = {"dataw": 0.65, "linesw": 1.}
-        linew.update(kwargs)
+        styles.update(kwargs)
 
-        if drawbg:
+        # Draw raw data
+        if data == 'RAW':
+            for n in range(self.data.shape[1]):
+                ax.plot(self.li, self.data[:, n], lw=styles['data']['lw'], ls=styles['data']['ls'], color=styles['data']['color'])
+        elif data == 'POLYGON':
             poly = mpatches.Polygon(self.bg_dat, facecolor="0.85")
             ax.add_patch(poly)
             drawdata = False
 
-        if drawdata:
-            for n in range(self.data.shape[1]):
-                ax.plot(self.li, self.data[:, n], lw=linew["dataw"], color=colors["data"])
-
-        ax.plot(self.li, self.maxz, lw=linew["linesw"], color=colors["max"], label="max")
-        ax.plot(self.li, self.minz, lw=linew["linesw"], color=colors["min"], label="min")
-        ax.plot(self.li, self.meanz, lw=linew["linesw"], color=colors["mean"], label="mean")
-
-        if q:
-            ax.plot(self.li, self.q1, lw=linew["linesw"], color=colors["q1"], label="q1")
-            ax.plot(self.li, self.q3, lw=linew["linesw"], color=colors["q3"], label="q3")
+        # Draw q1, q3, max, min, mean and central line
+        if q1:
+            ax.plot(self.li, self.q1, lw=styles['q1']['lw'], ls=styles['q1']['ls'], color=styles['q1']['color'], label="Q1")
+        if q3:
+            ax.plot(self.li, self.q3, lw=styles['q3']['lw'], ls=styles['q3']['ls'], color=styles['q3']['color'], label="Q3")
+        if max:
+            ax.plot(self.li, self.maxz, lw=styles['max']['lw'], ls=styles['max']['ls'], color=styles['max']['color'], label="max")
+        if min:
+            ax.plot(self.li, self.minz, lw=styles['min']['lw'], ls=styles['min']['ls'], color=styles['min']['color'], label="min")
+        if mean:
+            ax.plot(self.li, self.meanz, lw=styles['mean']['lw'], ls=styles['mean']['ls'], color=styles['mean']['color'], label="mean")
+        if central:
+            ax.plot(self.li, self.data[:, 0], lw=styles['central']['lw'], ls=styles['central']['ls'], color=styles['central']['color'], label="central line")
 
         ax.set_xlabel("Distance [m]")
         ax.set_ylabel("Elevation [m]")
