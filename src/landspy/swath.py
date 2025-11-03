@@ -104,6 +104,12 @@ class SwathProfile:
         # Length of the swath
         self.length = self.li[-1]
 
+    def set_name(self, name=""):
+        self.name = str(name)
+
+    def get_name(self):
+        return self.name
+
     def _get_zi(self, line, dem, npoints):
         """
         Get elevations along a line in npoints equally spaced. If any point of the line falls
@@ -141,7 +147,7 @@ class SwathProfile:
             xyarr = np.append(xyarr, np.array(line.geoms[n].coords), axis=0)
         return LineString(xyarr)
 
-    def draw_swath(self, ax, q1=False, q3=False, max=False, min=False, mean=False, central=True, data='RAW', legend=False, **kwargs):
+    def draw_swath(self, ax, q1=False, q3=False, max=False, min=False, mean=False, central=True, data='RAW', legend=False, styles=None):
         """
         Draw the swat profile in an matplotlib Axe object
         :param ax : Axe object where the profile will be painted. Its cleared before drawing
@@ -156,15 +162,17 @@ class SwathProfile:
         :kwargs : Dicctionary with line styles (linewidth - linestyle - color)
         """
         ax.clear()
-        styles = {"q1": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
-                  "q3": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
-                  "max": {'lw': 1.5, 'ls': '-', 'color': (1., 0., 0.)},
-                  "min": {'lw': 1.5, 'ls': '-', 'color': (0., 0., 1.)},
-                  "mean": {'lw': 1.5, 'ls': '-', 'color': (0.93, 0.64, 0.)},
-                  "central": {'lw': 1.5, 'ls': '-', 'color': 'k'},
-                  "data": {'lw':0.75, 'ls': '-', 'color': '0.6'}}
+        base_styles = {"q1": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
+                       "q3": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
+                       "max": {'lw': 1.5, 'ls': '-', 'color': (1., 0., 0.)},
+                       "min": {'lw': 1.5, 'ls': '-', 'color': (0., 0., 1.)},
+                       "mean": {'lw': 1.5, 'ls': '-', 'color': (0.93, 0.64, 0.)},
+                       "central": {'lw': 1.5, 'ls': '-', 'color': 'k'},
+                       "data": {'lw': 0.75, 'ls': '-', 'color': '0.6'}}
 
-        styles.update(kwargs)
+        if styles:
+            base_styles.update(styles)
+        styles = base_styles
 
         # Draw raw data
         if data == 'RAW':
