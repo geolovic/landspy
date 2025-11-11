@@ -78,6 +78,6 @@ suite = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5, suite6, suit
 
 unittest.TextTestRunner(verbosity=2).run(suite)
 
-# # Clean output directory
-# for ff in os.listdir("data/out"):
-#     os.remove("data/out/{}".format(ff))
+# Clean output directory
+for ff in os.listdir("data/out"):
+    os.remove("data/out/{}".format(ff))
