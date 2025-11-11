@@ -7,7 +7,7 @@ with open("README.md", "r", encoding = "utf-8") as fh:
 
 setuptools.setup(
     name = "landspy",
-    version = "1.2.0",
+    version = "1.3.0",
     author = "J. Vicente Perez Pena",
     author_email = "geolovic@gmail.com",
     description = "Python library for landscape analysis with DEMs",
@@ -26,6 +26,6 @@ setuptools.setup(
     package_dir = {"": "src"},
     packages = setuptools.find_packages(where="src"),
     python_requires = ">=3.6",
-    install_requires=["GDAL", "numpy", "matplotlib", "scikit-image", "scipy"],
+    install_requires=["GDAL", "numpy", "matplotlib", "scikit-image", "scipy", "shapely"],
     tests_require=['unittest']
 )
