@@ -1,15 +1,15 @@
 [metadata]
-name = topopy
-version = 1.2.0
+name = landspy
+version = 1.3.2
 author = J. Vicente Perez
 author_email = vperez@ugr.es
-description = "Python package for topographic analysis from DEMs",
+description = "Python package for landscape analysis from DEMs",
 long_description = file: README.md, LICENSE.txt
 long_description_content_type = text/markdown
-url = https://github.com/geolovic/topopy
+url = https://github.com/geolovic/landspy
 project_urls =
-    Bug Tracker = https://github.com/geolovic/topopy/issues
-    repository = https://github.com/geolovic/topopy
+    Bug Tracker = https://github.com/geolovic/landspy/issues
+    repository = https://github.com/geolovic/landspy
 classifiers =
     Programming Language :: Python :: 3
     License :: OSI Approved :: MIT License

@@ -25,7 +25,7 @@ from test_11_Network_export_to_shp import NetworkExportToShp
 from test_12_Network_get_chi_shapefile import NetworkGetChiShapefile
 from test_13_BNetwork_class import BNetworkClassTest
 from test_13_Network_get_channel import NetworkGetChannelTest
-from test_14_BNetwork_main_channel import BNetworkGetMainChannelTest
+from test_14_BNetwork_test import BNetworkGetMainChannelTest
 from test_14_Channel_class import ChannelClassTest
 from test_15_Channels_save_load import ChannelSaveTest
 

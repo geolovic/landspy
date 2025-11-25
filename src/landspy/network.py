@@ -16,6 +16,8 @@ import numpy as np
 import os
 from osgeo import ogr, osr
 from scipy.sparse import csc_matrix
+from setuptools.command.develop import develop
+
 from . import Grid, PRaster, Basin
 
 # This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
@@ -1293,7 +1295,7 @@ class BNetwork(Network):
         super()._create_empty()
         self._heads = np.array([0])
     
-    def chiPlot(self, ax=None):
+    def chiPlot(self, ax=None, relative=False):
         """
         This function plot the Chi-elevation graphic for all the channels of the basin. 
         
@@ -1301,6 +1303,8 @@ class BNetwork(Network):
         ===========
         ax : matplotlib.Axe
           If is not defined, the function will create a new Figure and Axe
+        relative : bool
+           Defines if the initial elevation and Chi for the basin are 0 (True).
         """
         
         if not PLT:
@@ -1308,24 +1312,69 @@ class BNetwork(Network):
 
         if ax is None:
             fig, ax = plt.subplots()
-            
+
         canales = self.getChannels(nchannels="ALL")
         main_ch = canales[0]
-        
+
+        if relative:
+            self.calculateChi()
+            base_elev = min(main_ch.getZ())
+
+        # Plot all channels
         for canal in canales:
-            ax.plot(canal.getChi(), canal.getZ(), color="0.75", lw=0.75)
-        
-        ax.plot(main_ch.getChi(), main_ch.getZ(), color="k", lw=1)
+            chi = canal.getChi()
+            zi = canal.getZ()
+            if relative:
+                zi = zi - base_elev
+            ax.plot(chi, zi, color="0.75", lw=0.75)
+
+        # Plot main channel
+        chi = main_ch.getChi()
+        zi = main_ch.getZ()
+        if relative:
+            zi = zi - base_elev
+        ax.plot(chi, zi, color="k", lw=1)
         
         ax.set_xlim(xmin=0)
-        ax.set_ylim(ymin=min(self._zx))
+        ax.set_ylim(ymin=min(zi))
         
         ax.set_xlabel("Chi [m]")
         ax.set_ylabel("Elevation [m]")
         ax.set_title("Chi plot (m/n = {0:.2f})".format(self._thetaref))
    
-    def chiSensitivityAnalysis(self, draw=False):
-        pass
+    def chiSensitivityAnalysis(self, star = 0.25, stop = 0.65, step = 0.01, draw=False):
+
+        values = []
+
+        for thetaref in np.arange(star, stop, step):
+            self.calculateChi(thetaref)
+            chi = self._chi
+            zi = self._zx
+            poli, SCR = np.polyfit(chi, zi, deg=1, full=True)[:2]
+            r2 = float(1 - SCR[0] / (zi.size * zi.var()))
+            values.append((thetaref, r2))
+        values = np.array(values)
+        max_pos = np.argmax(values[:, 1])
+        min_pos = np.argmin(values[:, 1])
+        best_theta = values[:, 0][max_pos]
+        max_r2 = float(values[:, 1][max_pos])
+        min_r2 = float(values[:, 1][min_pos])
+
+        if not draw:
+            return best_theta, max_r2
+        else:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.set_title("Best m/n : {0:.2f} ($R^2$ = {1:.3f})".format(best_theta, max_r2))
+            ax.set_xlabel("m/n")
+            ax.set_ylabel("$R^2$")
+            ax.plot([star, best_theta, best_theta], [max_r2, max_r2, min_r2], ls="--", lw=0.7, c="0.6")
+            ax.plot(values[:, 0], values[:, 1])
+            ax.set_xlim(star, stop)
+            ax.set_ylim(min_r2, max_r2 + (max_r2 - min_r2) * 0.05)
+            fig.tight_layout()
+            return best_theta, max_r2, fig
+
 
     def getChannel(self, id): 
         """

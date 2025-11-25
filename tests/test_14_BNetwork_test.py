@@ -11,7 +11,9 @@ Testing suite for BNetwork class
 
 import unittest
 import numpy as np
-from landspy  import Flow, Basin, Network, BNetwork, DEM
+from matplotlib import pyplot as plt
+
+from landspy  import Flow, Basin, Network, BNetwork, DEM, Grid
 from landspy.network import NetworkError
 from osgeo import ogr, osr
 
@@ -61,11 +63,9 @@ def canales_to_shapefile(path, canales):
 
 class BNetworkGetMainChannelTest(unittest.TestCase):
 
-    def test_BNetwork_get_main_channel(self):
+    def test_BNetwork(self):
         """
-        Test00 Crea Bnetwork y extrae main channel
-        Los canales principales se guardarán en la carpeta "data/out" como archivos de puntos y pueden
-        verificarse con QGIS. 
+        Test00 Crea Bnetwork y testea varias de sus funciones principales:
         """
         files = ["jebja30", "tunez"]
         for file in files:
@@ -77,25 +77,58 @@ class BNetworkGetMainChannelTest(unittest.TestCase):
             outlets = np.loadtxt("{}/{}_bnet_outlets.txt".format(infolder, file), delimiter=";")
             outlets = net.snapPoints(outlets)
             cuencas = fd.drainageBasins(outlets)
-            cuencas.save("{}/{}_tempbasins.tif".format(outfolder, file))
-            
+
             heads = np.loadtxt("{}/{}_bnet_heads.txt".format(infolder, file), delimiter=";")
             outlets = net.snapPoints(outlets)
             
             for bid in np.unique(cuencas.readArray()):
                 if bid == 0:
                     continue
+                # Creamos objeto BNetwork
                 bnet = BNetwork(net, cuencas, heads, bid)
-                # Extraemos canal principal
+
+               # Test canal principal
                 mainc = bnet.getChannels(1)[0]
-                # Guardamos canal principal
                 xy = mainc.getXY()
                 outf = open("{}/{}_tempbasin{}.txt".format(outfolder, file, bid), "w")
                 outf.write("X;Y\n")
                 for row in xy:
                     outf.write("{};{}\n".format(row[0], row[1]))
                 outf.close()
-   
+
+                # ChiPlot (relativo y absoluto)
+                bnet.calculateChi()
+                fig = plt.figure()
+                ax1 = fig.add_subplot(211)
+                ax2 = fig.add_subplot(212)
+                bnet.chiPlot(ax1, relative=True)
+                bnet.chiPlot(ax2)
+                ax1.set_title("Chi plot (z-relative)")
+                ax2.set_title("Chi plot (z-absolute)")
+                fig.tight_layout()
+                fig.savefig("{}/{}_chiPlot_{}.png".format(outfolder, file, bid))
+                plt.close(fig)
+
+                # Sensitivity Analysis
+                bestheta, r2, fig = bnet.chiSensitivityAnalysis(0.2, 0.65, 0.01, True)
+                fig.savefig("{}/{}_chiSensitivity_{}.png".format(outfolder, file, bid))
+                plt.close(fig)
+
+                # Print ChiPlots for sensitivity analysis
+                star = bestheta - 0.02 * 4
+                stop = bestheta + 0.02 * 5
+                fig = plt.figure()
+                for n in range(9):
+                    ax = plt.subplot(3, 3, n + 1)
+                    bnet.calculateChi(star)
+                    bnet.chiPlot(ax, relative=True)
+                    star += 0.02
+                    ax.set_title("m/n = {0:.2f}".format(star))
+                fig.tight_layout()
+                fig.savefig("{}/{}_chiSensitivityPlot_{}.png".format(outfolder, file, bid))
+                plt.close(fig)
+
+
 
 if __name__ == "__main__":
     unittest.main()
