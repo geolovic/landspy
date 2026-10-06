@@ -26,6 +26,6 @@ setuptools.setup(
     package_dir = {"": "src"},
     packages = setuptools.find_packages(where="src"),
     python_requires = ">=3.6",
-    install_requires=["GDAL", "numpy", "matplotlib", "scikit-image", "scipy", "shapely"],
+    install_requires=["GDAL", "numpy", "matplotlib", "scikit-image", "scipy", "shapely", "numba>=0.53"],
     tests_require=['unittest']
 )

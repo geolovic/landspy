@@ -17,7 +17,7 @@ from osgeo import gdal
 gdal.UseExceptions()
 import numpy as np
 from scipy import ndimage
-from skimage.morphology import reconstruction
+from ._priority_flood import priority_flood
 
 # This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
 # If matplotlib is not imported, Grid.plot() will not work.
@@ -600,33 +600,43 @@ class DEM(Grid):
     
             return res
 
-    def fill(self, as_array=False):
+    def fill(self, as_array=False, inplace=False):
         """
-        Fill sinks in a DEM using scikit-image reconstruction algorithm
-                
+        Fill sinks using eight-neighbour Priority-Flood.
+
+        Parameters:
+        ----------
+        as_array : bool
+          Return the filled array instead of a DEM.
+        inplace : bool
+          Replace this DEM's array with the filled result. If as_array is False,
+          return this DEM. Existing references to the old array are unchanged.
+          The algorithm still requires temporary arrays.
+
         Returns:
         ----------
-        ndarray : landspy.DEM object
-          Filled DEM
+        landspy.DEM or numpy.ndarray
+          Filled DEM or array, with the input dtype preserved. All cells are
+          processed as elevations, without special treatment of NoData.
         """
-        # Get the seed to start the fill process
-        seed = np.copy(self._array)
-        seed[1:-1, 1:-1] = self._array.max()
+        filled = priority_flood(self._array)
 
-        # Fill the DEM        
-        nodata_pos = self.getNodataPos()
-        filled = reconstruction(seed, self._array, 'erosion')
-        filled = filled.astype(self._array.dtype)
-        filled[nodata_pos] = self._nodata
-        
+        if inplace:
+            self._array = filled
+
         if as_array:
             # Return filled DEM as numpy.ndarray
             return filled
-        else:
-            # Return filled DEM as landspy.DEM
-            filled_dem = self.copy()
-            filled_dem.setArray(filled)
-            return filled_dem
+        if inplace:
+            return self
+
+        # The result is independent of the input: copy only the DEM metadata.
+        filled_dem = DEM()
+        filled_dem.copyLayout(self)
+        filled_dem._array = filled
+        filled_dem._tipo = self._tipo
+        filled_dem._nodata = self._nodata
+        return filled_dem
     
     def fill2(self, four_way=False):
         """

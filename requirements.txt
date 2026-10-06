@@ -4,3 +4,4 @@ matplotlib
 scipy
 scikit-image
 shapely
+numba>=0.53

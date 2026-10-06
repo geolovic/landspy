@@ -44,6 +44,7 @@ All dependencies should be installed along with landspy (See GDAL note for pip i
 - [SciPy >= 1.1.0](https://www.scipy.org/scipylib)
 - [scikit-image >= 1.0.0](https://scikit-image.org/)
 - [matplotlib >= 3.0.0](https://matplotlib.org/)
+- [Numba >= 0.53](https://numba.pydata.org/) (compiled Priority-Flood filling)
 
 ## 4. Citation
 
@@ -54,7 +55,39 @@ We are preparing a
 
 ## 5. Tutorials and Examples
 
-To get an overview of how **landspy** works, we offer some tutorials to perform some of the most common tasks that can be done with it. 
+### Filling a DEM with less memory
+
+When the original elevations are no longer needed, replace the DEM's array with
+the filled result:
+
+```python
+from landspy import DEM
+
+dem = DEM("data/elevation.tif")
+dem.fill(inplace=True)
+dem.save("data/elevation_filled.tif")
+```
+
+`dem.fill()` still returns a separate DEM and preserves the original.
+`dem.fill(as_array=True, inplace=True)` returns the array now held by `dem`.
+The input data type and georeferencing are preserved. References
+previously obtained through `dem.readArray()` still point to the old array;
+release those references if the original data is no longer needed.
+
+Filling uses eight-neighbour Priority-Flood, compiled with Numba, and a FIFO
+queue for cells within depressions. The first call for a data type may take
+longer while Numba compiles the loop; subsequent calls reuse compiled code.
+Auxiliary visitation and FIFO arrays require approximately five bytes per
+cell for rasters with fewer than 2**31 cells, plus a terrain-dependent heap.
+There is also a filled output array. All cells are processed as elevations,
+without a NoData mask or restoration step. Negative sentinel values inside
+depressions can therefore be raised by filling.
+
+`inplace=True` releases the DEM's reference to the original array after filling;
+it does not eliminate working memory or make filling an out-of-core operation.
+Input elevations must not contain NaN values.
+
+To get an overview of how **landspy** works, we offer some tutorials to perform some of the most common tasks that can be done with it.
 
 - [Extraction of a drainage network][tut1_link]
 - [Calulation of Chi-maps and ksn values][tut2_link]

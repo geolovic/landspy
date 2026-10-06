@@ -11,6 +11,7 @@ Testing suite for landspy Grid class
 import unittest
 import numpy as np
 import scipy.io as sio
+from skimage.morphology import reconstruction
 from landspy import DEM
 
 import sys, os
@@ -125,6 +126,125 @@ class DEM_class(unittest.TestCase):
         computed = np.array_equal(fill, mfill)
         self.assertEqual(computed, True)
         
+
+class DEMFillMemoryTest(unittest.TestCase):
+
+    def make_dem(self, dtype):
+        dem = DEM()
+        dem.setArray(np.array([[9, 9, 9], [9, 1, 9], [9, 9, 9]], dtype=dtype))
+        dem._geot = (100, 30, 0, 200, 0, -30)
+        dem._proj = 'test projection'
+        return dem
+
+    def test_fill_preserves_dtype_layout_and_original(self):
+        for dtype in ('int16', 'int32', 'float32', 'float64'):
+            with self.subTest(dtype=dtype):
+                dem = self.make_dem(dtype)
+                original = dem.readArray().copy()
+                result = dem.fill()
+                np.testing.assert_array_equal(result.readArray(), np.full((3, 3), 9))
+                np.testing.assert_array_equal(dem.readArray(), original)
+                self.assertFalse(np.shares_memory(result.readArray(), dem.readArray()))
+                self.assertEqual(result.readArray().dtype, original.dtype)
+                self.assertEqual(result.getSize(), dem.getSize())
+                self.assertEqual(result.getGeot(), dem.getGeot())
+                self.assertEqual(result.getCRS(), dem.getCRS())
+                self.assertEqual(result.getNodata(), dem.getNodata())
+
+    def test_fill_inplace(self):
+        dem = self.make_dem('float32')
+        original_array = dem.readArray()
+        result = dem.fill(inplace=True)
+        self.assertIs(result, dem)
+        np.testing.assert_array_equal(dem.readArray(), np.full((3, 3), 9))
+        self.assertEqual(original_array[1, 1], 1)
+        self.assertEqual(dem.readArray().dtype, np.dtype('float32'))
+        self.assertEqual(dem.getGeot(), (100, 30, 0, 200, 0, -30))
+
+    def test_fill_array_return_modes(self):
+        for inplace in (False, True):
+            with self.subTest(inplace=inplace):
+                dem = self.make_dem('float64')
+                result = dem.fill(as_array=True, inplace=inplace)
+                np.testing.assert_array_equal(result, np.full((3, 3), 9))
+                if inplace:
+                    self.assertIs(result, dem.readArray())
+                else:
+                    self.assertEqual(dem.readArray()[1, 1], 1)
+                    self.assertFalse(np.shares_memory(result, dem.readArray()))
+
+    def test_fill_nodata_outlet(self):
+        for inplace in (False, True):
+            with self.subTest(inplace=inplace):
+                dem = DEM()
+                dem.setNodata(-99)
+                dem.setArray(np.array([[9, 9, 9], [9, 1, -99], [9, 9, 9]], dtype='int16'))
+                expected = dem.readArray().copy()
+                np.testing.assert_array_equal(dem.fill(inplace=inplace).readArray(), expected)
+
+    def test_fill_without_nodata(self):
+        dem = self.make_dem('float32')
+        dem.setNodata(None)
+        result = dem.fill(inplace=True)
+        self.assertIsNone(result.getNodata())
+        np.testing.assert_array_equal(result.readArray(), np.full((3, 3), 9))
+
+    def test_fill_all_nodata(self):
+        dem = DEM()
+        dem.setArray(np.full((5, 5), dem.getNodata(), dtype='float32'))
+        expected = dem.readArray().copy()
+        np.testing.assert_array_equal(dem.fill(inplace=True).readArray(), expected)
+
+
+class DEMPriorityFloodTest(unittest.TestCase):
+
+    def test_matches_reconstruction_on_random_terrain(self):
+        rng = np.random.default_rng(71)
+        for dtype in ('int16', 'int64', 'uint16', 'float16', 'float32', 'float64'):
+            for shape in ((1, 1), (1, 19), (19, 1), (2, 13), (17, 23)):
+                with self.subTest(dtype=dtype, shape=shape):
+                    dem = DEM()
+                    arr = rng.integers(0, 100, shape).astype(dtype)
+                    if np.dtype(dtype).kind == 'f':
+                        arr /= 8
+                    dem.setArray(arr)
+                    dem.setNodata(None)
+                    seed = dem.readArray().copy()
+                    seed[1:-1, 1:-1] = seed.max()
+                    expected = reconstruction(seed, dem.readArray(), 'erosion').astype(dem.readArray().dtype)
+                    actual = dem.fill(as_array=True)
+                    np.testing.assert_array_equal(actual, expected)
+                    np.testing.assert_array_equal(dem.readArray(), arr)
+
+    def test_diagonal_outlet(self):
+        dem = DEM()
+        dem.setArray(np.array([[1, 9, 9], [9, 1, 9], [9, 9, 9]], dtype='float32'))
+        np.testing.assert_array_equal(dem.fill(as_array=True), dem.readArray())
+
+    def test_negative_sentinel_is_processed_as_elevation(self):
+        dem = DEM()
+        arr = np.full((5, 5), 9, dtype='float32')
+        arr[1:4, 1:4] = 1
+        arr[2, 2] = dem.getNodata()
+        dem.setArray(arr)
+        expected = np.full((5, 5), 9, dtype='float32')
+        np.testing.assert_array_equal(dem.fill(as_array=True), expected)
+
+    def test_large_integer_elevations_remain_exact(self):
+        dem = DEM()
+        arr = np.full((3, 3), 2**54 + 3, dtype='int64')
+        arr[1, 1] = 2**54 + 1
+        dem.setArray(arr)
+        np.testing.assert_array_equal(dem.fill(as_array=True), np.full_like(arr, 2**54 + 3))
+
+    def test_nan_leaves_input_unchanged(self):
+        dem = DEM()
+        arr = np.array([[1, 1, 1], [1, np.nan, 1], [1, 1, 1]])
+        dem.setArray(arr)
+        with self.assertRaises(ValueError):
+            dem.fill(inplace=True)
+        np.testing.assert_array_equal(dem.readArray(), arr)
+
 
 class DEMFlatTest(unittest.TestCase):
     
