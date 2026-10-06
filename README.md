@@ -87,6 +87,11 @@ depressions can therefore be raised by filling.
 it does not eliminate working memory or make filling an out-of-core operation.
 Input elevations must not contain NaN values.
 
+`Flow(dem)` fills the DEM once and reuses the filled elevations. To use a DEM
+that has already been filled, call `Flow(dem, filled=True)`; neither elevation
+mode fills it again. `raw_z=True` keeps the input elevations for profiles and
+gradients while drainage is calculated using the filled surface.
+
 To get an overview of how **landspy** works, we offer some tutorials to perform some of the most common tasks that can be done with it.
 
 - [Extraction of a drainage network][tut1_link]

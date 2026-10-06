@@ -9,6 +9,7 @@ Testing suite for landspy Flow class
 """
 
 import unittest
+from unittest.mock import patch
 import numpy as np
 from landspy import Flow, DEM
 
@@ -18,6 +19,34 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.getcwd())
 infolder = "data/in"
 outfolder = "data/out"
+
+class FlowFillReuseTest(unittest.TestCase):
+
+    def test_fill_count_and_elevations(self):
+        original = np.array([[9, 8, 7, 6, 5],
+                             [8, 7, 6, 5, 4],
+                             [7, 6, 0, 4, 3],
+                             [6, 5, 4, 3, 2],
+                             [5, 4, 3, 2, 1]], dtype='float32')
+        for filled in (False, True):
+            for raw_z in (False, True):
+                for auxtopo in (False, True):
+                    with self.subTest(filled=filled, raw_z=raw_z, auxtopo=auxtopo):
+                        dem = DEM()
+                        dem.setArray(original)
+                        filled_array = dem.fill(as_array=True)
+                        self.assertGreater(filled_array[2, 2], original[2, 2])
+                        if filled:
+                            dem.setArray(filled_array)
+                        before = dem.readArray().copy()
+                        with patch.object(DEM, 'fill', autospec=True,
+                                          side_effect=DEM.fill) as fill_call:
+                            flow = Flow(dem, filled=filled, raw_z=raw_z, auxtopo=auxtopo)
+                        self.assertEqual(fill_call.call_count, 0 if filled else 1)
+                        expected = before if raw_z else filled_array
+                        np.testing.assert_array_equal(flow._zx, expected.ravel()[flow._ix])
+                        np.testing.assert_array_equal(dem.readArray(), before)
+
 
 class FlowValueTest(unittest.TestCase):
     

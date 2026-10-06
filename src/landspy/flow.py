@@ -35,10 +35,11 @@ class Flow(PRaster):
           Boolean to determine if an auxiliar topography is used (much slower). The auxiliar topography is calculated with
           elevation differences between filled and un-filled dem. If filled is True, auxtopo is ignored (cannot compute differences)
         filled : boolean
-          Boolean to check if input DEM was already pit-filled. The fill algoritm implemented in the DEM object, 
-          althoug fast, consumes a lot of memory. In some cases could be necessary fill the DEM with alternative GIS tools.
+          If True, the input DEM is already pit-filled and no filling is performed.
+          Otherwise, fill once and reuse the result for drainage and filled elevations.
         raw_z : boolean
-          Boolean to set if elevations are taken directly from the DEM (True) or from the filled DEM (False)
+          Take elevations from the input DEM (True) or the DEM used for drainage (False).
+          If filled is True, both modes use the input DEM's elevations.
         verbose : boolean
           Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
         verb_func : str
@@ -77,11 +78,14 @@ class Flow(PRaster):
                 self._proj = dem.getCRS()
                 self._nodata_pos = np.ravel_multi_index(dem.getNodataPos(), self.getDims())            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
-                self._ix, self._ixc = sort_pixels(dem, auxtopo=auxtopo, filled=filled, verbose=verbose, verb_func=verb_func)
+                sorted_pixels = sort_pixels(dem, auxtopo=auxtopo, filled=filled,
+                                            verbose=verbose, verb_func=verb_func,
+                                            return_elevations=not raw_z)
                 if raw_z:
+                    self._ix, self._ixc = sorted_pixels
                     self._zx = dem.readArray().ravel()[self._ix].astype(np.float64)
                 else:
-                    self._zx = dem.fill(True).ravel()[self._ix].astype(np.float64)
+                    self._ix, self._ixc, self._zx = sorted_pixels
                 # Recalculate NoData values
                 self._nodata_pos = self._get_nodata_pos()
             except:
@@ -508,7 +512,8 @@ class Flow(PRaster):
         return np.where(aux_arr == 0)[0]
     
     
-def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print, order="C"):
+def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print,
+                order="C", return_elevations=False):
     
     # Get DEM properties
     cellsize = (dem.getCellSize()[0] + dem.getCellSize()[1] * -1) / 2 # Average cellsize
@@ -605,6 +610,9 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     if verbose:
         verb_func("Flow algorithm successfully completed")
     
+    if return_elevations:
+        # Reuse the filled elevations already used to determine drainage.
+        return ix, ixc, dem_arr.ravel()[ix].astype(np.float64)
     return ix, ixc
 
 
