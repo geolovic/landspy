@@ -264,3 +264,53 @@ The benchmark scripts now warm both compiled kernels before timing. A 256
 square smoke DEM matched the MCP reference and the phase profiler, including
 array dtypes. The new solver has **not yet been measured on the 800 MiB DEM**;
 the large measurements above describe the earlier MCP implementation.
+
+## Real DEM comparison
+
+A user-provided `DEM_30m.tif` was reconstructed from four 7z volumes and
+benchmarked without resampling, dtype conversion or cropping. It has
+16,627 columns by 14,448 rows (240,226,896 cells), int16 storage and a
+458.20 MiB elevation array. NoData is -9999 and occupies 22.32% of cells;
+valid elevations range from -32 to 3733. The TIFF and preview remain local.
+
+Default Flow construction (`filled=False`, `raw_z=False`, `auxtopo=False`)
+ran sequentially in separate processes: MCP from revision `09e481d`, then
+compiled Dijkstra from `4b29508`. Both use the current Priority-Flood fill
+and float64 weights, with infinite friction outside flats. NoData behavior
+is the existing library behavior in both versions. Input loading and kernel
+warmup precede timing; output hashing and saving follow timing.
+
+| Measurement | MCP | Compiled Dijkstra |
+| --- | --- | --- |
+| OS peak process RSS | 19.51 GiB | 13.71 GiB |
+| Complete Flow construction | 218.832 s | 146.491 s |
+| Sampled weights peak RSS | 19.45 GiB | 9.07 GiB |
+| Weights time | 100.098 s | 28.976 s |
+| Sampled sorting peak RSS | 11.05 GiB | 9.24 GiB |
+| Sampled receivers peak RSS | 13.61 GiB | 13.62 GiB |
+
+Global peak RSS fell by 5.80 GiB (29.7%), and complete construction time by
+33.1%. Weight calculation took 71.1% less time. The largest remaining peak
+is receiver construction, so further solver memory reductions alone would
+not remove the current global peak. Phase peaks are total process RSS and
+are not additive; 50 ms sampling can miss brief peaks. These are one-run
+measurements per solver on this cloud machine.
+
+Output arrays were saved outside the timed region, then compared directly
+in chunks as well as by checksum. `_ix`, `_ixc` and `_zx` each have
+186,573,695 elements and zero differences; `_nodata_pos` has 53,630,198
+elements and zero differences. Shapes and dtypes matched exactly. The input
+SHA-256, phase measurements and comparison counts are recorded in
+`real_dem_mcp_dijkstra_results.json`; no user raster data are committed.
+
+The profiler now accepts a local input file, a reference Git revision and
+optional output-array saving:
+
+```bash
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --revision 09e481d --save-arrays /tmp/mcp-arrays --output mcp-phases.json
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --save-arrays /tmp/dijkstra-arrays --output dijkstra-phases.json
+```
+
+The current checkout must contain the compiled solver; the reference
+revision selects the historical Flow implementation. A small fixture smoke
+test also confirmed matching arrays/dtypes in both file-based profiler modes.

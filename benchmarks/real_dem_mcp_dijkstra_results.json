@@ -1,0 +1,268 @@
+{
+  "input": {
+    "file": "DEM_30m.tif",
+    "sha256": "53c8d23885e8fff575a6eed5511a535f02b3221be80da7aa617bf84aa04241b9",
+    "shape": [
+      14448,
+      16627
+    ],
+    "dtype": "int16",
+    "cells": 240226896,
+    "array_MiB": 458.1964416503906,
+    "nodata": -9999.0,
+    "nodata_cells": 53610434,
+    "nodata_percent": 22.316582736014706,
+    "valid_min": -32,
+    "valid_max": 3733
+  },
+  "mcp": {
+    "input_MiB": 458.1964416503906,
+    "seconds": 218.83190118300263,
+    "process_peak_MiB": 19974.5,
+    "checksums": {
+      "_ix": "fc494f36916efb0cf095ba36cb77e436eae18e1f1ceed2a409c2048efcef60a4",
+      "_ixc": "a3f0ccca4f9b217c1139ea1647aee6edf6f1d9d3e45b0ae520a26058b2d9de8b",
+      "_zx": "39e371953788cdaacf229ff8068f1008bff3824653a4ae1eedd387f0ffb9cb6f"
+    },
+    "shape": [
+      14448,
+      16627
+    ],
+    "dtype": "int16",
+    "nodata": -9999.0,
+    "dtypes": {
+      "_ix": "uint32",
+      "_ixc": "uint32",
+      "_zx": "float64"
+    },
+    "phases": [
+      {
+        "phase": "constructor_setup",
+        "rss_entry_MiB": 1195.1,
+        "sampled_peak_MiB": 1195.1,
+        "seconds": 0.0,
+        "rss_exit_MiB": 1195.1
+      },
+      {
+        "phase": "fill",
+        "rss_entry_MiB": 1195.1,
+        "sampled_peak_MiB": 2178.0,
+        "seconds": 58.475,
+        "rss_exit_MiB": 1636.9
+      },
+      {
+        "phase": "flats_and_sills",
+        "rss_entry_MiB": 1636.9,
+        "sampled_peak_MiB": 7768.1,
+        "seconds": 12.013,
+        "rss_exit_MiB": 2090.6
+      },
+      {
+        "phase": "presills",
+        "rss_entry_MiB": 2090.6,
+        "sampled_peak_MiB": 5079.3,
+        "seconds": 6.552,
+        "rss_exit_MiB": 4522.2
+      },
+      {
+        "phase": "aux_topography",
+        "rss_entry_MiB": 4522.2,
+        "sampled_peak_MiB": 6226.8,
+        "seconds": 0.453,
+        "rss_exit_MiB": 6226.8
+      },
+      {
+        "phase": "weights",
+        "rss_entry_MiB": 6226.8,
+        "sampled_peak_MiB": 19912.8,
+        "seconds": 100.098,
+        "rss_exit_MiB": 7548.1
+      },
+      {
+        "phase": "cleanup_after_weights",
+        "rss_entry_MiB": 7548.1,
+        "sampled_peak_MiB": 7548.1,
+        "seconds": 0.512,
+        "rss_exit_MiB": 3562.5
+      },
+      {
+        "phase": "sorting",
+        "rss_entry_MiB": 3562.5,
+        "sampled_peak_MiB": 11317.3,
+        "seconds": 13.791,
+        "rss_exit_MiB": 2646.3
+      },
+      {
+        "phase": "receivers",
+        "rss_entry_MiB": 2646.3,
+        "sampled_peak_MiB": 13931.8,
+        "seconds": 22.578,
+        "rss_exit_MiB": 3547.4
+      },
+      {
+        "phase": "filtering",
+        "rss_entry_MiB": 3547.4,
+        "sampled_peak_MiB": 4276.7,
+        "seconds": 1.383,
+        "rss_exit_MiB": 3131.8
+      },
+      {
+        "phase": "elevations",
+        "rss_entry_MiB": 3131.8,
+        "sampled_peak_MiB": 4690.6,
+        "seconds": 1.213,
+        "rss_exit_MiB": 4083.9
+      },
+      {
+        "phase": "nodata_positions",
+        "rss_entry_MiB": 4083.9,
+        "sampled_peak_MiB": 4948.0,
+        "seconds": 1.764,
+        "rss_exit_MiB": 4493.0
+      }
+    ],
+    "sample_interval_seconds": 0.05,
+    "size": null,
+    "seed": null,
+    "input_file": "DEM_30m.tif",
+    "revision": "09e481d",
+    "weights_dtype": "float64"
+  },
+  "dijkstra": {
+    "input_MiB": 458.1964416503906,
+    "seconds": 146.49057157800416,
+    "process_peak_MiB": 14039.2265625,
+    "checksums": {
+      "_ix": "fc494f36916efb0cf095ba36cb77e436eae18e1f1ceed2a409c2048efcef60a4",
+      "_ixc": "a3f0ccca4f9b217c1139ea1647aee6edf6f1d9d3e45b0ae520a26058b2d9de8b",
+      "_zx": "39e371953788cdaacf229ff8068f1008bff3824653a4ae1eedd387f0ffb9cb6f"
+    },
+    "shape": [
+      14448,
+      16627
+    ],
+    "dtype": "int16",
+    "nodata": -9999.0,
+    "dtypes": {
+      "_ix": "uint32",
+      "_ixc": "uint32",
+      "_zx": "float64"
+    },
+    "phases": [
+      {
+        "phase": "constructor_setup",
+        "rss_entry_MiB": 1452.3,
+        "sampled_peak_MiB": 1452.3,
+        "seconds": 0.0,
+        "rss_exit_MiB": 1452.3
+      },
+      {
+        "phase": "fill",
+        "rss_entry_MiB": 1452.3,
+        "sampled_peak_MiB": 2177.2,
+        "seconds": 58.873,
+        "rss_exit_MiB": 1720.0
+      },
+      {
+        "phase": "flats_and_sills",
+        "rss_entry_MiB": 1720.0,
+        "sampled_peak_MiB": 7669.1,
+        "seconds": 11.783,
+        "rss_exit_MiB": 2092.0
+      },
+      {
+        "phase": "presills",
+        "rss_entry_MiB": 2092.0,
+        "sampled_peak_MiB": 5078.7,
+        "seconds": 6.415,
+        "rss_exit_MiB": 4179.4
+      },
+      {
+        "phase": "aux_topography",
+        "rss_entry_MiB": 4179.4,
+        "sampled_peak_MiB": 6197.1,
+        "seconds": 0.421,
+        "rss_exit_MiB": 6197.1
+      },
+      {
+        "phase": "weights",
+        "rss_entry_MiB": 6197.1,
+        "sampled_peak_MiB": 9291.4,
+        "seconds": 28.976,
+        "rss_exit_MiB": 7507.9
+      },
+      {
+        "phase": "cleanup_after_weights",
+        "rss_entry_MiB": 7507.9,
+        "sampled_peak_MiB": 7507.9,
+        "seconds": 0.491,
+        "rss_exit_MiB": 3691.9
+      },
+      {
+        "phase": "sorting",
+        "rss_entry_MiB": 3691.9,
+        "sampled_peak_MiB": 9457.4,
+        "seconds": 13.295,
+        "rss_exit_MiB": 2743.8
+      },
+      {
+        "phase": "receivers",
+        "rss_entry_MiB": 2743.8,
+        "sampled_peak_MiB": 13949.8,
+        "seconds": 22.099,
+        "rss_exit_MiB": 3566.0
+      },
+      {
+        "phase": "filtering",
+        "rss_entry_MiB": 3566.0,
+        "sampled_peak_MiB": 4240.2,
+        "seconds": 1.34,
+        "rss_exit_MiB": 3107.7
+      },
+      {
+        "phase": "elevations",
+        "rss_entry_MiB": 3107.7,
+        "sampled_peak_MiB": 4655.3,
+        "seconds": 1.115,
+        "rss_exit_MiB": 4056.7
+      },
+      {
+        "phase": "nodata_positions",
+        "rss_entry_MiB": 4056.7,
+        "sampled_peak_MiB": 4921.1,
+        "seconds": 1.682,
+        "rss_exit_MiB": 4465.9
+      }
+    ],
+    "sample_interval_seconds": 0.05,
+    "size": null,
+    "seed": null,
+    "input_file": "DEM_30m.tif",
+    "revision": "working-tree",
+    "weights_dtype": "float64"
+  },
+  "array_comparison": {
+    "_ix": {
+      "size": 186573695,
+      "dtype": "uint32",
+      "different_elements": 0
+    },
+    "_ixc": {
+      "size": 186573695,
+      "dtype": "uint32",
+      "different_elements": 0
+    },
+    "_zx": {
+      "size": 186573695,
+      "dtype": "float64",
+      "different_elements": 0
+    },
+    "_nodata_pos": {
+      "size": 53630198,
+      "dtype": "int64",
+      "different_elements": 0
+    }
+  },
+  "global_memory_reduction_percent": 29.714252859896373,
+  "total_time_reduction_percent": 33.05794503174451
+}

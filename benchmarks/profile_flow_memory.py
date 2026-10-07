@@ -15,11 +15,20 @@ import subprocess
 import sys
 import threading
 import time
+import types
 
 
 def worker(args):
     import numpy as np
     from landspy import DEM, Flow
+    if args.revision:
+        source = subprocess.check_output(
+            ['git', 'show', args.revision + ':src/landspy/flow.py'],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), text=True)
+        reference = types.ModuleType('landspy._profile_reference')
+        reference.__package__ = 'landspy'
+        exec(compile(source, '<reference-flow>', 'exec'), reference.__dict__)
+        Flow = reference.Flow
     if args.weights_dtype == 'float32':
         # Experimental storage precision: the solver still computes float64.
         # Rounding distances can change flat ordering and receivers.
@@ -36,16 +45,19 @@ def worker(args):
     def emit(event, **fields):
         print(json.dumps(dict(event=event, timestamp=time.perf_counter(), **fields)), flush=True)
 
+    if args.dem:
+        dem = DEM(args.dem)
+    else:
+        dem = DEM()
+        dem._array = np.random.default_rng(38).integers(
+            0, 2000, (args.size, args.size), dtype='int16').astype('float32')
+        dem._size = (args.size, args.size)
+        dem._tipo = 'float32'
     warm = DEM()
-    warm.setArray(np.ones((3, 3), dtype='float32'))
+    warm.setArray(np.ones((3, 3), dtype=dem.readArray().dtype))
     warm.fill()
     from landspy._dijkstra import cost_distances
     cost_distances(np.ones((3, 3)), [(0, 0)])
-    dem = DEM()
-    dem._array = np.random.default_rng(38).integers(
-        0, 2000, (args.size, args.size), dtype='int16').astype('float32')
-    dem._size = (args.size, args.size)
-    dem._tipo = 'float32'
 
     starts = {'Filling DEM ...': 'fill',
               'Identifiying flats and sills ...': 'flats_and_sills',
@@ -82,8 +94,15 @@ def worker(args):
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
     checksums = {name: hashlib.sha256(memoryview(getattr(flow, name))).hexdigest()
                  for name in ('_ix', '_ixc', '_zx')}
+    if args.save_arrays:
+        os.makedirs(args.save_arrays, exist_ok=True)
+        for name in ('_ix', '_ixc', '_zx', '_nodata_pos'):
+            np.save(os.path.join(args.save_arrays, name + '.npy'), getattr(flow, name))
     emit('result', input_MiB=dem.readArray().nbytes / 1024**2,
-         seconds=elapsed, process_peak_MiB=peak, checksums=checksums)
+         seconds=elapsed, process_peak_MiB=peak, checksums=checksums,
+         shape=list(dem.readArray().shape), dtype=str(dem.readArray().dtype),
+         nodata=dem.getNodata(),
+         dtypes={name: str(getattr(flow, name).dtype) for name in checksums})
 
 
 def profile(args):
@@ -92,6 +111,12 @@ def profile(args):
     events = queue.Queue()
     command = [sys.executable, os.path.abspath(__file__), '--worker',
                '--size', str(args.size), '--weights-dtype', args.weights_dtype]
+    if args.dem:
+        command.extend(['--dem', args.dem])
+    if args.revision:
+        command.extend(['--revision', args.revision])
+    if args.save_arrays:
+        command.extend(['--save-arrays', args.save_arrays])
     process = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True)
 
     def read_events():
@@ -141,7 +166,10 @@ def profile(args):
     if process.wait() != 0 or result is None:
         raise RuntimeError('Flow worker failed or did not return a result')
     result.update(phases=rows, sample_interval_seconds=args.interval,
-                  size=args.size, dtype='float32', seed=38,
+                  size=args.size if not args.dem else None,
+                  seed=38 if not args.dem else None,
+                  input_file=os.path.basename(args.dem) if args.dem else None,
+                  revision=args.revision or 'working-tree',
                   weights_dtype=args.weights_dtype)
     if args.output:
         with open(args.output, 'w') as stream:
@@ -155,12 +183,17 @@ def main():
     parser.add_argument('--size', type=int, default=2048)
     parser.add_argument('--interval', type=float, default=0.05)
     parser.add_argument('--output')
+    parser.add_argument('--dem', help='Use a real DEM instead of synthetic data')
+    parser.add_argument('--revision', help='Load Flow from a local Git revision')
+    parser.add_argument('--save-arrays', help='Save output arrays after timing for detailed comparison')
     parser.add_argument('--weights-dtype', choices=('float64', 'float32'),
                         default='float64', help='float32 is an experimental benchmark-only cast')
     parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.size < 1 or args.interval <= 0:
         parser.error('size and interval must be positive')
+    if args.revision and args.weights_dtype != 'float64':
+        parser.error('revision comparisons require float64 weights')
     worker(args) if args.worker else profile(args)
 
 
