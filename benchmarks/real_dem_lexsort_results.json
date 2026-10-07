@@ -1,0 +1,705 @@
+{
+  "input": {
+    "file": "DEM_30m.tif",
+    "sha256": "53c8d23885e8fff575a6eed5511a535f02b3221be80da7aa617bf84aa04241b9",
+    "shape": [
+      14448,
+      16627
+    ],
+    "dtype": "int16",
+    "cells": 240226896,
+    "array_MiB": 458.1964416503906,
+    "nodata": -9999.0,
+    "nodata_cells": 53610434,
+    "nodata_percent": 22.316582736014706
+  },
+  "baseline_flow_revision": "998176b",
+  "before": {
+    "input_MiB": 458.1964416503906,
+    "seconds": 128.642667342996,
+    "process_peak_MiB": 8543.140625,
+    "checksums": {
+      "_ix": "92b4d60e829977cf40a0cc44d2817d7b6170d1be9fcd88b1ee8aef122aac519b",
+      "_ixc": "73b797724190ff919500c66a677addf0014ce553f885965c839ce8607b9013d2",
+      "_zx": "39e371953788cdaacf229ff8068f1008bff3824653a4ae1eedd387f0ffb9cb6f"
+    },
+    "shape": [
+      14448,
+      16627
+    ],
+    "dtype": "int16",
+    "nodata": -9999.0,
+    "weights_dtype": "float32",
+    "dtypes": {
+      "_ix": "uint32",
+      "_ixc": "uint32",
+      "_zx": "float64"
+    },
+    "phases": [
+      {
+        "phase": "constructor_setup",
+        "rss_entry_MiB": 1188.3,
+        "sampled_peak_MiB": 1188.3,
+        "seconds": 0.0,
+        "rss_exit_MiB": 1188.3
+      },
+      {
+        "phase": "fill",
+        "rss_entry_MiB": 1188.3,
+        "sampled_peak_MiB": 2179.3,
+        "seconds": 54.119,
+        "rss_exit_MiB": 1666.1
+      },
+      {
+        "phase": "flats_and_sills",
+        "rss_entry_MiB": 1666.1,
+        "sampled_peak_MiB": 7649.1,
+        "seconds": 11.596,
+        "rss_exit_MiB": 2092.1
+      },
+      {
+        "phase": "presills",
+        "rss_entry_MiB": 2092.1,
+        "sampled_peak_MiB": 5080.8,
+        "seconds": 6.162,
+        "rss_exit_MiB": 4172.9
+      },
+      {
+        "phase": "aux_topography",
+        "rss_entry_MiB": 4172.9,
+        "sampled_peak_MiB": 4172.9,
+        "seconds": 0.0,
+        "rss_exit_MiB": 4172.9
+      },
+      {
+        "phase": "weights",
+        "rss_entry_MiB": 4172.9,
+        "sampled_peak_MiB": 6316.3,
+        "seconds": 22.882,
+        "rss_exit_MiB": 4683.1
+      },
+      {
+        "phase": "cleanup_after_weights",
+        "rss_entry_MiB": 4683.1,
+        "sampled_peak_MiB": 4683.1,
+        "seconds": 0.481,
+        "rss_exit_MiB": 2716.2
+      },
+      {
+        "phase": "sorting",
+        "rss_entry_MiB": 2716.2,
+        "sampled_peak_MiB": 8543.2,
+        "seconds": 12.235,
+        "rss_exit_MiB": 2586.7
+      },
+      {
+        "phase": "receivers",
+        "rss_entry_MiB": 2586.7,
+        "sampled_peak_MiB": 4417.3,
+        "seconds": 16.968,
+        "rss_exit_MiB": 3603.6
+      },
+      {
+        "phase": "filtering",
+        "rss_entry_MiB": 3603.6,
+        "sampled_peak_MiB": 4266.4,
+        "seconds": 1.347,
+        "rss_exit_MiB": 3112.4
+      },
+      {
+        "phase": "elevations",
+        "rss_entry_MiB": 3112.4,
+        "sampled_peak_MiB": 4872.8,
+        "seconds": 1.152,
+        "rss_exit_MiB": 4059.0
+      },
+      {
+        "phase": "nodata_positions",
+        "rss_entry_MiB": 4059.0,
+        "sampled_peak_MiB": 4923.4,
+        "seconds": 1.701,
+        "rss_exit_MiB": 4468.1
+      }
+    ],
+    "sample_interval_seconds": 0.05,
+    "size": null,
+    "seed": null,
+    "input_file": "DEM_30m.tif",
+    "revision": "working-tree",
+    "weights_storage_cast": "native"
+  },
+  "after": {
+    "input_MiB": 458.1964416503906,
+    "seconds": 127.69203447701875,
+    "process_peak_MiB": 7853.64453125,
+    "checksums": {
+      "_ix": "92b4d60e829977cf40a0cc44d2817d7b6170d1be9fcd88b1ee8aef122aac519b",
+      "_ixc": "73b797724190ff919500c66a677addf0014ce553f885965c839ce8607b9013d2",
+      "_zx": "39e371953788cdaacf229ff8068f1008bff3824653a4ae1eedd387f0ffb9cb6f"
+    },
+    "shape": [
+      14448,
+      16627
+    ],
+    "dtype": "int16",
+    "nodata": -9999.0,
+    "weights_dtype": "float32",
+    "dtypes": {
+      "_ix": "uint32",
+      "_ixc": "uint32",
+      "_zx": "float64"
+    },
+    "phases": [
+      {
+        "phase": "constructor_setup",
+        "rss_entry_MiB": 1492.5,
+        "sampled_peak_MiB": 1492.5,
+        "seconds": 0.0,
+        "rss_exit_MiB": 1492.5
+      },
+      {
+        "phase": "fill",
+        "rss_entry_MiB": 1492.5,
+        "sampled_peak_MiB": 2179.4,
+        "seconds": 56.846,
+        "rss_exit_MiB": 1678.2
+      },
+      {
+        "phase": "flats_and_sills",
+        "rss_entry_MiB": 1678.2,
+        "sampled_peak_MiB": 7785.2,
+        "seconds": 11.649,
+        "rss_exit_MiB": 2092.2
+      },
+      {
+        "phase": "presills",
+        "rss_entry_MiB": 2092.2,
+        "sampled_peak_MiB": 5080.9,
+        "seconds": 6.417,
+        "rss_exit_MiB": 4182.2
+      },
+      {
+        "phase": "aux_topography",
+        "rss_entry_MiB": 4182.2,
+        "sampled_peak_MiB": 4182.2,
+        "seconds": 0.0,
+        "rss_exit_MiB": 4182.2
+      },
+      {
+        "phase": "weights",
+        "rss_entry_MiB": 4182.2,
+        "sampled_peak_MiB": 6316.3,
+        "seconds": 22.656,
+        "rss_exit_MiB": 4700.3
+      },
+      {
+        "phase": "cleanup_after_weights",
+        "rss_entry_MiB": 4700.3,
+        "sampled_peak_MiB": 4700.3,
+        "seconds": 0.462,
+        "rss_exit_MiB": 2780.1
+      },
+      {
+        "phase": "sorting",
+        "rss_entry_MiB": 2780.1,
+        "sampled_peak_MiB": 7626.8,
+        "seconds": 9.814,
+        "rss_exit_MiB": 2586.6
+      },
+      {
+        "phase": "receivers",
+        "rss_entry_MiB": 2586.6,
+        "sampled_peak_MiB": 4417.3,
+        "seconds": 15.71,
+        "rss_exit_MiB": 3575.6
+      },
+      {
+        "phase": "filtering",
+        "rss_entry_MiB": 3575.6,
+        "sampled_peak_MiB": 4228.3,
+        "seconds": 1.344,
+        "rss_exit_MiB": 3110.3
+      },
+      {
+        "phase": "elevations",
+        "rss_entry_MiB": 3110.3,
+        "sampled_peak_MiB": 4579.6,
+        "seconds": 1.126,
+        "rss_exit_MiB": 4058.9
+      },
+      {
+        "phase": "nodata_positions",
+        "rss_entry_MiB": 4058.9,
+        "sampled_peak_MiB": 4923.3,
+        "seconds": 1.668,
+        "rss_exit_MiB": 4468.1
+      }
+    ],
+    "sample_interval_seconds": 0.05,
+    "size": null,
+    "seed": null,
+    "input_file": "DEM_30m.tif",
+    "revision": "working-tree",
+    "weights_storage_cast": "native"
+  },
+  "array_comparison": {
+    "_ix": {
+      "size": 186573695,
+      "dtype": "uint32",
+      "different_elements": 0
+    },
+    "_ixc": {
+      "size": 186573695,
+      "dtype": "uint32",
+      "different_elements": 0
+    },
+    "_zx": {
+      "size": 186573695,
+      "dtype": "float64",
+      "different_elements": 0
+    },
+    "_nodata_pos": {
+      "size": 53630198,
+      "dtype": "int64",
+      "different_elements": 0
+    }
+  },
+  "fixture_comparison": [
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "dtypes_equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      }
+    }
+  ],
+  "library_tests": 121,
+  "library_tests_passed": true,
+  "global_memory_reduction_percent": 8.070756692595115,
+  "total_time_reduction_percent": 0.7389716690517578
+}

@@ -444,3 +444,47 @@ python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --output uni
 `benchmark_flow_memory.py --allow-differences` reports changed hashes instead
 of requiring equality for such deliberate precision experiments; dtype checks
 on the final Flow arrays remain enabled.
+
+## Single stable lexicographic ordering
+
+`sort_dem()` now uses `np.lexsort((-weights, -elevations))` instead of two
+stable argsorts followed by index gathering. The last key is primary, so
+elevations descend first, then weights within each elevation. Lexsort's
+stability retains original raster index order for exact ties; no full-raster
+`arange` key is needed. Key dtypes and their negation behaviour are preserved.
+Output indices remain uint32, with the same C/F indexing semantics.
+
+All 121 tests pass. A new regression test compares the previous implementation
+on integer extremes, NaN, infinities and signed zero in both indexing orders.
+All four Flow arrays and their dtypes match exactly in all 24 fixture
+configurations. A synthetic 256-square smoke comparison also matched.
+
+The full user DEM was profiled again and compared with the preceding recorded
+`998176b` run (not a newly repeated baseline):
+
+| Measurement | Two stable argsorts | Lexsort |
+| --- | --- | --- |
+| OS peak process RSS | 8.34 GiB | **7.67 GiB** |
+| Sampled sorting peak RSS | 8.34 GiB | **7.45 GiB** |
+| Sorting time | 12.235 s | **9.814 s** |
+| Complete Flow time | 128.643 s | **127.692 s** |
+
+Lexsort still requires internal sort workspace and full-raster negated keys;
+the memory gain must not be inferred just by counting removed Python arrays.
+The sorting phase peak fell by about 0.89 GiB. The largest sampled phase peak
+is now flats/sills detection (7.60 GiB), so the overall memory reduction is
+smaller than the sorting reduction. Total times are effectively similar in
+these single runs; the phase times include normal variation elsewhere.
+
+Direct chunked comparison of every element in `_ix`, `_ixc`, `_zx` and
+`_nodata_pos` found zero differences, including shapes and dtypes. This change
+introduces no additional direction changes beyond the existing authorized
+float32 routing variant. Checksums also match. Raw measurements and fixture
+validation are in `real_dem_lexsort_results.json`; raster data and full arrays
+remain local. Phase RSS is sampled every 50 ms, so brief peaks can be missed;
+the OS high-water mark is the global value reported above.
+
+```bash
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --revision 998176b --output sorting-before.json
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --output sorting-after.json
+```

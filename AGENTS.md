@@ -70,6 +70,11 @@ cuando el usuario trabaje en español.
   candidatos por rango, la condición de pendientes, la participación de la
   celda central y los bordes reflejados de SciPy. No la sustituyas por una
   selección genérica del vecino con mayor pendiente.
+- `sort_dem()` usa `np.lexsort((-pesos, -elevaciones))`: elevación descendente
+  como clave principal, peso descendente como secundaria, e índice original
+  implícito para empates por estabilidad. No añadas un `arange` completo como
+  tercera clave si la estabilidad ya conserva ese orden. Mantén los tipos de
+  las claves y comprueba también NaN, infinitos y órdenes C/F.
 - En receptores, conserva los tipos de la resta y división de NumPy, incluido
   el desbordamiento de enteros. Float16 y flotantes extendidos usan bloques
   acotados porque Numba no soporta directamente esas precisiones. No ensanches
@@ -111,7 +116,7 @@ PY
 Para cambios en los algoritmos de Flow:
 
 - Ejecuta los tests de la librería. En la implementación documentada pasan
-  120 tests; el número puede crecer con nuevos casos.
+  121 tests; el número puede crecer con nuevos casos.
 - Compara la versión anterior con la nueva en `small25`, `tunez` y `jebja30`
   para las ocho combinaciones de `filled`, `raw_z` y `auxtopo` (24 casos).
 - Comprueba igualdad de arrays y tipos. Si cambia la ordenación, alinea por

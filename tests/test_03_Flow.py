@@ -67,6 +67,23 @@ class FlowFillReuseTest(unittest.TestCase):
                                        -elevations.ravel(order=order)))
                 np.testing.assert_array_equal(sort_dem(elevations, weights, order), expected)
 
+    def test_sort_matches_previous_with_extremes_and_nan(self):
+        rng = np.random.default_rng(28)
+        for dtype in ('int16', 'uint16', 'float32', 'float64'):
+            elevations = rng.integers(0, 5, (11, 17)).astype(dtype)
+            if np.dtype(dtype).kind in 'iu':
+                elevations[0, :2] = [np.iinfo(dtype).min, np.iinfo(dtype).max]
+            else:
+                elevations[0, :4] = [np.nan, np.inf, -np.inf, -0.0]
+            weights = rng.integers(0, 4, elevations.shape).astype('float32')
+            weights[1, :4] = [np.nan, np.inf, -np.inf, -0.0]
+            for order in ('C', 'F'):
+                with self.subTest(dtype=dtype, order=order):
+                    first = np.argsort(-weights.ravel(order=order), kind='mergesort')
+                    second = np.argsort(-elevations.ravel(order=order)[first], kind='mergesort')
+                    expected = first[second].astype('uint32')
+                    np.testing.assert_array_equal(sort_dem(elevations, weights, order), expected)
+
     def test_unconnected_cells(self):
         flow = Flow()
         flow._size = (3, 3)

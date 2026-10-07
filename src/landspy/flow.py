@@ -780,16 +780,11 @@ def sort_dem(dem_arr, weights, order="C"):
       Order of the returned indexes ("C" row-major (C-style) or "F", column-major 
       (Fortran-style) order.
     """
-    # Sort the flat areas
     rdem = dem_arr.ravel(order=order)
     rweights = weights.ravel(order=order)
-    ix_flats = np.argsort(-rweights, kind='mergesort')
-    
-    # Sort the rest of the pixels from the DEM
-    elevation_order = np.argsort(-rdem[ix_flats], kind='mergesort')
-    ix = ix_flats[elevation_order]
-    del ix_flats, elevation_order
-    
+    # The last key is primary. Lexsort is stable, so exact ties retain the
+    # original raster index without allocating an explicit arange key.
+    ix = np.lexsort((-rweights, -rdem))
     return ix.astype(np.uint32)
 
 
