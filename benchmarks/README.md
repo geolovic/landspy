@@ -173,3 +173,56 @@ To reproduce on this checkout:
 ```bash
 python benchmarks/profile_flow_memory.py --size 14480 --output weights-phases.json
 ```
+
+## Outside-flat barriers and weight precision
+
+Outside-flat friction is now `np.inf` rather than 99999. MCP no longer
+traverses non-flat cells to connect flat regions. Returned outside-flat
+weights remain -99999, and the no-presill fallback is unchanged. With at
+least one presill, unreachable flat cells retain infinite distance.
+
+Stored distances remain float64. A separate float32 experiment rounded
+some distinct distances into ties: tunez changed ordering in 8 of the 24
+fixture configurations, and three giver cells changed their receiver in
+the default configuration. This is a routing change, not merely a tiny
+reported-distance difference. Barriers alone, keeping float64, matched
+all four output arrays and their dtypes in all 24 configurations. Raw
+comparisons are in `weights_precision_comparison.json`; receiver counts
+align arrays by giver cell before comparison so ordering differences do
+not inflate them. All 111 tests passed, including barrier, diagonal-cost
+and no-presill tests.
+
+Production float64 construction was also profiled on the same 799.83 MiB
+synthetic DEM. Comparison with the preceding recorded 99999-cost run:
+
+| Measurement | Cost 99999 (`5c9a68a`) | Barrier `np.inf`, float64 |
+| --- | --- | --- |
+| OS-reported peak process RSS | 16326.6 MiB (15.94 GiB) | 16326.9 MiB (15.94 GiB) |
+| Weights time | 270.696 s | 78.952 s |
+| Complete Flow time | 479.689 s | 293.112 s |
+
+In this run, weight calculation took about 71% less time and complete Flow
+construction took about 39% less time. Global peak memory did not improve.
+All three output checksums matched exactly. One run per version is not a
+statistical speed benchmark, and results depend on flat extent and geometry.
+Raw production measurements are in `flow_memory_800_inf_phases.json`.
+
+```bash
+python benchmarks/profile_flow_memory.py --size 14480 --output inf-phases.json
+```
+
+On the 799.83 MiB DEM, the experimental barriers-plus-float32 run took
+291.839 s overall (80.269 s in weights), with peak RSS 16327.2 MiB
+(15.94 GiB). Its `_ix` and `_ixc` checksums changed. Float32 reduced the
+sampled sorting peak to 7.28 GiB, but did not reduce the overall peak:
+MCP's internal calculation still uses float64. These experimental numbers
+do not describe the production float64 constructor. Raw experimental
+measurements are in `flow_memory_800_inf_float32_phases.json`.
+
+The profiler exposes float32 only as an experimental worker option:
+
+```bash
+python benchmarks/profile_flow_memory.py --size 14480 --weights-dtype float32 --output experimental-phases.json
+```
+
+The default `--weights-dtype float64` uses production code unchanged.

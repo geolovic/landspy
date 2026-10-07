@@ -727,7 +727,10 @@ def get_weights(flats, aux_topo, presills_pos):
     Returns:
     --------
     weigths : *numpy.array*
-      Numpy array with the cost of routing throught the flat areas
+      Array with routing costs inside flats. MCP distances use float64.
+      Outside-flat cells are barriers during propagation and receive -99999
+      in the returned array. When presills exist, unreachable flats retain
+      infinite distance. Without presills, the auxiliary costs are retained.
     
     References:
     -----------
@@ -743,7 +746,7 @@ def get_weights(flats, aux_topo, presills_pos):
     """
     flats = np.invert(flats)
 
-    aux_topo[flats] = 99999
+    aux_topo[flats] = np.inf
     if len(presills_pos) > 0:
         lg = graph.MCP_Geometric(aux_topo)
         aux_topo = lg.find_costs(starts=presills_pos)[0]
@@ -752,7 +755,6 @@ def get_weights(flats, aux_topo, presills_pos):
         del lg
         aux_topo += 1
     aux_topo[flats] = -99999
-    
     return aux_topo
 
 

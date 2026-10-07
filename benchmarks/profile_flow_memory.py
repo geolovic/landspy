@@ -20,6 +20,18 @@ import time
 def worker(args):
     import numpy as np
     from landspy import DEM, Flow
+    if args.weights_dtype == 'float32':
+        # Experimental storage precision: MCP itself still computes float64.
+        # Rounding distances can change flat ordering and receivers.
+        import importlib
+        module = importlib.import_module('landspy.flow')
+        original_weights = module.get_weights
+
+        def float32_weights(*arguments, **keywords):
+            return original_weights(*arguments, **keywords).astype(
+                np.float32, order='C', copy=False)
+
+        module.get_weights = float32_weights
 
     def emit(event, **fields):
         print(json.dumps(dict(event=event, timestamp=time.perf_counter(), **fields)), flush=True)
@@ -77,7 +89,7 @@ def profile(args):
         raise RuntimeError('This sampler requires Linux /proc')
     events = queue.Queue()
     command = [sys.executable, os.path.abspath(__file__), '--worker',
-               '--size', str(args.size)]
+               '--size', str(args.size), '--weights-dtype', args.weights_dtype]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True)
 
     def read_events():
@@ -127,7 +139,8 @@ def profile(args):
     if process.wait() != 0 or result is None:
         raise RuntimeError('Flow worker failed or did not return a result')
     result.update(phases=rows, sample_interval_seconds=args.interval,
-                  size=args.size, dtype='float32', seed=38)
+                  size=args.size, dtype='float32', seed=38,
+                  weights_dtype=args.weights_dtype)
     if args.output:
         with open(args.output, 'w') as stream:
             json.dump(result, stream, indent=2)
@@ -140,6 +153,8 @@ def main():
     parser.add_argument('--size', type=int, default=2048)
     parser.add_argument('--interval', type=float, default=0.05)
     parser.add_argument('--output')
+    parser.add_argument('--weights-dtype', choices=('float64', 'float32'),
+                        default='float64', help='float32 is an experimental benchmark-only cast')
     parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.size < 1 or args.interval <= 0:

@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 from landspy import Flow, DEM
-from landspy.flow import sort_dem
+from landspy.flow import get_weights, sort_dem
 
 import sys, os
 # Forzar el directorio actual al del archivo
@@ -22,6 +22,29 @@ infolder = "data/in"
 outfolder = "data/out"
 
 class FlowFillReuseTest(unittest.TestCase):
+
+    def test_weight_barriers_and_unreachable_flats(self):
+        flats = np.array([[True, False, True],
+                          [True, False, True]], dtype=bool)
+        costs = np.ones(flats.shape, dtype=np.float64, order='F')
+        weights = get_weights(flats, costs, [(0, 0)])
+        self.assertEqual(weights.dtype, np.dtype('float64'))
+        np.testing.assert_array_equal(weights[:, 0], [1, 2])
+        np.testing.assert_array_equal(weights[:, 1], [-99999, -99999])
+        self.assertTrue(np.isinf(weights[:, 2]).all())
+
+    def test_weight_diagonal_distance(self):
+        flats = np.ones((2, 2), dtype=bool)
+        costs = np.ones(flats.shape, dtype=np.float64, order='F')
+        weights = get_weights(flats, costs, [(0, 0)])
+        np.testing.assert_allclose(weights, [[1, 2], [2, 1 + np.sqrt(2)]],
+                                   rtol=1e-15)
+
+    def test_weights_without_presills(self):
+        flats = np.array([[True, False]], dtype=bool)
+        weights = get_weights(flats, np.ones((1, 2), order='F'), [])
+        np.testing.assert_array_equal(weights, [[1, -99999]])
+        self.assertEqual(weights.dtype, np.dtype('float64'))
 
     def test_stable_sort_order(self):
         rng = np.random.default_rng(19)
