@@ -21,7 +21,7 @@ def worker(args):
     import numpy as np
     from landspy import DEM, Flow
     if args.weights_dtype == 'float32':
-        # Experimental storage precision: MCP itself still computes float64.
+        # Experimental storage precision: the solver still computes float64.
         # Rounding distances can change flat ordering and receivers.
         import importlib
         module = importlib.import_module('landspy.flow')
@@ -39,6 +39,8 @@ def worker(args):
     warm = DEM()
     warm.setArray(np.ones((3, 3), dtype='float32'))
     warm.fill()
+    from landspy._dijkstra import cost_distances
+    cost_distances(np.ones((3, 3)), [(0, 0)])
     dem = DEM()
     dem._array = np.random.default_rng(38).integers(
         0, 2000, (args.size, args.size), dtype='int16').astype('float32')

@@ -1,0 +1,346 @@
+{
+  "baseline": "09e481d",
+  "configurations": [
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "small25",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "tunez",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": false,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": false,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": false,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    },
+    {
+      "dem": "jebja30",
+      "filled": true,
+      "raw_z": true,
+      "auxtopo": true,
+      "equal": {
+        "_ix": true,
+        "_ixc": true,
+        "_zx": true,
+        "_nodata_pos": true
+      },
+      "same_givers": true,
+      "changed_receivers": 0
+    }
+  ],
+  "random_surfaces": 100,
+  "random_exact_matches": 100,
+  "random_max_absolute_error": 0.0,
+  "library_tests": 115,
+  "library_tests_passed": true
+}

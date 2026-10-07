@@ -226,3 +226,41 @@ python benchmarks/profile_flow_memory.py --size 14480 --weights-dtype float32 --
 ```
 
 The default `--weights-dtype float64` uses production code unchanged.
+
+## Compiled Dijkstra replacement
+
+Flow now uses a Numba-compiled eight-neighbour Dijkstra solver instead of
+`MCP_Geometric`. Edge costs retain MCP's operation order:
+`length * 0.5 * (old_cost + new_cost)`, with cardinal length 1 and diagonal
+length sqrt(2). Seeds start at zero; infinite outside-flat friction blocks
+propagation. Returned weights still add one and assign -99999 outside flats.
+The no-presill fallback and float64 distance precision are unchanged.
+
+The indexed binary heap has one entry per frontier cell, supports decrease-key
+and grows only when needed. Heap entries and per-cell heap positions use
+int32 when the raster fits, otherwise int64. The solver omits traceback,
+full-raster edge maps, separate heap priority arrays and Fortran-layout copies.
+Costs and output can use C order directly. Heap growth temporarily holds both
+old and new buffers; this remains an in-memory solver with full-raster float64
+distances and a full-raster position array.
+
+Validation against the previous MCP revision (`09e481d`):
+
+- 100 random friction surfaces, including barriers, multiple/duplicate seeds
+  and uniform surfaces: every distance matched exactly (maximum error zero).
+- small25, tunez and jebja30 across every `filled`, `raw_z` and `auxtopo`
+  combination: `_ix`, `_ixc`, `_zx` and `_nodata_pos` matched exactly in all
+  24 configurations. No giver changed its receiver.
+- All 115 library tests passed; existing tests were retained. Four new
+  solver tests cover the MCP reference, narrow rasters, unreachable cells,
+  duplicate/invalid seeds, heap growth and the int64 index specialization.
+
+The random comparison found exact equality; reference tests additionally
+allow 1e-14 tolerance for floating-point differences on other environments.
+These checks establish agreement on the tested inputs, not a guarantee for
+every terrain. Raw comparison data are in `dijkstra_validation.json`.
+
+The benchmark scripts now warm both compiled kernels before timing. A 256
+square smoke DEM matched the MCP reference and the phase profiler, including
+array dtypes. The new solver has **not yet been measured on the 800 MiB DEM**;
+the large measurements above describe the earlier MCP implementation.

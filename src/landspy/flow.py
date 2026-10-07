@@ -16,7 +16,7 @@ import numpy as np
 from osgeo import gdal
 gdal.UseExceptions()
 from scipy import ndimage
-from skimage import graph
+from ._dijkstra import cost_distances
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster, DEM
 
@@ -563,13 +563,11 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
         if verbose:
             verb_func("Generating auxiliar topography ...")
         topodiff = get_aux_topography(topodiff.astype(np.float32), flats.astype(np.int8))
-        topodiff = np.asfortranarray(topodiff, dtype=np.float64)
+        topodiff = np.asarray(topodiff, dtype=np.float64)
         if verbose:
             verb_func("4/7 - Auxiliar topography generated")
     else:
-        # MCP uses float64 costs flattened in Fortran order. Prepare that
-        # layout directly so it can reuse the surface without a full copy.
-        topodiff = np.zeros(dem_arr.shape, dtype=np.float64, order="F")
+        topodiff = np.zeros(dem_arr.shape, dtype=np.float64)
         topodiff[flats] = 1
    
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
@@ -727,7 +725,7 @@ def get_weights(flats, aux_topo, presills_pos):
     Returns:
     --------
     weigths : *numpy.array*
-      Array with routing costs inside flats. MCP distances use float64.
+      Array with routing costs inside flats. Dijkstra distances use float64.
       Outside-flat cells are barriers during propagation and receive -99999
       in the returned array. When presills exist, unreachable flats retain
       infinite distance. Without presills, the auxiliary costs are retained.
@@ -748,11 +746,7 @@ def get_weights(flats, aux_topo, presills_pos):
 
     aux_topo[flats] = np.inf
     if len(presills_pos) > 0:
-        lg = graph.MCP_Geometric(aux_topo)
-        aux_topo = lg.find_costs(starts=presills_pos)[0]
-        # Keep the cumulative costs, release MCP's other working arrays,
-        # and update the result instead of allocating another float64 raster.
-        del lg
+        aux_topo = cost_distances(aux_topo, presills_pos)
         aux_topo += 1
     aux_topo[flats] = -99999
     return aux_topo
