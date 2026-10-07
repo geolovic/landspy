@@ -61,3 +61,33 @@ output checksums matched. This small reduction in overall peak memory shows
 that other construction phases still dominate this terrain; savings from
 individual temporary arrays must not be added together or extrapolated
 directly to large DEMs.
+
+The complete comparison was subsequently run on a 14480 x 14480 synthetic
+float32 DEM (799.83 MiB), using seed 38, with default Flow settings:
+
+| Revision | Peak process RSS | Flow construction time |
+| --- | --- | --- |
+| Before the five changes (`3390f70`) | 18134.8 MiB (17.71 GiB) | 470.055 s |
+| After the five changes (`7ec8c85`) | 18123.9 MiB (17.70 GiB) | 467.716 s |
+
+The three output checksums matched exactly. The peak reduction was only
+10.9 MiB (0.06%). The time difference was about 0.5%; one run per revision
+does not establish a repeatable speed improvement. These changes reduce
+temporary allocations in individual phases but did not materially lower
+the overall construction peak on this large terrain. The phase responsible
+for the overall peak needs further profiling before choosing the next change.
+
+Raw results are in `flow_memory_800_results.json`. To reproduce the comparison
+with an optimized checkout and local history containing the baseline:
+
+```bash
+python benchmarks/benchmark_flow_memory.py --size 14480 --baseline 3390f70
+```
+
+The script checks checksums and dtypes in sequential, separate processes.
+Both constructors use the same current Priority-Flood implementation.
+Timing excludes input generation, fill-kernel warmup and output hashing.
+Peak RSS includes the entire worker process and the retained input DEM.
+Allow more than 18 GiB of free RAM; this full comparison took about 16 minutes
+on the cloud machine. These measurements describe uncompressed synthetic
+data, not a user's real GeoTIFF.

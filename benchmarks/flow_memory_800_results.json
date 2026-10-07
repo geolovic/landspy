@@ -1,0 +1,31 @@
+{
+  "baseline_commit": "3390f70",
+  "optimized_commit": "7ec8c85",
+  "shape": [
+    14480,
+    14480
+  ],
+  "dtype": "float32",
+  "before": {
+    "mode": "before",
+    "input_MiB": 799.8291015625,
+    "seconds": 470.055,
+    "peak_MiB": 18134.8,
+    "checksums": {
+      "_ix": "e75c3f2989c66977e3b43b499a890fc931fbc5edf5f1773378456e08dedcff6c",
+      "_ixc": "998b1defc2c547c6f477c00e93899bb7d014ef19638deb65bc6158812551ad07",
+      "_zx": "016901851845e26eab1bb370ebf2deb6c25d0113b4fbc3258c62ec25a97a478b"
+    }
+  },
+  "after": {
+    "mode": "after",
+    "input_MiB": 799.8291015625,
+    "seconds": 467.716,
+    "peak_MiB": 18123.9,
+    "checksums": {
+      "_ix": "e75c3f2989c66977e3b43b499a890fc931fbc5edf5f1773378456e08dedcff6c",
+      "_ixc": "998b1defc2c547c6f477c00e93899bb7d014ef19638deb65bc6158812551ad07",
+      "_zx": "016901851845e26eab1bb370ebf2deb6c25d0113b4fbc3258c62ec25a97a478b"
+    }
+  }
+}
