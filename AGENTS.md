@@ -59,6 +59,14 @@ cuando el usuario trabaje en español.
 - MCP ya no se usa en el código de producción de Flow. Los tests todavía usan
   `skimage.graph.MCP_Geometric` como referencia; considera esos tests antes de
   eliminar `scikit-image` de las dependencias.
+- `get_receivers()` usa `_receivers.py`. Conserva la selección previa de
+  candidatos por rango, la condición de pendientes, la participación de la
+  celda central y los bordes reflejados de SciPy. No la sustituyas por una
+  selección genérica del vecino con mayor pendiente.
+- En receptores, conserva los tipos de la resta y división de NumPy, incluido
+  el desbordamiento de enteros. Float16 y flotantes extendidos usan bloques
+  acotados porque Numba no soporta directamente esas precisiones. No ensanches
+  las elevaciones o cambies el redondeo incidentalmente para acelerar el bucle.
 
 ## Tests y validación
 
@@ -96,7 +104,7 @@ PY
 Para cambios en los algoritmos de Flow:
 
 - Ejecuta los tests de la librería. En la implementación documentada pasan
-  115 tests; el número puede crecer con nuevos casos.
+  117 tests; el número puede crecer con nuevos casos.
 - Compara la versión anterior con la nueva en `small25`, `tunez` y `jebja30`
   para las ocho combinaciones de `filled`, `raw_z` y `auxtopo` (24 casos).
 - Comprueba igualdad de arrays y tipos. Si cambia la ordenación, alinea por

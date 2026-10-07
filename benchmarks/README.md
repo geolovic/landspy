@@ -314,3 +314,68 @@ python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --save-array
 The current checkout must contain the compiled solver; the reference
 revision selects the historical Flow implementation. A small fixture smoke
 test also confirmed matching arrays/dtypes in both file-based profiler modes.
+
+## Compiled receiver selection
+
+Receiver calculation now builds the inverse sort ranks with Numba, examines
+cardinal and diagonal neighbours directly, computes gradients in scalar
+buffers and writes a single uint32 output. It no longer creates full-raster
+dilations, copies of those dilations, two candidate arrays, gradient arrays,
+selection masks or a final cast copy. For the default contiguous layout, its
+main new buffers are the rank map and output: about 1.79 GiB on this DEM.
+
+This preserves the original rank-first candidate rules, centre participation,
+SciPy's reflected boundary behaviour, integer subtraction overflow and NumPy's
+division promotion rules. It does not replace those rules with a different
+steepest-neighbour algorithm. Unsupported floating-point precisions (float16
+and extended floats) use bounded NumPy arithmetic blocks with compiled
+neighbour selection rather than converting the entire DEM.
+
+Validation includes 288 receiver reference cases across 12 numeric dtypes,
+four raster shapes (including single rows/columns), C/F indexing and three
+cell-size scalar variants. All 24 Flow fixture configurations matched exactly,
+including array dtypes. The full suite passes 117 tests; existing tests were
+retained and two receiver regression tests were added.
+
+The same complete `DEM_30m.tif` was profiled again, with all defaults and
+kernel warmup outside timing. The baseline is the preceding recorded Dijkstra
+run with dilation-based receivers, not a newly repeated baseline run.
+
+| Measurement | Previous receivers | Compiled receivers |
+| --- | --- | --- |
+| OS peak process RSS | 13.71 GiB | **9.24 GiB** |
+| Complete Flow time | 146.491 s | **134.710 s** |
+| Sampled receivers peak RSS | 13.62 GiB | **4.31 GiB** |
+| Receivers time | 22.099 s | **16.012 s** |
+
+Global peak RSS fell by 4.47 GiB (32.6%). The receivers phase peak fell by
+68.4%; its time fell by 27.5%. Total time fell by 8.0% in these single runs,
+which also include normal timing variation in other phases. The largest
+observed memory peak is now sorting, with weights close behind it.
+
+| Current phase | Sampled peak total process RSS | Time |
+| --- | --- | --- |
+| Fill | 2.13 GiB | 56.318 s |
+| Flats and sills | 7.45 GiB | 11.486 s |
+| Presills | 4.96 GiB | 6.175 s |
+| Auxiliary surface preparation | 6.01 GiB | 0.414 s |
+| Weights | 9.08 GiB | 27.158 s |
+| Sorting | **9.24 GiB** | 12.277 s |
+| Receivers | 4.31 GiB | 16.012 s |
+| Connection filtering | 4.23 GiB | 1.414 s |
+| Elevation extraction | 4.56 GiB | 1.233 s |
+| Unconnected-cell positions | 4.81 GiB | 1.758 s |
+
+Every element of `_ix`, `_ixc`, `_zx` and `_nodata_pos` was compared against
+the previous saved arrays, with zero differences. Checksums and dtypes also
+matched. Raw measurements and validation are in `real_dem_receivers_results.json`.
+User raster data and full arrays remain outside Git. Phase RSS is total worker
+memory, not additive; 50 ms sampling can miss brief spikes.
+
+The profiler and full-construction comparison now also warm the receiver
+kernel before timing. To reproduce the before/after comparison on this checkout:
+
+```bash
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --revision a9d0dba --output receivers-before.json
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --output receivers-after.json
+```

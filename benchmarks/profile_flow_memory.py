@@ -58,6 +58,10 @@ def worker(args):
     warm.fill()
     from landspy._dijkstra import cost_distances
     cost_distances(np.ones((3, 3)), [(0, 0)])
+    from landspy._receivers import receiver_indices
+    cellsize = (dem.getCellSize()[0] - dem.getCellSize()[1]) / 2
+    receiver_indices(np.arange(9, dtype='uint32'),
+                     np.ones((3, 3), dtype=dem.readArray().dtype), cellsize)
 
     starts = {'Filling DEM ...': 'fill',
               'Identifiying flats and sills ...': 'flats_and_sills',

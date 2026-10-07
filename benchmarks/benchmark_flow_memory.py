@@ -34,6 +34,8 @@ def worker(args):
     warmup.fill()
     from landspy._dijkstra import cost_distances
     cost_distances(np.ones((3, 3)), [(0, 0)])
+    from landspy._receivers import receiver_indices
+    receiver_indices(np.arange(9, dtype='uint32'), np.ones((3, 3), dtype='float32'), 1.0)
 
     dem = DEM()
     dem._array = np.random.default_rng(38).integers(

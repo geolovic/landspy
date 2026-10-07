@@ -17,6 +17,7 @@ from osgeo import gdal
 gdal.UseExceptions()
 from scipy import ndimage
 from ._dijkstra import cost_distances
+from ._receivers import receiver_indices
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster, DEM
 
@@ -815,42 +816,7 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014    
     """
     
-    ncells = dem_arr.shape[0] * dem_arr.shape[1]
-    dims = dem_arr.shape
-    rdem = dem_arr.ravel(order=order)
-    
-    pp = np.zeros(dims, dtype=np.int32)
-    IX = np.arange(ncells, dtype=np.int32)
-    pp = pp.ravel(order=order)
-    pp[ix] = IX
-    pp = pp.reshape(dims, order=order)
-            
-    # Get cardinal neighbors
-    footprint= np.array([[0, 1, 0],
-                         [1, 1, 1],
-                         [0, 1, 0]], dtype=np.int8)
-    IXC1 = ndimage.grey_dilation(pp, footprint=footprint)
-    xxx1 = np.copy(IXC1)
-    IX = IXC1.ravel(order=order)[ix]
-    IXC1 = ix[IX]
-    G1   = (rdem[ix]-rdem[IXC1])/(cellsize)
-    
-    # Get diagonal neighbors
-    footprint= np.array([[1, 0, 1],
-                         [0, 1, 0],
-                         [1, 0, 1]], dtype=np.int8)
-    IXC2 = ndimage.grey_dilation(pp, footprint=footprint)
-    xxx2 = np.copy(IXC2)
-    IX = IXC2.ravel(order=order)[ix]
-    IXC2 = ix[IX]
-    G2 = (rdem[ix]-rdem[IXC2])/(cellsize * np.sqrt(2))
-    
-    # Get the steepest one
-    I  = (G1<=G2) & (xxx2.ravel(order=order)[ix]>xxx1.ravel(order=order)[ix])
-    ixc = IXC1
-    ixc[I] = IXC2[I]
-    
-    return ixc.astype(np.uint32)
+    return receiver_indices(ix, dem_arr, cellsize, order)
 
 
 class FlowError(Exception):
