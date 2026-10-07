@@ -91,3 +91,46 @@ Peak RSS includes the entire worker process and the retained input DEM.
 Allow more than 18 GiB of free RAM; this full comparison took about 16 minutes
 on the cloud machine. These measurements describe uncompressed synthetic
 data, not a user's real GeoTIFF.
+
+## Flow memory by construction phase
+
+The optimized constructor was profiled on the same 799.83 MiB DEM, with
+default settings. Linux RSS was sampled every 50 ms by a separate process,
+so the sampler continues while C extensions hold the worker's Python GIL.
+Phase markers use existing verbose progress messages; only the benchmark
+worker wraps the final unconnected-cell calculation to mark its start.
+
+| Phase | Sampled peak process RSS | Time |
+| --- | --- | --- |
+| Priority-Flood fill | 4.01 GiB | 105.563 s |
+| Flats and sills | 6.65 GiB | 12.416 s |
+| Presills | 2.86 GiB | 2.591 s |
+| Auxiliary surface preparation (`auxtopo=False`) | 4.42 GiB | 1.093 s |
+| Cost-distance weights (`MCP_Geometric`) | **17.60 GiB** | **267.054 s** |
+| Sorting | 9.66 GiB | 44.014 s |
+| Receivers | 11.56 GiB | 32.460 s |
+| Connection filtering | 4.32 GiB | 2.725 s |
+| Elevation extraction | 5.43 GiB | 2.740 s |
+| Unconnected-cell positions | 4.59 GiB | 2.631 s |
+
+These are total worker RSS values within each phase, not additional memory
+or allocations that can be added together. Sampling can miss short spikes:
+the OS-reported process high-water mark was 18125.5 MiB (17.70 GiB), compared
+with the largest sampled phase peak of 18018.8 MiB (17.60 GiB). Phase times
+include intervening bookkeeping until the next marker; boundary RSS values
+have approximately one sampling interval of uncertainty.
+
+The complete constructor took 473.400 s. The weights phase accounted for
+about 56% of that time and set the largest observed memory peak. Receiver
+optimization alone would not remove that peak: reducing the cost-distance
+phase is the next priority, preserving flat routing and output ordering.
+
+All three output checksums matched the previous uninstrumented 800 MiB run.
+The instrumentation also matched ordinary Flow construction on a smoke DEM.
+Raw phase measurements are in `flow_memory_800_phases.json`.
+
+```bash
+python benchmarks/profile_flow_memory.py --size 14480 --output phases.json
+```
+
+This sampler requires Linux `/proc`. It does not change production Flow code.

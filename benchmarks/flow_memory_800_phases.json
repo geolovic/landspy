@@ -1,0 +1,100 @@
+{
+  "input_MiB": 799.8291015625,
+  "seconds": 473.4001621770003,
+  "process_peak_MiB": 18125.5078125,
+  "checksums": {
+    "_ix": "e75c3f2989c66977e3b43b499a890fc931fbc5edf5f1773378456e08dedcff6c",
+    "_ixc": "998b1defc2c547c6f477c00e93899bb7d014ef19638deb65bc6158812551ad07",
+    "_zx": "016901851845e26eab1bb370ebf2deb6c25d0113b4fbc3258c62ec25a97a478b"
+  },
+  "phases": [
+    {
+      "phase": "constructor_setup",
+      "rss_entry_MiB": 1191.8,
+      "sampled_peak_MiB": 1191.8,
+      "seconds": 0.0,
+      "rss_exit_MiB": 1191.8
+    },
+    {
+      "phase": "fill",
+      "rss_entry_MiB": 1191.8,
+      "sampled_peak_MiB": 4105.0,
+      "seconds": 105.563,
+      "rss_exit_MiB": 2140.5
+    },
+    {
+      "phase": "flats_and_sills",
+      "rss_entry_MiB": 2140.5,
+      "sampled_peak_MiB": 6804.6,
+      "seconds": 12.416,
+      "rss_exit_MiB": 2249.6
+    },
+    {
+      "phase": "presills",
+      "rss_entry_MiB": 2249.6,
+      "sampled_peak_MiB": 2927.1,
+      "seconds": 2.591,
+      "rss_exit_MiB": 2729.3
+    },
+    {
+      "phase": "aux_topography",
+      "rss_entry_MiB": 2729.3,
+      "sampled_peak_MiB": 4527.6,
+      "seconds": 1.093,
+      "rss_exit_MiB": 4527.6
+    },
+    {
+      "phase": "weights",
+      "rss_entry_MiB": 4527.6,
+      "sampled_peak_MiB": 18018.8,
+      "seconds": 267.054,
+      "rss_exit_MiB": 5450.2
+    },
+    {
+      "phase": "cleanup_after_weights",
+      "rss_entry_MiB": 5450.2,
+      "sampled_peak_MiB": 5450.2,
+      "seconds": 0.113,
+      "rss_exit_MiB": 3549.6
+    },
+    {
+      "phase": "sorting",
+      "rss_entry_MiB": 3549.6,
+      "sampled_peak_MiB": 9889.3,
+      "seconds": 44.014,
+      "rss_exit_MiB": 2809.5
+    },
+    {
+      "phase": "receivers",
+      "rss_entry_MiB": 2809.5,
+      "sampled_peak_MiB": 11841.3,
+      "seconds": 32.46,
+      "rss_exit_MiB": 3627.4
+    },
+    {
+      "phase": "filtering",
+      "rss_entry_MiB": 3627.4,
+      "sampled_peak_MiB": 4421.5,
+      "seconds": 2.725,
+      "rss_exit_MiB": 3511.3
+    },
+    {
+      "phase": "elevations",
+      "rss_entry_MiB": 3511.3,
+      "sampled_peak_MiB": 5558.6,
+      "seconds": 2.74,
+      "rss_exit_MiB": 4301.7
+    },
+    {
+      "phase": "nodata_positions",
+      "rss_entry_MiB": 4301.7,
+      "sampled_peak_MiB": 4701.6,
+      "seconds": 2.631,
+      "rss_exit_MiB": 4301.7
+    }
+  ],
+  "sample_interval_seconds": 0.05,
+  "size": 14480,
+  "dtype": "float32",
+  "seed": 38
+}
