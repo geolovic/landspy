@@ -554,6 +554,7 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     if verbose:
         verb_func("Identifiying presills ...")
     presills_pos = get_presills(dem_arr, flats, sills)
+    del sills
     if verbose:
         verb_func("3/7 - Presills identified")
     
@@ -562,10 +563,13 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
         if verbose:
             verb_func("Generating auxiliar topography ...")
         topodiff = get_aux_topography(topodiff.astype(np.float32), flats.astype(np.int8))
+        topodiff = np.asfortranarray(topodiff, dtype=np.float64)
         if verbose:
             verb_func("4/7 - Auxiliar topography generated")
     else:
-        topodiff = np.zeros(dem_arr.shape)
+        # MCP uses float64 costs flattened in Fortran order. Prepare that
+        # layout directly so it can reuse the surface without a full copy.
+        topodiff = np.zeros(dem_arr.shape, dtype=np.float64, order="F")
         topodiff[flats] = 1
    
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
@@ -575,7 +579,7 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     if verbose:
         verb_func("5/7 - Weights calculated")
     
-    del flats, sills, presills_pos, topodiff
+    del flats, presills_pos, topodiff
 
     # 06 Sort pixels (givers)
     if verbose:
@@ -742,7 +746,11 @@ def get_weights(flats, aux_topo, presills_pos):
     aux_topo[flats] = 99999
     if len(presills_pos) > 0:
         lg = graph.MCP_Geometric(aux_topo)
-        aux_topo = lg.find_costs(starts=presills_pos)[0] + 1
+        aux_topo = lg.find_costs(starts=presills_pos)[0]
+        # Keep the cumulative costs, release MCP's other working arrays,
+        # and update the result instead of allocating another float64 raster.
+        del lg
+        aux_topo += 1
     aux_topo[flats] = -99999
     
     return aux_topo

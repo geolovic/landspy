@@ -134,3 +134,42 @@ python benchmarks/profile_flow_memory.py --size 14480 --output phases.json
 ```
 
 This sampler requires Linux `/proc`. It does not change production Flow code.
+
+## Avoiding weight-calculation copies
+
+Three changes preserve the existing MCP routing: release `sills` immediately
+after presill extraction, prepare the friction surface as Fortran-contiguous
+float64 (MCP's native layout), and add one to cumulative costs in place after
+releasing the MCP object. For `auxtopo=True`, auxiliary surface computation
+still uses float32 before conversion, preserving the previous numerical costs.
+The outside-flat cost remains 99999; no cells are newly blocked.
+
+The same default Flow constructor and 799.83 MiB synthetic float32 DEM were
+profiled again in a separate process with 50 ms RSS sampling:
+
+| Measurement | Before (`b83835d`) | After the three changes |
+| --- | --- | --- |
+| OS-reported peak process RSS | 18125.5 MiB (17.70 GiB) | 16326.6 MiB (15.94 GiB) |
+| Sampled peak during weights | 18018.8 MiB (17.60 GiB) | 16295.4 MiB (15.91 GiB) |
+| Weights time | 267.054 s | 270.696 s |
+| Complete Flow time | 473.400 s | 479.689 s |
+
+The global peak fell by 1798.9 MiB (1.76 GiB), approximately 9.9%. The peak
+remains in MCP's weight calculation. Timing did not improve in this run;
+one run per version does not establish a repeatable timing difference.
+The baseline is the preceding recorded phase measurement, rather than a
+newly repeated baseline run. RSS includes the retained original DEM and
+the rest of the worker process, not just weights or an individual array.
+
+All three 800 MiB output checksums (`_ix`, `_ixc`, `_zx`) matched exactly.
+Arrays and dtypes, including `_nodata_pos`, also matched the baseline on
+small25, tunez and jebja30 for every combination of `filled`, `raw_z` and
+`auxtopo` (24 configurations). All 108 tests passed with the activated
+Conda environment and discovery restricted to `test_*.py`.
+
+Raw after-change measurements are in `flow_memory_800_weights_phases.json`.
+To reproduce on this checkout:
+
+```bash
+python benchmarks/profile_flow_memory.py --size 14480 --output weights-phases.json
+```
