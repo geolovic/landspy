@@ -22,6 +22,16 @@ infolder = "data/in"
 outfolder = "data/out"
 
 class FlowFillReuseTest(unittest.TestCase):
+    def test_unit_weights_without_cost_surface(self):
+        flats = np.array([[True, True], [False, True]], dtype=bool)
+        weights = get_weights(flats, None, [(0, 0)])
+        self.assertEqual(weights.dtype, np.dtype('float32'))
+        np.testing.assert_array_equal(weights[0], [1, 2])
+        self.assertEqual(weights[1, 0], -99999)
+        np.testing.assert_allclose(weights[1, 1], np.float32(1 + np.sqrt(2)), rtol=1e-7)
+        fallback = get_weights(flats, None, [])
+        np.testing.assert_array_equal(fallback, [[1, 1], [-99999, 1]])
+
 
     def test_weight_barriers_and_unreachable_flats(self):
         flats = np.array([[True, False, True],

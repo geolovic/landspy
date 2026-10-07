@@ -16,7 +16,7 @@ import numpy as np
 from osgeo import gdal
 gdal.UseExceptions()
 from scipy import ndimage
-from ._dijkstra import cost_distances
+from ._dijkstra import cost_distances, flat_distances
 from ._receivers import receiver_indices
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster, DEM
@@ -35,6 +35,8 @@ class Flow(PRaster):
         auxtopo : boolean
           Boolean to determine if an auxiliar topography is used (much slower). The auxiliar topography is calculated with
           elevation differences between filled and un-filled dem. If filled is True, auxtopo is ignored (cannot compute differences)
+          Without auxiliar topography, unit-friction distances use float32
+          directly from the flat mask; auxiliary costs use float64 distances.
         filled : boolean
           If True, the input DEM is already pit-filled and no filling is performed.
           Otherwise, fill once and reuse the result for drainage and filled elevations.
@@ -568,8 +570,7 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
         if verbose:
             verb_func("4/7 - Auxiliar topography generated")
     else:
-        topodiff = np.zeros(dem_arr.shape, dtype=np.float64)
-        topodiff[flats] = 1
+        topodiff = None
    
     # 05 Get the weights inside the flat areas (for the cost-distance analysis)
     if verbose:
@@ -719,14 +720,16 @@ def get_weights(flats, aux_topo, presills_pos):
     flats : *numpy.array* [dtype = "bool"]
       Numpy array with the location of the flats surfaces
     aux_topo: *numpy.array* [dtype = np.float32]
-      Numpy array with the auxiliar topography
+      Numpy array with the auxiliar topography, or None for unit friction
+      directly from the flat mask (float32 distances).
     presill_pos *list*
       List of tuples (row, col) with the location of the presills
 
     Returns:
     --------
     weigths : *numpy.array*
-      Array with routing costs inside flats. Dijkstra distances use float64.
+      Array with routing costs inside flats. Unit-friction distances use
+      float32; supplied auxiliary surfaces retain float64 distances.
       Outside-flat cells are barriers during propagation and receive -99999
       in the returned array. When presills exist, unreachable flats retain
       infinite distance. Without presills, the auxiliary costs are retained.
@@ -743,6 +746,15 @@ def get_weights(flats, aux_topo, presills_pos):
     MATLAB-based software for topographic analysis and modeling in Earth 
     surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
     """
+    if aux_topo is None:
+        if len(presills_pos) > 0:
+            weights = flat_distances(flats, presills_pos)
+            weights += np.float32(1)
+        else:
+            weights = np.ones(flats.shape, dtype=np.float32)
+        weights[~flats] = -99999
+        return weights
+
     flats = np.invert(flats)
 
     aux_topo[flats] = np.inf

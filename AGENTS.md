@@ -31,10 +31,13 @@ cuando el usuario trabaje en español.
 - `_ix`, `_ixc` y `_zx` son estructuras fundamentales de Flow. Conserva su
   significado, correspondencia entre posiciones y tipos. Comprueba también
   `_nodata_pos` cuando cambies la creación del objeto.
-- Los pesos y las distancias de Dijkstra se conservan en float64. Reducirlos
-  a float32 puede crear empates y cambiar receptores; no lo hagas como una
-  optimización transparente. El experimento documentado cambió tres receptores
-  de `tunez` con la configuración por defecto.
+- Por decisión explícita del usuario, el caso sin topografía auxiliar usa
+  distancias y pesos float32 calculados directamente desde la máscara de planos,
+  sin ráster de costes. Con `auxtopo=True` y `filled=False`, los costes variables
+  y distancias siguen siendo float64. `_zx` conserva su tipo float64.
+  El cambio de precisión es deliberado: cambian cuatro receptores de Tunez y
+  11.466 del DEM real (0,00615 %). No presentes esta variante como exactamente
+  equivalente a la anterior. Consulta los CSV, máscara y resultados publicados.
 - `Flow` usa por defecto `filled=False`, `raw_z=False`, `auxtopo=False`.
   Rellena una sola vez y reutiliza esas elevaciones. Con `filled=True`, no
   debe volver a rellenar. `raw_z=True` conserva las alturas del DEM de entrada
@@ -49,6 +52,10 @@ cuando el usuario trabaje en español.
   longitud 1 o `sqrt(2)`, coste `length * 0.5 * (old_cost + new_cost)` y coste
   inicial cero en las semillas. Mantén el orden de estas operaciones; evita
   `fastmath` si necesitas conservar la equivalencia numérica.
+- Sin superficie auxiliar (`aux_topo=None`), `flat_distances()` usa pasos 1 y
+  sqrt(2), redondeados y acumulados en float32 antes de comparar prioridades.
+  Es un cálculo float32 real, no una conversión final de distancias float64.
+  No cambies silenciosamente ese orden de redondeo.
 - Fuera de los planos, `np.inf` bloquea la propagación. Los pesos devueltos
   fuera de los planos son `-99999`. Con semillas, los planos inalcanzables
   mantienen distancia infinita. Sin presills se conserva el comportamiento
@@ -104,12 +111,15 @@ PY
 Para cambios en los algoritmos de Flow:
 
 - Ejecuta los tests de la librería. En la implementación documentada pasan
-  117 tests; el número puede crecer con nuevos casos.
+  120 tests; el número puede crecer con nuevos casos.
 - Compara la versión anterior con la nueva en `small25`, `tunez` y `jebja30`
   para las ocho combinaciones de `filled`, `raw_z` y `auxtopo` (24 casos).
 - Comprueba igualdad de arrays y tipos. Si cambia la ordenación, alinea por
   celda emisora antes de contar cambios de receptores; una diferencia de
   posiciones no equivale necesariamente a una diferencia de drenaje.
+- Frente a la referencia float64, se esperan diferencias de receptores en la
+  ruta float32 autorizada. Cuantifica las diferencias y conserva la comprobación
+  exacta para la ruta de costes variables; no debilites los tests existentes.
 - Para el solver, cubre barreras, semillas múltiples y repetidas, zonas
   inalcanzables, rásteres estrechos, crecimiento del heap e índices int64.
 - No rebajes tolerancias ni cambies resultados esperados para ocultar una

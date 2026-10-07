@@ -225,7 +225,9 @@ The profiler exposes float32 only as an experimental worker option:
 python benchmarks/profile_flow_memory.py --size 14480 --weights-dtype float32 --output experimental-phases.json
 ```
 
-The default `--weights-dtype float64` uses production code unchanged.
+The profiler now defaults to `--weights-dtype native`, using production code
+unchanged. Explicit dtype options only cast the stored result; they do not
+change the solver's accumulation precision or restore lost precision.
 
 ## Compiled Dijkstra replacement
 
@@ -379,3 +381,66 @@ kernel before timing. To reproduce the before/after comparison on this checkout:
 python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --revision a9d0dba --output receivers-before.json
 python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --output receivers-after.json
 ```
+
+## Unit-friction mask and native float32 accumulation
+
+At the user's request, the default `auxtopo=False` path now omits the friction
+raster and uses the flat mask directly. Cardinal steps cost float32(1),
+diagonal steps float32(sqrt(2)); distances are accumulated and rounded to
+float32 before heap comparisons. This is not the earlier experiment that
+cast a float64 solver result only at the end. `auxtopo=True, filled=False`
+retains the previous float64 variable-cost calculation. As before, `filled=True`
+disables auxiliary topography, so it uses the new unit-friction path.
+
+Outside-flat cells block entry; returned weights there remain -99999. The
+final +1 is float32. Without presills, flat weights remain 1. `_zx` remains
+float64. A weights raster is still needed for sorting; the removed raster is
+the separate **friction/cost surface**.
+
+All 120 tests pass, retaining the previous tests and adding mask/float32 and
+fallback checks. Across 24 fixture configurations, all giver sets, heights
+aligned by giver and NoData positions are unchanged. Eighteen configurations
+match all arrays exactly. In the default Tunez configuration, four giver cells
+choose a different receiver (0.00131%); small25 and jebja30 remain identical.
+The auxiliary-topography float64 route remains identical on all three fixtures.
+
+For review, `tunez_unit_float32_changed_receivers.csv` lists the four cells,
+coordinates and old/new receiver indices. The accompanying GeoTIFF mask has
+1 at those cells and 0 elsewhere, with Tunez's original georeferencing. These
+artifacts derive from the existing repository fixture, not the user's DEM.
+The full configuration comparison is in `unit_float32_fixture_comparison.json`.
+
+On the full user DEM, compared with the preceding recorded `51b9fe9` run:
+
+| Measurement | Cost raster + float64 | Flat mask + float32 |
+| --- | --- | --- |
+| OS peak process RSS | 9.24 GiB | **8.34 GiB** |
+| Sampled weights peak RSS | 9.08 GiB | **6.17 GiB** |
+| Weights time | 27.158 s | **22.882 s** |
+| Complete Flow time | 134.710 s | **128.643 s** |
+
+The overall peak fell by about 9.7%; total time fell about 4.5% in these single
+runs. Sorting still sets the overall peak. Removing a 1.79 GiB friction raster
+and halving distance storage substantially reduces the weights phase, but
+sorting still retains the float32 weights and its index arrays.
+
+This mode intentionally changes routing. Of 186,573,695 common giver cells
+in `DEM_30m.tif`, 11,466 change receiver (0.0061456%). No giver was added or
+removed; heights aligned by giver and NoData positions remain identical.
+The `_ix` and `_ixc` hashes change; `_zx` matches. Small direction changes can
+also affect downstream accumulation and basin assignments; their consequences
+must not be inferred solely from the fraction of changed receivers.
+
+Raw profiles and aligned comparison counts are in
+`real_dem_unit_float32_results.json`. Detailed changed directions for the
+user's DEM remain local, outside Git. The profiler records the observed native
+weights dtype, warms both solver precisions, and uses `native` by default.
+
+```bash
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --revision 51b9fe9 --output unit-before.json
+python benchmarks/profile_flow_memory.py --dem /path/to/DEM_30m.tif --output unit-after.json
+```
+
+`benchmark_flow_memory.py --allow-differences` reports changed hashes instead
+of requiring equality for such deliberate precision experiments; dtype checks
+on the final Flow arrays remain enabled.

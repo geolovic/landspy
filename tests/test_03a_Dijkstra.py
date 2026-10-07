@@ -5,10 +5,26 @@ import unittest
 import numpy as np
 from skimage.graph import MCP_Geometric
 
-from landspy._dijkstra import cost_distances, _distances
+from landspy._dijkstra import cost_distances, flat_distances, _distances
 
 
 class DijkstraTest(unittest.TestCase):
+    def test_unit_mask_float32(self):
+        mask = np.ones((33, 35), dtype=bool)
+        mask[8:28, 15] = False
+        costs = np.where(mask, 1.0, np.inf)
+        expected = MCP_Geometric(costs).find_costs([(0, 0), (32, 34)])[0]
+        actual = flat_distances(mask, [(0, 0), (32, 34), (0, 0)])
+        self.assertEqual(actual.dtype, np.dtype('float32'))
+        np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-6)
+
+    def test_unit_mask_barriers_and_no_seeds(self):
+        mask = np.array([[True, False, True], [True, False, True]])
+        distances = flat_distances(mask, [(0, 0)])
+        np.testing.assert_array_equal(distances[:, 0], [0, 1])
+        self.assertTrue(np.isinf(distances[:, 1:]).all())
+        self.assertTrue(np.isinf(flat_distances(mask, [])).all())
+
     def test_mcp_reference(self):
         rng = np.random.default_rng(72)
         for shape in ((1, 1), (1, 35), (35, 1), (19, 23)):

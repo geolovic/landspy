@@ -1,0 +1,434 @@
+[
+  {
+    "dem": "small25",
+    "filled": false,
+    "raw_z": false,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": false,
+    "raw_z": false,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": false,
+    "raw_z": true,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": false,
+    "raw_z": true,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": true,
+    "raw_z": false,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": true,
+    "raw_z": false,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": true,
+    "raw_z": true,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "small25",
+    "filled": true,
+    "raw_z": true,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 24551,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": false,
+    "raw_z": false,
+    "auxtopo": false,
+    "equal": {
+      "_ix": false,
+      "_ixc": false,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 4,
+    "changed_percent": 0.001311557113393949,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": false,
+    "raw_z": false,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": false,
+    "raw_z": true,
+    "auxtopo": false,
+    "equal": {
+      "_ix": false,
+      "_ixc": false,
+      "_zx": false,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 4,
+    "changed_percent": 0.001311557113393949,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": false,
+    "raw_z": true,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": true,
+    "raw_z": false,
+    "auxtopo": false,
+    "equal": {
+      "_ix": false,
+      "_ixc": false,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 4,
+    "changed_percent": 0.001311557113393949,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": true,
+    "raw_z": false,
+    "auxtopo": true,
+    "equal": {
+      "_ix": false,
+      "_ixc": false,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 4,
+    "changed_percent": 0.001311557113393949,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": true,
+    "raw_z": true,
+    "auxtopo": false,
+    "equal": {
+      "_ix": false,
+      "_ixc": false,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 4,
+    "changed_percent": 0.001311557113393949,
+    "changed_heights": 0
+  },
+  {
+    "dem": "tunez",
+    "filled": true,
+    "raw_z": true,
+    "auxtopo": true,
+    "equal": {
+      "_ix": false,
+      "_ixc": false,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 304981,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 4,
+    "changed_percent": 0.001311557113393949,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": false,
+    "raw_z": false,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": false,
+    "raw_z": false,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": false,
+    "raw_z": true,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": false,
+    "raw_z": true,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": true,
+    "raw_z": false,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": true,
+    "raw_z": false,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": true,
+    "raw_z": true,
+    "auxtopo": false,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  },
+  {
+    "dem": "jebja30",
+    "filled": true,
+    "raw_z": true,
+    "auxtopo": true,
+    "equal": {
+      "_ix": true,
+      "_ixc": true,
+      "_zx": true,
+      "_nodata_pos": true
+    },
+    "common_givers": 397217,
+    "removed_givers": 0,
+    "added_givers": 0,
+    "changed_receivers": 0,
+    "changed_percent": 0.0,
+    "changed_heights": 0
+  }
+]

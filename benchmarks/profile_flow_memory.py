@@ -21,6 +21,8 @@ import types
 def worker(args):
     import numpy as np
     from landspy import DEM, Flow
+    import importlib
+    module = importlib.import_module('landspy.flow')
     if args.revision:
         source = subprocess.check_output(
             ['git', 'show', args.revision + ':src/landspy/flow.py'],
@@ -29,18 +31,18 @@ def worker(args):
         reference.__package__ = 'landspy'
         exec(compile(source, '<reference-flow>', 'exec'), reference.__dict__)
         Flow = reference.Flow
-    if args.weights_dtype == 'float32':
-        # Experimental storage precision: the solver still computes float64.
-        # Rounding distances can change flat ordering and receivers.
-        import importlib
-        module = importlib.import_module('landspy.flow')
-        original_weights = module.get_weights
+        module = reference
+    original_weights = module.get_weights
+    observed_dtype = []
 
-        def float32_weights(*arguments, **keywords):
-            return original_weights(*arguments, **keywords).astype(
-                np.float32, order='C', copy=False)
+    def observed_weights(*arguments, **keywords):
+        weights = original_weights(*arguments, **keywords)
+        if args.weights_dtype != 'native':
+            weights = weights.astype(args.weights_dtype, order='C', copy=False)
+        observed_dtype.append(str(weights.dtype))
+        return weights
 
-        module.get_weights = float32_weights
+    module.get_weights = observed_weights
 
     def emit(event, **fields):
         print(json.dumps(dict(event=event, timestamp=time.perf_counter(), **fields)), flush=True)
@@ -56,8 +58,9 @@ def worker(args):
     warm = DEM()
     warm.setArray(np.ones((3, 3), dtype=dem.readArray().dtype))
     warm.fill()
-    from landspy._dijkstra import cost_distances
+    from landspy._dijkstra import cost_distances, flat_distances
     cost_distances(np.ones((3, 3)), [(0, 0)])
+    flat_distances(np.ones((3, 3), dtype=bool), [(0, 0)])
     from landspy._receivers import receiver_indices
     cellsize = (dem.getCellSize()[0] - dem.getCellSize()[1]) / 2
     receiver_indices(np.arange(9, dtype='uint32'),
@@ -106,6 +109,7 @@ def worker(args):
          seconds=elapsed, process_peak_MiB=peak, checksums=checksums,
          shape=list(dem.readArray().shape), dtype=str(dem.readArray().dtype),
          nodata=dem.getNodata(),
+         weights_dtype=observed_dtype[-1],
          dtypes={name: str(getattr(flow, name).dtype) for name in checksums})
 
 
@@ -174,7 +178,7 @@ def profile(args):
                   seed=38 if not args.dem else None,
                   input_file=os.path.basename(args.dem) if args.dem else None,
                   revision=args.revision or 'working-tree',
-                  weights_dtype=args.weights_dtype)
+                  weights_storage_cast=args.weights_dtype)
     if args.output:
         with open(args.output, 'w') as stream:
             json.dump(result, stream, indent=2)
@@ -190,14 +194,12 @@ def main():
     parser.add_argument('--dem', help='Use a real DEM instead of synthetic data')
     parser.add_argument('--revision', help='Load Flow from a local Git revision')
     parser.add_argument('--save-arrays', help='Save output arrays after timing for detailed comparison')
-    parser.add_argument('--weights-dtype', choices=('float64', 'float32'),
-                        default='float64', help='float32 is an experimental benchmark-only cast')
+    parser.add_argument('--weights-dtype', choices=('native', 'float64', 'float32'),
+                        default='native', help='Optional storage cast after native calculation')
     parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.size < 1 or args.interval <= 0:
         parser.error('size and interval must be positive')
-    if args.revision and args.weights_dtype != 'float64':
-        parser.error('revision comparisons require float64 weights')
     worker(args) if args.worker else profile(args)
 
 

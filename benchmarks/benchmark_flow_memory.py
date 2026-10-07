@@ -32,8 +32,9 @@ def worker(args):
     warmup = DEM()
     warmup.setArray(np.ones((3, 3), dtype='float32'))
     warmup.fill()
-    from landspy._dijkstra import cost_distances
+    from landspy._dijkstra import cost_distances, flat_distances
     cost_distances(np.ones((3, 3)), [(0, 0)])
+    flat_distances(np.ones((3, 3), dtype=bool), [(0, 0)])
     from landspy._receivers import receiver_indices
     receiver_indices(np.arange(9, dtype='uint32'), np.ones((3, 3), dtype='float32'), 1.0)
 
@@ -61,6 +62,8 @@ def main():
     parser.add_argument('--size', type=int, default=2048)
     parser.add_argument('--baseline', default='3390f70')
     parser.add_argument('--worker', choices=('before', 'after'), help=argparse.SUPPRESS)
+    parser.add_argument('--allow-differences', action='store_true',
+                        help='Report changed output hashes for precision experiments')
     args = parser.parse_args()
     if args.size < 1:
         parser.error('size must be positive')
@@ -76,7 +79,10 @@ def main():
         result = json.loads(output)
         results.append(result)
         print(json.dumps(result), flush=True)
-    assert results[0]['checksums'] == results[1]['checksums'], 'Flow arrays differ'
+    if args.allow_differences:
+        print(json.dumps({'arrays_equal': results[0]['checksums'] == results[1]['checksums']}))
+    else:
+        assert results[0]['checksums'] == results[1]['checksums'], 'Flow arrays differ'
     assert results[0]['dtypes'] == results[1]['dtypes'], 'Flow dtypes differ'
 
 

@@ -24,9 +24,8 @@ def _sift_up(heap, positions, distance, slot):
 
 
 @njit(cache=True)
-def _distances(costs, starts, positions, heap):
+def _distance_kernel(costs, starts, positions, heap, distance, uniform):
     rows, cols = costs.shape
-    distance = np.full(costs.size, np.inf, dtype=np.float64)
     count = 0
     for k in range(starts.shape[0]):
         node = starts[k, 0] * cols + starts[k, 1]
@@ -59,7 +58,9 @@ def _distances(costs, starts, positions, heap):
             positions[last] = slot
 
         row, col = node // cols, node % cols
-        old_cost = costs[row, col]
+        if uniform and not costs[row, col]:
+            continue
+        old_cost = 1.0 if uniform else costs[row, col]
         for dr in range(-1, 2):
             nr = row + dr
             if nr < 0 or nr >= rows:
@@ -71,12 +72,19 @@ def _distances(costs, starts, positions, heap):
                 neighbour = nr * cols + nc
                 if positions[neighbour] == -2:
                     continue
-                new_cost = costs[nr, nc]
-                if not np.isfinite(new_cost) or new_cost < 0:
-                    continue
                 length = diagonal if dr != 0 and dc != 0 else 1.0
-                # Preserve MCP_Geometric's floating-point operation order.
-                candidate = distance[node] + length * 0.5 * (old_cost + new_cost)
+                if uniform:
+                    if not costs[nr, nc]:
+                        continue
+                    # Round both the step and accumulated distance in float32,
+                    # before comparing/updating heap priorities.
+                    candidate = np.float32(distance[node] + np.float32(length))
+                else:
+                    new_cost = costs[nr, nc]
+                    if not np.isfinite(new_cost) or new_cost < 0:
+                        continue
+                    # Preserve MCP_Geometric's floating-point operation order.
+                    candidate = distance[node] + length * 0.5 * (old_cost + new_cost)
                 if candidate >= distance[neighbour] or not np.isfinite(candidate):
                     continue
                 distance[neighbour] = candidate
@@ -92,6 +100,12 @@ def _distances(costs, starts, positions, heap):
                     count += 1
                 _sift_up(heap, positions, distance, slot)
     return distance.reshape((rows, cols))
+
+
+@njit(cache=True)
+def _distances(costs, starts, positions, heap):
+    distance = np.full(costs.size, np.inf, dtype=np.float64)
+    return _distance_kernel(costs, starts, positions, heap, distance, False)
 
 
 def cost_distances(costs, starts):
@@ -113,3 +127,19 @@ def cost_distances(costs, starts):
     positions = np.full(costs.size, -1, dtype=index_dtype)
     heap = np.empty(min(costs.size, max(16, len(starts))), dtype=index_dtype)
     return _distances(costs, starts, positions, heap)
+
+
+def flat_distances(flats, starts):
+    """Float32 unit-friction distances using only a traversability mask."""
+    flats = np.asarray(flats, dtype=np.bool_)
+    if flats.ndim != 2 or flats.size == 0:
+        raise ValueError('Dijkstra requires a nonempty two-dimensional mask')
+    starts = np.asarray(starts, dtype=np.int64).reshape((-1, 2))
+    if (np.any(starts < 0) or np.any(starts[:, 0] >= flats.shape[0])
+            or np.any(starts[:, 1] >= flats.shape[1])):
+        raise ValueError('Dijkstra seed outside the flat mask')
+    index_dtype = np.int32 if flats.size <= np.iinfo(np.int32).max else np.int64
+    positions = np.full(flats.size, -1, dtype=index_dtype)
+    heap = np.empty(min(flats.size, max(16, len(starts))), dtype=index_dtype)
+    distance = np.full(flats.size, np.inf, dtype=np.float32)
+    return _distance_kernel(flats, starts, positions, heap, distance, True)
