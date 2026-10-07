@@ -76,7 +76,6 @@ class Flow(PRaster):
                 self._size = dem.getSize()
                 self._geot = dem.getGeot()
                 self._proj = dem.getCRS()
-                self._nodata_pos = np.ravel_multi_index(dem.getNodataPos(), self.getDims())            
                 # Get topologically sorted nodes (ix - givers, ixc - receivers)
                 sorted_pixels = sort_pixels(dem, auxtopo=auxtopo, filled=filled,
                                             verbose=verbose, verb_func=verb_func,
@@ -506,10 +505,10 @@ class Flow(PRaster):
         individual cells that do not receive any flow and at the same time flow to 
         Nodata cells are also considered NoData and excluded from analysis.      
         """
-        aux_arr = np.zeros(self.getNCells())
+        aux_arr = np.zeros(self.getNCells(), dtype=np.bool_)
         aux_arr[self._ix] = 1
         aux_arr[self._ixc] = 1
-        return np.where(aux_arr == 0)[0]
+        return np.flatnonzero(~aux_arr)
     
     
 def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print,
@@ -531,13 +530,13 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     if filled:
         fill = dem
         dem_arr = fill.readArray()
-        topodiff = np.zeros(dem_arr.shape, dem_arr.dtype)
         del(dem)
     else:
         fill = dem.fill()
         dem_arr = dem.readArray()
         fill_arr = fill.readArray()
-        topodiff = fill_arr - dem_arr
+        if auxtopo:
+            topodiff = fill_arr - dem_arr
         dem_arr = fill_arr
         del(dem)     
     if verbose:
@@ -582,6 +581,7 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     if verbose:
         verb_func("Sorting pixels ...")
     ix = sort_dem(dem_arr, weights)
+    del weights
     if verbose:
         verb_func("6/7 - Pixels sorted")
     
@@ -595,18 +595,15 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
     if verbose:
         verb_func("Finishing ...")
     
-    # 08 Remove givers==receivers
-    ind = np.invert(ixc == ix) # givers == receivers
-    ix = ix[ind]
-    ixc = ixc[ind]
-    
-    # 09 Remove receivers marked as nodatas
-    w = dem_arr != nodata_val
-    w = w.ravel()
-    I   = w[ixc]
-    ix  = ix[I]
-    ixc = ixc[I]
-    
+    # Remove self-receivers and NoData receivers with a single selection.
+    valid = ix != ixc
+    valid_elevations = dem_arr.ravel() != nodata_val
+    valid &= valid_elevations[ixc]
+    del valid_elevations
+    ix = ix[valid]
+    ixc = ixc[valid]
+    del valid
+
     if verbose:
         verb_func("Flow algorithm successfully completed")
     
@@ -766,16 +763,15 @@ def sort_dem(dem_arr, weights, order="C"):
       Order of the returned indexes ("C" row-major (C-style) or "F", column-major 
       (Fortran-style) order.
     """
-    ncells = dem_arr.shape[0] * dem_arr.shape[1]
     # Sort the flat areas
     rdem = dem_arr.ravel(order=order)
     rweights = weights.ravel(order=order)
     ix_flats = np.argsort(-rweights, kind='mergesort')
     
     # Sort the rest of the pixels from the DEM
-    ndx = np.arange(ncells, dtype=np.int64)
-    ndx = ndx[ix_flats]
-    ix = ndx[np.argsort(-rdem[ndx], kind='mergesort')]
+    elevation_order = np.argsort(-rdem[ix_flats], kind='mergesort')
+    ix = ix_flats[elevation_order]
+    del ix_flats, elevation_order
     
     return ix.astype(np.uint32)
 

@@ -42,3 +42,22 @@ array after filling. Priority-Flood still needs a working output copy,
 visitation array, FIFO and a terrain-dependent heap; it is not an out-of-core
 algorithm. Reconstruction here includes the earlier removal of redundant
 output copies, so the comparison measures the algorithm change itself.
+
+## Flow construction: temporary-memory changes
+
+Compared with commit `3390f70`, Flow construction now skips unused elevation
+differences, frees weights before receiver calculation, uses a boolean cell
+marker, avoids redundant sorting indices and filters connections once.
+The final `_ix`, `_ixc` and `_zx` representations are unchanged.
+
+Exact array and dtype equality was checked on `small25`, `tunez` and `jebja30`
+for all combinations of `filled`, `raw_z` and `auxtopo` (24 configurations).
+The derived NoData positions were also identical. The full suite passed:
+108 tests, including stable sorting and unconnected-cell regressions.
+
+On a deterministic 2048 x 2048 synthetic float32 DEM (16 MiB), separate
+processes reported peak RSS of 657.6 MiB before and 647.3 MiB after. All three
+output checksums matched. This small reduction in overall peak memory shows
+that other construction phases still dominate this terrain; savings from
+individual temporary arrays must not be added together or extrapolated
+directly to large DEMs.

@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 from landspy import Flow, DEM
+from landspy.flow import sort_dem
 
 import sys, os
 # Forzar el directorio actual al del archivo
@@ -21,6 +22,24 @@ infolder = "data/in"
 outfolder = "data/out"
 
 class FlowFillReuseTest(unittest.TestCase):
+
+    def test_stable_sort_order(self):
+        rng = np.random.default_rng(19)
+        elevations = rng.integers(0, 5, (17, 23)).astype('float32')
+        weights = rng.integers(0, 4, elevations.shape).astype('float64')
+        for order in ('C', 'F'):
+            with self.subTest(order=order):
+                expected = np.lexsort((np.arange(elevations.size),
+                                       -weights.ravel(order=order),
+                                       -elevations.ravel(order=order)))
+                np.testing.assert_array_equal(sort_dem(elevations, weights, order), expected)
+
+    def test_unconnected_cells(self):
+        flow = Flow()
+        flow._size = (3, 3)
+        flow._ix = np.array([0, 2, 7], dtype='uint32')
+        flow._ixc = np.array([1, 3, 8], dtype='uint32')
+        np.testing.assert_array_equal(flow._get_nodata_pos(), [4, 5, 6])
 
     def test_fill_count_and_elevations(self):
         original = np.array([[9, 8, 7, 6, 5],
