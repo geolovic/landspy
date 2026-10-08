@@ -9,7 +9,8 @@ This library is constantly growing, and we will include more analysis and functi
 
 ## 2. Installation
 
-The library can be installed via pip via [pip][pip_link] or conda (we recommend to install via [conda-forge][conda_link]) on Linux, Mac, and Windows.
+The library can be installed via [pip][pip_link] on Linux, Mac, and Windows.
+Version 1.4.0 requires Python 3.10 or newer.
 
 ### pip installation
 Install the package by typing the following command in a command terminal:
@@ -21,8 +22,14 @@ When installed via pip, it is recommended to have [GDAL][GDAL_pip_link] previous
 To install the latest development version via pip, see our [github project page][github_link].
 
 ### conda installation (recommended)
-We can install landspy via [conda-forge][conda_forge_link].
-Once you have Anaconda or Miniconda installed, you should be able to install GDAL with:
+The conda-forge recipe is being prepared. Until it is accepted and published,
+install the native dependencies from conda-forge and landspy from PyPI:
+
+    conda create -n landspy -c conda-forge python=3.12 gdal numpy scipy matplotlib scikit-image shapely numba pip
+    conda activate landspy
+    python -m pip install landspy
+
+After the recipe has been accepted and built, installation will be:
 
     conda install -c conda-forge landspy
 
@@ -42,9 +49,10 @@ All dependencies should be installed along with landspy (See GDAL note for pip i
 - [GDAL](https://pypi.org/project/GDAL/)
 - [NumPy >= 1.14.5](https://www.numpy.org)
 - [SciPy >= 1.1.0](https://www.scipy.org/scipylib)
-- [scikit-image >= 1.0.0](https://scikit-image.org/)
+- [scikit-image](https://scikit-image.org/)
 - [matplotlib >= 3.0.0](https://matplotlib.org/)
 - [Numba >= 0.53](https://numba.pydata.org/) (compiled Priority-Flood filling)
+- [Shapely >= 2](https://shapely.readthedocs.io/)
 
 ## 4. Citation
 
@@ -173,7 +181,7 @@ You can contact me via <geolovic@gmail.com> <vperez@ugr.es>.
 
 [MIT License][license_link] © 2022
 
-[pip_link]: https://pypi.org/project/gstools
+[pip_link]: https://pypi.org/project/landspy/
 [conda_link]: https://anaconda.org/anaconda/repo
 [GDAL_pip_link]: https://pypi.org/project/GDAL/
 [conda_forge_link]: https://conda-forge.org/

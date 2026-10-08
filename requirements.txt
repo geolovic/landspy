@@ -3,5 +3,5 @@ numpy
 matplotlib
 scipy
 scikit-image
-shapely
+shapely>=2
 numba>=0.53

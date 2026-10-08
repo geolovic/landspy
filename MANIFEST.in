@@ -1,0 +1,9 @@
+include README.md LICENSE.txt pyproject.toml setup.py requirements.txt CHANGELOG.md
+recursive-include src/landspy *.py
+prune benchmarks
+prune tests
+prune docs
+prune conda-recipe
+prune .github
+exclude AGENTS.md RELEASING.md
+global-exclude __pycache__ *.py[cod] *.nbc *.nbi

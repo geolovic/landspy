@@ -9,6 +9,9 @@ cuando el usuario trabaje en español.
 - El paquete está en `src/landspy`; los tests en `tests`; los scripts de
   medición y sus informes en `benchmarks`.
 - Consulta `requirements.txt` y `setup.py` antes de cambiar dependencias.
+  La versión se declara en `setup.py`; `setup.cnf` se eliminó porque duplicaba
+  metadatos y no era un archivo de configuración reconocido por setuptools.
+  La versión 1.4.0 requiere Python >=3.10 y Shapely >=2.
   GDAL necesita sus bibliotecas nativas y los datos de PROJ. Activa el entorno
   completo antes de ejecutar pruebas, en lugar de usar solo su ejecutable Python.
 - Instala el paquete en modo editable con `python -m pip install -e .` cuando
@@ -172,6 +175,11 @@ python benchmarks/profile_flow_memory.py --dem /ruta/DEM.tif --revision 09e481d 
   como se ha hecho en los benchmarks existentes.
 
 ## Cambios y entrega
+
+- Para versiones y publicación, consulta `RELEASING.md`. Los paquetes wheel y
+  sdist deben excluir `benchmarks`, tests y datos. Conserva los benchmarks en
+  Git. Publicar en PyPI requiere configurar el Trusted Publisher; publicar
+  una receta en Git no hace que el paquete esté disponible en conda-forge.
 
 - Revisa el estado de Git y conserva cambios existentes que no pertenezcan
   a la tarea. No añadas imágenes, datos o archivos temporales por accidente.
