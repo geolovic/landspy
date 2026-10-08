@@ -1,3 +1,33 @@
+# Network gradient regression comparison
+
+The second optimization uses a centered linear regression compiled with Numba
+for well-conditioned windows. It preserves the 0.001 gradient floor, computes
+R2 from the unclamped slope, and keeps NumPy's float32 variance denominator for
+Flow elevations loaded from disk. Short, non-finite and poorly conditioned
+windows retain the original `np.polyfit` path. Window selection and channel
+traversal order are unchanged. Floating-point results are numerically equivalent
+within the comparisons below, rather than bit-for-bit identical.
+
+```bash
+python benchmarks/validate_network_regression.py --output validation.json
+python benchmarks/benchmark_network.py --baseline 6958244 --flow /path/jebja30_flow.tif --gradients --compare-gradients
+```
+
+Against `6958244`, all 360 gradient/R2 array comparisons passed at rtol=1e-10
+and atol=1e-12. They cover small25, tunez and jebja30; newly created and saved/
+reloaded Flow objects; theta 0.25, 0.45 and 0.65; and npoints 1, 2, 5, 10 and 20.
+The largest absolute difference was 5.07e-12. Cell IDs, areas, elevations,
+distances and chi were compared exactly. Maxima and versions are recorded in
+`network_regression_validation.json`.
+
+With `gradients=True` on saved jebja30 Flow, three fresh-process runs had median
+construction times of 2.515 s before and 0.826 s after (about 3.0 times faster).
+Median whole-process peak RSS was 242.30 versus 241.37 MiB. This compares against
+the preceding compact-memory implementation, not the original Network. Imports,
+Flow loading and compilation warmup are outside the timer. Raw observations
+are in `network_regression_results.json`. These three-run results are indicative
+and do not establish statistical significance or performance on a large DEM.
+
 # Network construction comparison
 
 Activate the GDAL/PROJ environment before running:

@@ -18,7 +18,7 @@ import time
 
 import numpy as np
 from landspy import Flow, Network
-from landspy._network import accumulate_downstream
+from landspy._network import accumulate_downstream, linear_fit
 
 
 def worker(args):
@@ -46,6 +46,9 @@ def worker(args):
         flow._nodata_pos = np.array([], dtype=np.int64)
         threshold = 1 if args.threshold == 0 else args.threshold
     accumulate_downstream(np.array([0]), np.array([1]), np.array([1.]), 2)
+    linear_fit(np.array([0., 1., 2.]), np.array([0., 1., 2.]))
+    linear_fit(np.array([0., 1., 2.]), np.array([0., 1., 2.]), -1.)
+    linear_fit(np.array([0., 1., 2.]), np.array([0., 1., 2.], np.float32), 2.)
     start = time.perf_counter()
     network = cls(flow, threshold=threshold, gradients=args.gradients)
     seconds = time.perf_counter() - start
@@ -56,6 +59,10 @@ def worker(args):
         checksum.update(name.encode())
         checksum.update(str(array.dtype).encode())
         checksum.update(array.tobytes())
+    if args.arrays:
+        np.savez(args.arrays, **{name: getattr(network, name) for name in
+                 ['_ix', '_ixc', '_ax', '_zx', '_dd', '_dx', '_chi',
+                  '_slp', '_ksn', '_r2slp', '_r2ksn']})
     return {'revision': args.revision or 'working-tree', 'seconds': seconds,
             'peak_rss_mib': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024,
             'dem_cells': flow.getNCells(), 'network_cells': network._ix.size,
@@ -73,6 +80,9 @@ def main():
     parser.add_argument('--runs', type=int, default=3)
     parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--revision', help=argparse.SUPPRESS)
+    parser.add_argument('--arrays', help=argparse.SUPPRESS)
+    parser.add_argument('--compare-gradients', action='store_true',
+                        help='Require exact core arrays and compare gradients at rtol=1e-10, atol=1e-12')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     if args.worker:
@@ -87,13 +97,28 @@ def main():
     if args.gradients:
         common += ['--gradients']
     results = []
-    for _ in range(args.runs):
-        for revision in [args.baseline, None]:
-            command = common + (['--revision', revision] if revision else [])
-            results.append(json.loads(subprocess.check_output(command, text=True)))
-    if len({result['sha256'] for result in results}) != 1:
+    differences = {}
+    with tempfile.TemporaryDirectory(prefix='network-benchmark-') as tmp:
+        for run in range(args.runs):
+            paths = []
+            for index, revision in enumerate([args.baseline, None]):
+                path = str(Path(tmp) / f'{run}-{index}.npz')
+                paths.append(path)
+                command = common + ['--arrays', path] + (['--revision', revision] if revision else [])
+                results.append(json.loads(subprocess.check_output(command, text=True)))
+            with np.load(paths[0]) as before, np.load(paths[1]) as after:
+                for name in before.files:
+                    if before[name].dtype != after[name].dtype:
+                        raise RuntimeError(f'{name} data type changed')
+                    if args.compare_gradients and name in ['_slp', '_ksn', '_r2slp', '_r2ksn']:
+                        np.testing.assert_allclose(after[name], before[name], rtol=1e-10, atol=1e-12)
+                        differences[name] = max(differences.get(name, 0.),
+                            float(np.max(np.abs(after[name] - before[name]), initial=0.)))
+                    else:
+                        np.testing.assert_array_equal(after[name], before[name])
+    if not args.compare_gradients and len({result['sha256'] for result in results}) != 1:
         raise RuntimeError('Network outputs differ')
-    output = json.dumps({'runs': results}, indent=2) + '\n'
+    output = json.dumps({'runs': results, 'max_absolute_gradient_differences': differences}, indent=2) + '\n'
     if args.output:
         args.output.write_text(output)
     print(output, end='')

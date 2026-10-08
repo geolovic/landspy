@@ -15,7 +15,7 @@
 import numpy as np
 import os
 from osgeo import ogr, osr
-from ._network import compact_nodes, accumulate_downstream
+from ._network import compact_nodes, accumulate_downstream, linear_fit
 
 from . import Grid, PRaster, Basin
 
@@ -256,6 +256,15 @@ class Network(PRaster):
    
     def polynomial_fit(self, x, y):
         '''Calculate gradient and R2 for two variables''' 
+        if (isinstance(x, np.ndarray) and isinstance(y, np.ndarray)
+                and x.ndim == 1 and y.ndim == 1
+                and x.dtype == np.float64 and y.dtype in (np.float32, np.float64)):
+            # Loaded Flow elevations can be float32. Preserve NumPy's float32
+            # variance and multiplication for the original R2 denominator.
+            normalization = float(y.size * y.var()) if y.dtype == np.float32 else -1.
+            gradient, r2, valid = linear_fit(x, y, normalization)
+            if valid:
+                return gradient, r2
        
         # Calculate slope of central cell by regression 
         poli, SCR = np.polyfit(x, y, deg = 1, full = True)[:2]
