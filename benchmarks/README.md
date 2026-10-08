@@ -1,3 +1,39 @@
+# Network construction comparison
+
+Activate the GDAL/PROJ environment before running:
+
+```bash
+python benchmarks/benchmark_network.py --gradients
+python benchmarks/benchmark_network.py --flow /path/jebja30_flow.tif --gradients
+```
+
+The baseline is `6c351a43f46ac8c73ec98b0b1eab500c6c53318d`. Each pair
+runs sequentially in fresh processes, with JIT warmup outside the construction
+timer. The script checks SHA-256 equality of all eleven Network arrays,
+including their data types. RSS includes imports, warmup and Flow loading.
+The default synthetic case is a chain of 4,095 edges in a 4,096 x 4,096 layout;
+it exposes memory costs for sparse networks and is not a realistic DEM.
+
+Medians of three runs with `gradients=True`:
+
+| Case | Baseline time | Compact time | Baseline peak RSS | Compact peak RSS |
+| --- | --- | --- | --- | --- |
+| Synthetic sparse chain | 4.918 s | 2.262 s | 557.13 MiB | 280.75 MiB |
+| jebja30, 5,947 network cells | 3.708 s | 2.863 s | 262.89 MiB | 241.84 MiB |
+
+Raw observations and tool versions are in `network_sparse_results.json` and
+`network_jebja_results.json`. These small samples are indicative, not a
+statistical significance claim or a measurement on the user's large DEM.
+The new implementation sorts compact node IDs, so dense networks may have
+different time/memory tradeoffs. Flow accumulation still requires its raster.
+
+Separate validation compared 180 arrays and data types exactly against the
+baseline across small25, tunez and jebja30, using default, 1, 20 and above-maximum
+thresholds. Default-threshold networks included slope/ksn and both R2 arrays;
+chi was also recalculated with theta=0.3 and a0=2. The gradient regression and
+window rules are preserved; existing Strahler and export defects are outside
+this optimization.
+
 # DEM fill comparison
 
 Run after installing LandSpy and activating the GDAL/PROJ environment:
