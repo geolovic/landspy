@@ -9,8 +9,8 @@ package:
 
 source:
   # Refresh from published PyPI metadata with update_source.py before submission.
-  url: https://pypi.org/packages/source/l/landspy/landspy-${{ version }}.tar.gz
-  sha256: 9411e73d922a4172552f7711bde838ab6ee0e097bc6b605393d6db88cd72b0a0
+  url: https://files.pythonhosted.org/packages/44/a6/3989676385b94447bcd8e26497120c5d993423ff9516eda2367ab8d5ad38/landspy-1.4.0.tar.gz
+  sha256: c148a12fb4eb6500db12501e83945ba425a487a105fa8301e04264e489cae03f
 
 build:
   number: 0
