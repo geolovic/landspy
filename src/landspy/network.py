@@ -16,7 +16,6 @@ import numpy as np
 import os
 from osgeo import ogr, osr
 from scipy.sparse import csc_matrix
-from setuptools.command.develop import develop
 
 from . import Grid, PRaster, Basin
 

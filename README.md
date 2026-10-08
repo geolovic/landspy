@@ -10,7 +10,7 @@ This library is constantly growing, and we will include more analysis and functi
 ## 2. Installation
 
 The library can be installed via [pip][pip_link] on Linux, Mac, and Windows.
-Version 1.4.0 requires Python 3.10 or newer.
+Version 1.4.1 requires Python 3.10 or newer.
 
 ### pip installation
 Install the package by typing the following command in a command terminal:

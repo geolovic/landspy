@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1
+
+- Remove an unused runtime import of setuptools so that landspy imports in
+  clean environments where build tools are not installed.
+
 ## 1.4.0
 
 - Replace DEM filling with Numba-compiled Priority-Flood.

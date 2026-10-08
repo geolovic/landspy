@@ -24,14 +24,14 @@ python -m twine check --strict dist/*
 Después de configurar el Trusted Publisher, publica la etiqueta:
 
 ```bash
-git tag -a v1.4.0 -m "landspy 1.4.0"
-git push origin v1.4.0
+git tag -a v1.4.1 -m "landspy 1.4.1"
+git push origin v1.4.1
 ```
 
 El workflow construye wheel y sdist, verifica la versión y la exclusión de
 benchmarks, y publica ambos archivos en PyPI. No reutilices una versión ya
 publicada. `workflow_dispatch` sobre master solo construye; para reintentar
-una publicación selecciona la etiqueta `v1.4.0` o reejecuta su workflow.
+una publicación selecciona la etiqueta `v1.4.1` o reejecuta su workflow.
 
 ## conda-forge
 

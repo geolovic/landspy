@@ -1,7 +1,7 @@
 schema_version: 1
 
 context:
-  version: "1.4.0"
+  version: "1.4.1"
 
 package:
   name: landspy
@@ -9,8 +9,8 @@ package:
 
 source:
   # Refresh from published PyPI metadata with update_source.py before submission.
-  url: https://files.pythonhosted.org/packages/44/a6/3989676385b94447bcd8e26497120c5d993423ff9516eda2367ab8d5ad38/landspy-1.4.0.tar.gz
-  sha256: c148a12fb4eb6500db12501e83945ba425a487a105fa8301e04264e489cae03f
+  url: https://files.pythonhosted.org/packages/44/a6/3989676385b94447bcd8e26497120c5d993423ff9516eda2367ab8d5ad38/landspy-1.4.1.tar.gz
+  sha256: 0f36f6876db4653a52004cc0cd227ce69af59105b3c104f265db5620bdf1e1e0
 
 build:
   number: 0
