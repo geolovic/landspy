@@ -19,19 +19,21 @@ from shapely.geometry import LineString
 def extract_points(path, idfield=""):
     """
     Extract coordinates from a point shapefile
-    
+
     Parameters:
     ================
     path : str
       Path to the shapefile
     idfield : str
-      Shapefile field with point ids
-      
+      Field with integer-convertible point IDs. If absent or not found,
+      return only XY coordinates.
+
     Return:
     ================
-    coords : np.dnarray
+    coords : numpy.ndarray
       Numpy array with 2 or 3 columns with points X and Y (third column will contain point ids
-      if idfield was specified)
+      if the requested field exists). Empty layers return an empty 1-D array;
+      a non-point layer returns the legacy placeholder [[0, 0, 0]].
     """
     driver = ogr.GetDriverByName("ESRI Shapefile")
     dataset = driver.Open(path)
@@ -63,23 +65,24 @@ def shp_to_channels(path, net, id_field="", name_field=""):
     """
     Extracts channels from river shapefile. Shapefile geometry must be polyline. Only the first point (head)
     and the last point (mouth) of each line are used, the channel is extracted from the Network object. Only no-multipart
-    polylines will be used. 
-    
+    polylines will be used.
+
     Parameters:
     ================
     path : str
       Path to the polyline shapefile
     net : landspy.Network
       Network instance
-    id_field : str 
+    id_field : str
       Field with the OId for the channel. If not provided, the oid will be an integer number (order of the line)
-    name_field : str 
-      Field with the label for the channel. If not provided, the name will be an integer number (order of the line)
-      
+    name_field : str
+      Field with the label for the channel. If not provided, the name will be the string representation of the zero-based feature index
+
     Return:
     ================
     channel : list of landspy.Channel objects
-      List of landspy.Channel objects
+      List of Channel objects; may include None when getChannel cannot
+      extract a channel.
     """
     
     # Get driver and open shapefile
@@ -129,13 +132,20 @@ def get_line_strings(shapefile, names_field=""):
     shapefile : *str*
       Path to the line shapefile with profile centerline
     names_field : *str*
-      Name of the field with the profile names. If skipped, profiles will be named sequentially
+      Name of the field with profile names. If absent or not found, names
+      are sequential strings starting at "0".
 
     Returns:
     ==============
     (out_lines, out_names) : *tuple*
         out_lines : List with shapely.geometry.LineString objects representing shapefile lines
-        out_names : List of string with profile names
+        out_names : List of strings with profile names
+
+    Notes
+    -----
+    Returns (None, None) unless the layer reports 2-D LineString geometry.
+    For a multipart feature within such a layer, only its first part is used.
+    These readers use OGR and may raise if the input file cannot be opened.
     """
     # Open the dataset and get the layer
     driver = ogr.GetDriverByName("ESRI Shapefile")

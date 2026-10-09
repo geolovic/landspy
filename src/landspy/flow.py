@@ -23,14 +23,18 @@ from . import Grid, PRaster, DEM
 
 class Flow(PRaster):
     
+    """Topologically sorted giver/receiver cells and their elevations.
+
+    Construct from a DEM, load a saved Flow, or create an empty instance.
+    See __init__ for filling and elevation options."""
     def __init__(self, dem="", auxtopo=False, filled=False, raw_z=False, verbose=False, verb_func=print):
         """
-        Class that define a network object (topologically sorted giver-receiver cells)
-        
+        Create a Flow object (topologically sorted giver-receiver cells)
+
         Parameters:
         ===========
         dem : *DEM object* or *str*
-          landspy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the 
+          landspy.DEM instance with the input Digital Elevation Model, or path to a previously saved Flow object. If the
           parameter is an empty string, it will create an empty Flow instance.
         auxtopo : boolean
           Boolean to determine if an auxiliar topography is used (much slower). The auxiliar topography is calculated with
@@ -45,16 +49,16 @@ class Flow(PRaster):
           If filled is True, both modes use the input DEM's elevations.
         verbose : boolean
           Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
-        verb_func : str
+        verb_func : callable
           Function to output verbose messages (only needed if landspy is embeded in other application)
         References:
         -----------
-        The algoritm to created the topologically sorted network has been adapted to Python from FLOWobj.m 
+        The algoritm to created the topologically sorted network has been adapted to Python from FLOWobj.m
         by Wolfgang Schwanghart (version of 17. August, 2017) included in TopoToolbox matlab codes (really
         smart algoritms there!). If use, please cite:
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
+
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+        MATLAB-based software for topographic analysis and modeling in Earth
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
         
@@ -97,17 +101,22 @@ class Flow(PRaster):
         """
         Saves the flow object as a geotiff. The geotiff file it wont have any
         sense if its open with GIS software.
-        
+
         Parameters:
         ===========
-        path : *str* 
+        path : *str*
           Path to store the geotiff file with the Flow data
 
-        The organization of this geotiff is as follow::
-            
-        * Band 1 --> Givers pixels reshaped to self._dims
-        * Band 2 --> Receiver pixels reshaped to self._dims
-        * Band 3 --> Elevation of givers reshaped to self._dims)
+        Indices are stored as uint32. Elevations are multiplied by 1000
+        and cast to uint32, so negative values and values outside that range
+        are not preserved safely. Loading returns float32 elevations.
+        Band 1 NoData metadata encodes the number of trailing padding cells.
+
+        The organization of this geotiff is as follows:
+
+        * Band 1 --> Givers pixels padded and reshaped to self.getDims()
+        * Band 2 --> Receiver pixels padded and reshaped to self.getDims()
+        * Band 3 --> Elevation of givers multiplied by 1000 padded and reshaped to self.getDims())
         """
 
         driver = gdal.GetDriverByName("GTiff")
@@ -130,15 +139,18 @@ class Flow(PRaster):
         raster.GetRasterBand(1).SetNoDataValue(no_cells)
 
     def load(self, path):
-        """
-        Load a geotiff file with flow direction information. This geotiff must
-        have been saved with the save_gtiff() function.
-        
-        Parameters:
-        ===========
-        path : *str* 
-          Path for the Flow geotiff.
-        """
+        """Load the three-band GeoTIFF written by Flow.save().
+
+        Parameters
+        ----------
+        path : str
+            Path to the saved Flow, not an ordinary flow-direction raster.
+
+        Notes
+        -----
+        Loads cell indices as uint32 and elevations as float32, dividing the
+        stored elevation integers by 1000. Saving/loading is not lossless for
+        arbitrary elevations; see save()."""
         # Elements inherited from Grid.__init__
         super().__init__(path)    
 
@@ -170,27 +182,31 @@ class Flow(PRaster):
         Flow object. As pixels of the Flow objects are sorted topologically, the flow
         accumulation can be obtained very fast with a computational time that is linearly
         dependent on the number of cell of the DEM.
-        
+
         Parameters:
-        ===========  
-        weights : *landspy.Grid*
-          Grid with weights for the flow accumulation (p.e. precipitation values)
+        ===========
+        weights : landspy.Grid or None
+          With None, each cell contributes one unit (uint32 accumulation).
+          A weights Grid with matching size and geotransform contributes
+          its values (float64 accumulation); CRS equality is not checked.
+          The alternative resampling branch currently references missing
+          methods and is not supported.
         nodata : *bool*
-          Boolean flag that indicates if the output flow accumulation grid will maintain NoData values. 
-          If nodata=False, nodata values will be filled with 0 and NoDataValue will set to None. 
+          Boolean flag that indicates if the output flow accumulation grid will maintain NoData values.
+          If nodata=False, nodata values will be filled with 0 and NoDataValue will set to None.
         asgrid : *bool*
-          Indicates if the network is returned as landspy.Grid (True) or as a numpy.array
-        
+          Indicates if accumulation is returned as landspy.Grid (True) or as a numpy.array
+
         Usage:
         ======
         fac = fd.flowAccumulation() # Create a flow accumulation Grid object
         fac.save("C:/Temp/flow_acc.tif") # Save the flow accumulation in the disk
-        
+
         Reference:
         ----------
-        Braun, J., Willett, S.D., 2013. A very efficient O(n), implicit and parallel 
-        method to solve the stream power equation governing fluvial incision and landscape 
-        evolution. Geomorphology 180–181, 170–179. 
+        Braun, J., Willett, S.D., 2013. A very efficient O(n), implicit and parallel
+        method to solve the stream power equation governing fluvial incision and landscape
+        evolution. Geomorphology 180–181, 170–179.
         """
         dims = self.getDims()
         ncells = self.getNCells()
@@ -242,31 +258,32 @@ class Flow(PRaster):
         """
         This function finds points of interest of the drainage network. These points of interest
         can be 'heads', 'confluences' or 'outlets'.
-        
+
         Parameters:
         -----------
         threshold : *int*
-          Flow accumulation threshold to extract stream POI (in number of cells)
+          Select giver cells with accumulation strictly greater than threshold
+          (unlike Network construction, which uses >=).
         kind : *str* {'heads', 'confluences', 'outlets'}
           Kind of point of interest to return.
         coords : *str* {'CELL', 'XY', 'IND'}
-          Output coordinates for the stream point of interest. 
-          
+          Output coordinates for the stream point of interest.
+
         Returns:
         -----------
         numpy.ndarray
-          Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
-          with the location of the points of interest 
-          
+          One-dimensional cell-index array for IND, or shape (N, 2) for
+          CELL [row, col] and XY [x, y]. Coordinates use cell centres.
+
         References:
         -----------
-        The algoritms to extract the point of interest have been adapted to Python 
-        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
+        The algoritms to extract the point of interest have been adapted to Python
+        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17.
+        August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to
         derive point of interest in a really efficient way. Cite:
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
+
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+        MATLAB-based software for topographic analysis and modeling in Earth
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
 
@@ -316,22 +333,25 @@ class Flow(PRaster):
         """
         This function extracts the drainage basins for the Flow object and returns a Grid object that can
         be saved into the disk.
-        
+
         Parameters:
         ===========
         outlets : *iterable*
-          List/tuple with (x, y) coordinates for the outlets, or 2-D numpy.ndarray
-          with [x, y] columns. If outlets is None, all possible outlets will be 
+          Single (x, y) pair as a list/tuple, or a 2-D numpy.ndarray
+          with [x, y] columns. A third array column supplies basin IDs for
+          multiple outlets; a single outlet currently always receives ID 1. If outlets is None, all possible outlets will be
           extracted
         min_area : *float*
-          Minimum area for basins to avoid very small basins. The area is given as a 
-          percentage of the total number of cells (default 0.5%). Only valid if outlets is None.
+          Minimum area for basins to avoid very small basins. The area is given as a
+          fraction of all raster cells: 0.005 means 0.5%, not 0.005%.
+          If no qualifying outlets are found, the current implementation
+          falls back to extracting all basins. Only valid if outlets is None.
         asgrid : *bool*
-          Indicates if the network is returned as landspy.Grid (True) or as a numpy.ndarray (False)
+          Indicates if the basin labels are returned as landspy.Grid (True) or as a numpy.ndarray (False)
 
         Return:
         =======
-        basins : *landspylandspy.Grid* object or numpy.ndarray with the different drainage basins.
+        basins : *landspy.Grid* object or numpy.ndarray with the different drainage basins.
 
         Usage:
         =====
@@ -345,12 +365,12 @@ class Flow(PRaster):
 
         References:
         -----------
-        The algoritms to extract the drainage basins have been adapted to Python 
-        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
+        The algoritms to extract the drainage basins have been adapted to Python
+        from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17.
         August, 2017).
-                
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
+
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+        MATLAB-based software for topographic analysis and modeling in Earth
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
         """
         # Si no especificamos outlets pero si area minima, extraemos outlets con ese area minima
@@ -428,20 +448,28 @@ class Flow(PRaster):
     def snapPoints(self, input_points, threshold, kind="channel", remove_duplicates=False):
         """
         Snap input points to channel cells or to stream POI
-        
+
         Parameters:
         ===========
         input_points : *numpy.ndarray*
           Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
         threshold : *int*
-          Flow accumulation threshold (in number of cells) to extract channel cells or stream POI 
-        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
-            Kind of point to snap input points
-        
+          Flow accumulation threshold (in number of cells) to extract channel cells or stream POI
+        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}
+            Kind of target. Channel cells use accumulation >= threshold;
+            POI targets use the strict threshold rule of streamPoi().
+        remove_duplicates : bool, default False
+          With extra input columns, keep one point per target index and
+          omit the appended index column. Current limitation: with only
+          XY input, deduplication uses Y and drops that coordinate column.
+
         Returns:
         ===========
         numpy.ndarray
-          Numpy ndarray with two columns [xi, yi] with the snap points
+          With two-column input and remove_duplicates=False: snapped XY.
+          With extra columns: snapped XY, original extra columns and a
+          final target index (omitted when remove_duplicates=True).
+          An empty target set raises during nearest-point selection.
         """
         
         # Extract a numpy array with the coordinate to snap the points
@@ -480,16 +508,16 @@ class Flow(PRaster):
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array
-        must have the same shape that self._dims and will maintain the Flow object 
+        must have the same shape that self.getDims() and will maintain the Flow object
         properties as dimensions, geotransform, reference system, etc.
-        
+
         Parameters:
         ===========
         array : *numpy.ndarray*
           Array to convert to a Grid object
-        nodata_value _ *int* / *float*
+        nodata_value : *int* / *float*
           Value for NoData values
-          
+
         Returns:
         ========
         Grid object with the same properties that Flow
@@ -504,9 +532,9 @@ class Flow(PRaster):
     def _get_nodata_pos(self):
         """
         Function that returns nodata positions from ix and ixc lists. These NoData
-        position could be slightly different from original DEM Nodata positions, since 
-        individual cells that do not receive any flow and at the same time flow to 
-        Nodata cells are also considered NoData and excluded from analysis.      
+        position could be slightly different from original DEM Nodata positions, since
+        individual cells that do not receive any flow and at the same time flow to
+        Nodata cells are also considered NoData and excluded from analysis.
         """
         aux_arr = np.zeros(self.getNCells(), dtype=np.bool_)
         aux_arr[self._ix] = 1
@@ -518,6 +546,30 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
                 order="C", return_elevations=False):
     
     # Get DEM properties
+    """Return topologically sorted giver and receiver indices for a DEM.
+
+    Parameters
+    ----------
+    dem : landspy.DEM
+        Input elevation grid. Its array is not modified.
+    auxtopo : bool, default False
+        Use fill-depth-derived friction in flats; ignored when filled=True.
+    filled : bool, default False
+        If True, skip depression filling. Otherwise fill once.
+    verbose : bool, default False
+        Emit progress messages through verb_func.
+    verb_func : callable, default print
+        Function accepting one progress-message string.
+    order : str, default "C"
+        Legacy argument: currently unused; routing uses C-order indices.
+    return_elevations : bool, default False
+        Include filled/input giver elevations as a third output.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        (ix, ixc), or (ix, ixc, zx) with float64 elevations. Self-receivers
+        and receivers equal to the original NoData sentinel are excluded."""
     cellsize = (dem.getCellSize()[0] + dem.getCellSize()[1] * -1) / 2 # Average cellsize
     nodata_val = dem.getNodata()
     if nodata_val is None:
@@ -619,36 +671,40 @@ def sort_pixels(dem, auxtopo=False, filled=False, verbose=False, verb_func=print
 
 def get_presills(filldem, flats, sills, as_positions=True):
     """
-    This functions extracts the presill pixel locations (i.e. pixel immediately 
+    This functions extracts the presill pixel locations (i.e. pixel immediately
     upstream to sill pixels)- Adapted from TopoToolbox matlab codes.
-    
+
     Parameters:
     -----------
     filldem : *np.ndarray*
       Array of values representing a filled DEM
     flats : *np.ndarray*
-      Numpy logical array with location of the flats (cells without downward 
+      Numpy logical array with location of the flats (cells without downward
       neighboring cells)
     sills: *np.ndarray*
-      Numpy logical array with location of the sills (cells where flat regions 
+      Numpy logical array with location of the sills (cells where flat regions
       spill over into lower terrain)
-    
+
+    as_positions : bool, default True
+      Return a list of (row, col) pairs if True, otherwise a boolean mask.
+
     Return:
     -------
     presills_pos : list
-      List of tuples (row, col) with the location of the presill pixels
-      
+      List of (row, col) pairs when as_positions=True (duplicates may occur),
+      otherwise a boolean array matching filldem.shape
+
     References:
     -----------
-    This algoritm is adapted from TopoToolbox matlab codes by Wolfgang Schwanghart 
-    
-    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions 
-    for topographic analysis. Environ. Model. Softw. 25, 770–781. 
+    This algoritm is adapted from TopoToolbox matlab codes by Wolfgang Schwanghart
+
+    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions
+    for topographic analysis. Environ. Model. Softw. 25, 770–781.
     https://doi.org/10.1016/j.envsoft.2009.12.002
-    
-    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-    MATLAB-based software for topographic analysis and modeling in Earth 
-    surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014  
+
+    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+    MATLAB-based software for topographic analysis and modeling in Earth
+    surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
     """
     dims = filldem.shape
     row, col = np.where(sills)
@@ -691,12 +747,13 @@ def get_aux_topography(topodiff, flats):
       Numpy array [np.int8 type] with the location of the flats
     topodiff : *numpy.array* [dtype=float32]
       Numpy array [np.float32 type] with the auxiliar topography (diference between filldem and dem)
-    
+
     Return:
     -------
     aux_topography : *np.array*
-      Auxiliar topography to sort flats areas
-    """              
+      Auxiliary topography to sort flat areas. This is the same topodiff
+      array, modified in place, not a copy.
+    """
     struct = np.ones((3, 3), dtype=np.int8)
     lbl_arr, nlbl = ndimage.label(flats, structure=struct)
     lbls = np.arange(1, nlbl + 1)
@@ -719,31 +776,33 @@ def get_weights(flats, aux_topo, presills_pos):
     -----------
     flats : *numpy.array* [dtype = "bool"]
       Numpy array with the location of the flats surfaces
-    aux_topo: *numpy.array* [dtype = np.float32]
+    aux_topo : numpy.ndarray or None
       Numpy array with the auxiliar topography, or None for unit friction
       directly from the flat mask (float32 distances).
-    presill_pos *list*
+    presills_pos : list
       List of tuples (row, col) with the location of the presills
 
     Returns:
     --------
-    weigths : *numpy.array*
+    weights : *numpy.array*
       Array with routing costs inside flats. Unit-friction distances use
       float32; supplied auxiliary surfaces retain float64 distances.
       Outside-flat cells are barriers during propagation and receive -99999
       in the returned array. When presills exist, unreachable flats retain
-      infinite distance. Without presills, the auxiliary costs are retained.
-    
+      infinite distance. Without presills, supplied auxiliary costs are retained; unit-friction
+      flats receive 1. Distances with seeds have 1 added before returning.
+      A supplied aux_topo is modified in place at non-flat positions.
+
     References:
     -----------
     This algoritm is adapted from the TopoToolbox matlab codes by Wolfgang Schwanghart.
-    
-    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions 
-    for topographic analysis. Environ. Model. Softw. 25, 770–781. 
+
+    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions
+    for topographic analysis. Environ. Model. Softw. 25, 770–781.
     https://doi.org/10.1016/j.envsoft.2009.12.002
-    
-    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-    MATLAB-based software for topographic analysis and modeling in Earth 
+
+    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+    MATLAB-based software for topographic analysis and modeling in Earth
     surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
     """
     if aux_topo is None:
@@ -769,16 +828,22 @@ def sort_dem(dem_arr, weights, order="C"):
     """
     Sort the cells of a DEM in descending order. It uses a weights array to
     sort the flats areas
-    
+
     Parameters:
     -----------
-    dem_arr : *numpy.ndarray* 
+    dem_arr : *numpy.ndarray*
       Numpy array representing a filled DEM
-    weights :  *numpy.ndarray* 
+    weights :  *numpy.ndarray*
       Numpy array with the weights to sort the flats areas
     order : *str*
-      Order of the returned indexes ("C" row-major (C-style) or "F", column-major 
+      Order of the returned indexes ("C" row-major (C-style) or "F", column-major
       (Fortran-style) order.
+
+    Returns
+    -------
+    numpy.ndarray, dtype uint32
+      Indices sorted by descending elevation, then descending weight.
+      Exact ties retain the original linear-index order.
     """
     rdem = dem_arr.ravel(order=order)
     rweights = weights.ravel(order=order)
@@ -790,9 +855,9 @@ def sort_dem(dem_arr, weights, order="C"):
 
 def get_receivers(ix, dem_arr, cellsize, order="C"):
     """
-    This function obtain the receiver cells for an array of "givers" cells 
+    This function obtain the receiver cells for an array of "givers" cells
     represented by linear indexes.
-    
+
     Parameters:
     -----------
     ix : *numpy.array*
@@ -802,29 +867,30 @@ def get_receivers(ix, dem_arr, cellsize, order="C"):
     cellsize : *float* / *int*
       Cellsize of the DEM
     order : *str*
-      Order of the returned indexes ("C" row-major (C-style) or "F", column-major 
+      Order of the returned indexes ("C" row-major (C-style) or "F", column-major
       (Fortran-style) order
-      
+
     Returns:
     --------
     ixc : *numpy.array*
       Linear indexes for the receivers cells
-      
+
     References:
     -----------
     This algoritm is adapted from the TopoToolbox matlab codes by Wolfgang Schwanghart.
-    
-    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions 
-    for topographic analysis. Environ. Model. Softw. 25, 770–781. 
+
+    Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions
+    for topographic analysis. Environ. Model. Softw. 25, 770–781.
     https://doi.org/10.1016/j.envsoft.2009.12.002
-    
-    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-    MATLAB-based software for topographic analysis and modeling in Earth 
-    surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014    
+
+    Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+    MATLAB-based software for topographic analysis and modeling in Earth
+    surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
     """
     
     return receiver_indices(ix, dem_arr, cellsize, order)
 
 
 class FlowError(Exception):
+    """Error raised while constructing a Flow or validating its inputs."""
     pass

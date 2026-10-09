@@ -21,15 +21,24 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 class SwathProfile:
+    """Parallel elevation profiles sampled around a Shapely centre line.
+
+    Stores repeated (x, y, z) column groups and derived elevation statistics.
+    See __init__ for sampling constraints and loading options."""
     def __init__(self, center_line=None, dem=None, width=0, n_lines=0, step_size=0, name=""):
         """
         Class to create a swath profile object and related parameters
 
-        :param center_line: shapely.geometry.LineString - LineString the swath profile center line
+        :param center_line: shapely.geometry.LineString - Profile centre line; None creates an empty object, a str loads a
+        saved .swt metadata file.
         :param dem: landspy.DEM - Digital Elevation Model
         :param width: float - Half width of the swath profile (in data units)
-        :param n_lines: int - Number of elevation profiles of the SWATH at each side of center line
-        :param step_size: float - Step-size to get elevation points along the profile
+        :param n_lines: int - Number of offset profiles on each side. Zero or a value above
+        int(width / X cell size) selects that maximum. width must allow at
+        least one offset line to avoid division by zero.
+        :param step_size: float - Requested spacing in map units; zero or values below the DEM X
+        cell size use that cell size. Samples use normalized line fractions
+        and exclude the endpoint; see _get_zi().
         :param name: str - Name of the profile
         """
         # Creates an empty SwathProfile Object
@@ -98,20 +107,31 @@ class SwathProfile:
         self._get_parameters()
 
     def set_name(self, name=""):
+        """Set the profile name, converting the value to str."""
         self.name = str(name)
 
     def get_name(self):
+        """Return the profile name as a string."""
         return self.name
 
     def _get_zi(self, line, dem, n_points):
-        """
-        Get elevations along a line in n_points equally spaced. If any point of the line falls
-        outside the DEM or in a NoData cell, a np.nan value will be assigned.
-        :param line : Shapely.LineString object. Input LineString
-        :param dem : pRaster object. DEM with elevations.
-        :param n_points : int. Number of points along the line to get elevations
-        :return zi : Numpy.ndarray. Array with size (n_points, 1) with elevations
-        """
+        """Sample a line at n_points normalized positions.
+
+        Parameters
+        ----------
+        line : shapely.LineString
+            Input sampling line.
+        dem : landspy.DEM
+            Elevation grid.
+        n_points : int
+            Number of samples, at fractions i / n_points for i=0..n_points-1;
+            the final endpoint is excluded.
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape (n_points, 3), with X, Y and Z columns. Outside/NoData samples
+            and zero-valued elevations currently receive NaN."""
         step_size = 1.0 / n_points
         elev_data = []
 
@@ -131,11 +151,10 @@ class SwathProfile:
         return np.array(elev_data, dtype="float")
 
     def _combine_multilines(self, line):
-        """
-        Combines all the parts of a MultiLineString in a single LineString
-        :param line : Shapely.LineString object. Input MultiLineString
-        :return line : Shapely.LineString object. Ouput LineString
-        """
+        """Concatenate MultiLineString component coordinates into a LineString.
+
+        Parts keep their stored order; connecting segments between parts may be
+        introduced. This does not perform a topological line merge."""
         xyarr = np.array([], dtype="float32").reshape((0, 2))
         for n in range(len(line.geoms)):
             xyarr = np.append(xyarr, np.array(line.geoms[n].coords), axis=0)
@@ -143,17 +162,19 @@ class SwathProfile:
 
     def draw_swath(self, ax, q1=False, q3=False, max=False, min=False, mean=False, central=True, data='RAW', legend=False, styles=None):
         """
-        Draw the swat profile in an matplotlib Axe object
-        :param ax : Axe object where the profile will be painted. Its cleared before drawing
+        Draw the swath profile in a matplotlib Axes object
+        :param ax : Axes object where the profile will be painted. It is cleared before drawing
         :param q1 : boolean. Draw Q1 profile
         :param q3 : boolean. Draw Q3 profile
-        :param max : boolean. Draw maximum elevation and Q3 profiles
+        :param max : boolean. Draw the maximum elevation profile (Q3 is controlled separately)
         :param min : boolean. Draw minimum elevation profile
         :param mean : boolean. Draw mean elevation profile
         :param central : boolean. Draw central line profile (input line).
         :param data: str. String to select raw data draw mode. 'RAW' draw all profiles, 'POLYGON' draw only boundary polygon, 'NONE' does not draw raw data
         :param legend: boolean. Show the legend.
-        :kwargs : Dicctionary with line styles (linewidth - linestyle - color)
+        :param styles: dict or None. Per-profile style dictionaries keyed by
+        q1, q3, max, min, mean, central or data, with lw, ls and color keys.
+        Each supplied entry replaces the whole corresponding default entry.
         """
         ax.clear()
         base_styles = {"q1": {'lw': 1.5, 'ls': '-', 'color': (0., 0.75, 1.)},
@@ -211,9 +232,9 @@ class SwathProfile:
 
     def draw_thi(self, ax, enhanced=False):
         """
-        Draws the THI profile in an input Axe
+        Draws the THI profile in an input Axes
 
-        :param ax : matplotlib.Axe object to draw the THI profile
+        :param ax : matplotlib.axes.Axes object to draw the THI profile
         :param enhanced : boolean. Specify if the enhanced THI (THI*) is calculated
         """
         if self.center_line.length == 0:
@@ -246,12 +267,9 @@ class SwathProfile:
         ax.set_yticks((0.0, 0.5, 1.0))
 
     def save_swath(self, path):
-        """
-        Save the SWATH profile in two files (*.dat and *.npy)
-        Args:
-            path: Path to save the SWATH profile
+        """Save the profile to paired .swt (text metadata) and .npy (data) files.
 
-        """
+        The supplied path extension is replaced for both files. Returns None."""
         # Get the base name
         base_name = os.path.splitext(path)[0]
 
@@ -268,9 +286,11 @@ class SwathProfile:
         fw.close()
 
     def load_swath(self, path):
-        """
-        Load the SWATH profile from disk
-        """
+        """Load the paired .swt metadata and .npy data files.
+
+        path must point to the .swt metadata file. Both files with the same base
+        name must exist; otherwise this method returns without loading.
+        Derived statistics are recalculated after loading."""
         # Get the base name
         base_name = os.path.splitext(path)[0]
 
@@ -294,6 +314,11 @@ class SwathProfile:
 
     def _get_parameters(self):
 
+        """Derive distances, elevation statistics, HI, relief and plot polygon.
+
+        Uses elevation columns 2::3. Quartiles select the sample nearest each
+        NumPy quantile, rather than the interpolated quantile itself. All-NaN
+        rows raise during argmin/argmax; zero relief produces an undefined HI."""
         if self.center_line.length == 0:
             return
 

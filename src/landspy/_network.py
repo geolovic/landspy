@@ -24,7 +24,11 @@ def linear_fit(x, y, normalization=-1.):
     """Centered degree-one regression; flag exceptional windows for polyfit.
 
     No fastmath: the variance and residual sums retain their operation order.
-    Ill-conditioned or non-finite inputs keep NumPy's original SVD behavior.
+    Returns (gradient, R2, valid), with gradient floored at 0.001 and R2
+    computed from the unfloored fit. A nonnegative normalization replaces
+    the y sum-of-squares denominator; a negative value uses the centred sum.
+    Ill-conditioned, non-finite or short inputs return (0, 0, False); the
+    caller, not this helper, must perform any NumPy SVD fallback.
     """
     count = x.size
     if count < 3 or y.size != count:

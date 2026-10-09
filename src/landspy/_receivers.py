@@ -6,12 +6,16 @@ from numba import njit
 
 @njit(cache=True)
 def _build_ranks(ix, ranks):
+    """Write each cell index position into the supplied rank array."""
     for position in range(ix.size):
         ranks[ix[position]] = position
 
 
 @njit(cache=True)
 def _candidate_ranks(node, ranks, rows, cols, fortran):
+    """Return maximum cardinal and diagonal ranks, including the central cell.
+
+    Clip one-cell neighbour offsets to reproduce reflected raster borders."""
     if fortran:
         row, col = node % rows, node // rows
         row_stride, col_stride = 1, rows
@@ -39,6 +43,9 @@ def _candidate_ranks(node, ranks, rows, cols, fortran):
 @njit(cache=True, error_model='numpy')
 def _select(ix, values, ranks, output, rows, cols, fortran,
             cardinal_length, diagonal_length, differences, g1, g2):
+    """Write receivers using rank candidates and NumPy-compatible gradient casts.
+
+    Mutates output and the supplied small arithmetic buffers."""
     for position in range(ix.size):
         node = ix[position]
         cardinal, diagonal = _candidate_ranks(node, ranks, rows, cols, fortran)
@@ -57,6 +64,7 @@ def _select(ix, values, ranks, output, rows, cols, fortran,
 
 @njit(cache=True)
 def _block_candidates(ix, ranks, first, second, rows, cols, fortran):
+    """Write cardinal and diagonal candidate ranks for a bounded block."""
     for position in range(ix.size):
         cardinal, diagonal = _candidate_ranks(ix[position], ranks, rows, cols, fortran)
         first[position] = cardinal

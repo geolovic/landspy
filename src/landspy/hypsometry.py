@@ -25,19 +25,27 @@ class HCurve():
     Parameters:
     -----------
     dem : *landspy.DEM* | *landspy.Basin* | *str*
-      DEM, Basin instance or path to a previous saved hypsometric Curve. If it's a Basin or a string, the rest of the arguments will be ignored.
-      If it's a DEM, a Grid with the basin and the basin_id are needed.
+      DEM, Basin instance or path to a previous saved hypsometric Curve. For a saved path, all remaining arguments are ignored. For a Basin,
+      basin and bid are ignored, while name is used.
+      If it's a DEM, a Grid with the basin and the bid are needed.
 
     basin : None, str, Grid
         Drainage basin. If dem is a Basin or a str, this argument is ignored. Needs to have the same dimensions and cellsize than the input DEM.
 
     bid : int
-        Id value that identifies the basin cells
+        ID value that identifies the basin cells.
+
+    name : str, default ""
+        Name stored on a newly computed curve; ignored when loading a file.
      """
 
     def __init__(self, dem, basin=None, bid=1, name=""):
 
         # If the first parameter is a str (previously saved HCurve), load it
+        """Build from a Basin or a DEM and basin mask, or load a saved curve.
+
+        See the class docstring for parameters. Fewer than 50 selected cells
+        produce a two-point placeholder with HI=HI2=0.5 and zero moments."""
         if isinstance(dem, str):
             self._load(dem)
             return
@@ -95,8 +103,10 @@ class HCurve():
 
     def _get_moments(self):
         """
-        Get statistical moments given the 4 coefficients of the curve polynomial regression
-        This code has been translated from a FORTRAN code developed by Harlin (1979)
+        Fit a cubic to the curve and return five derived moments.
+        Order: fitted integral, curve skewness, curve kurtosis, density
+        skewness, density kurtosis.
+        This code has been translated from a FORTRAN code developed by Harlin
         Harlin, J. M. (1978). Statistical Moments of the Hypsometric Curve and Its Density
         Function. Mathematical Geology, Vol. 10 (1), 59-72.
         """
@@ -158,7 +168,10 @@ class HCurve():
 
     def _calculate_hi2(self):
         """
-        Calculates HI by integrating the hypsometric curve
+        Integrate consecutive curve samples using trapezoidal areas.
+
+        Current limitation: the loop omits the last sample interval. The
+        historical result is retained pending a numerical-behaviour decision.
         """
         area_accum = 0
         for n in range(len(self._data[:, 0]) - 2):
@@ -201,34 +214,50 @@ class HCurve():
 
     def getHI(self):
         """
-        Return the hypsometric integral calculated by aproximation (hmed-hmin) / (hmax-hmin)
+        Return the hypsometric integral calculated by the elevation-relief ratio (hmean-hmin) / (hmax-hmin)
         """
         return self._HI
 
     def getHI2(self):
         """
-        Return the hipsometric integral calculated by integrating the curve
+        Return the hypsometric integral calculated by integrating the curve
         """
         return self._HI2
 
     def getKurtosis(self):
+        """Return moments[1].
+
+        Legacy naming mismatch: _get_moments stores curve skewness at this index,
+        not kurtosis. The historical return value is retained."""
         return self.moments[1]
 
     def getSkewness(self):
+        """Return moments[2].
+
+        Legacy naming mismatch: _get_moments stores curve kurtosis at this index,
+        not skewness. The historical return value is retained."""
         return self.moments[2]
 
     def getDensityKurtosis(self):
+        """Return moments[3].
+
+        Legacy naming mismatch: this index stores density skewness, not kurtosis.
+        The historical return value is retained."""
         return self.moments[3]
 
     def getDensitySkewness(self):
+        """Return moments[4].
+
+        Legacy naming mismatch: this index stores density kurtosis, not skewness.
+        The historical return value is retained."""
         return self.moments[4]
 
     def plot(self, ax=None, **kwargs):
         """
-        This function plots the hypsometric curve in an Axe
-        :param ax: Axes instance. If None, a new Axe will be created
+        This function plots the hypsometric curve in an Axes
+        :param ax: Axes instance. If None, a new Axes will be created
         :param kwargs: Any matplotlib.Line2D plot property
-        :return:
+        :return: None. The plot is added to the supplied or newly created Axes.
         """
         if not ax:
             fig = plt.figure()
@@ -238,6 +267,10 @@ class HCurve():
         ax.plot(self.getA(), self.getH(), **kw)
 
     def save(self, path):
+        """Save curve data and metadata to a semicolon-delimited UTF-8 text file.
+
+        path is used exactly as supplied. Two comment header lines store the name,
+        HI, HI2 and the five moments. Returns None."""
         header = self.getName() + "\n"
         moments = [self._HI, self._HI2] + self.moments
         header += ";".join([str(moment) for moment in moments])
@@ -245,6 +278,7 @@ class HCurve():
 
     def _load(self, path):
         # Open the file as normal text file to get its properties
+        """Load curve data, name, integrals and moments from a file written by save()."""
         fr = open(path, "r")
         # Line 1: Name
         linea = fr.readline()[1:-1]
@@ -261,4 +295,5 @@ class HCurve():
 
 
 class HypsometryError(Exception):
+    """Error raised when a hypsometric calculation receives an invalid basin grid."""
     pass

@@ -30,26 +30,28 @@ except:
 class Network(PRaster):
     """
     Class to manipulate cells from a Network, which is defined by applying
-    a threshold to a flow accumulation raster derived from a topological 
+    a threshold to a flow accumulation raster derived from a topological
     sorted Flow object.
-    
+
     Parameters:
     -----------
-    flow : *morfopy.Flow* object
-      Flow direccion instance
+    flow : landspy.Flow, str or None
+      Flow instance, saved Network path, or None for a one-cell placeholder.
     threshold : *int*
-      Number the cells to initiate a channel
+      Minimum contributing-cell count (>= threshold). Zero selects
+      0.25% of all raster cells.
     thetaref : *float*
-      m/n coeficient to calculate chi values in each channel cell    
+      m/n coeficient to calculate chi values in each channel cell
     npoints : *int*
-      Number of points to calculate slope and ksn in each cell. Slope and ksn values
+      Number of points on each side of the regression window; its target
+      size is 2*npoints+1 and it varies near channel ends and junctions.
     gradients : *bool*
-      Flag to determinate if gradients are calculated or not when creating the Network 
+      Flag to determinate if gradients are calculated or not when creating the Network
       (calculate gradients can be slow for big grids)
     verbose : boolean
-      Boolean to show processing messages in console to known the progress. Usefull with large DEMs to se the evolution.
-    verb_func : str
-      Function to output verbose messages (only needed if landspy is embeded in other application)
+      Currently unused; accepted for API compatibility.
+    verb_func : callable
+      Currently unused; accepted for API compatibility.
     """
     def __init__(self, flow=None, threshold=0, thetaref=0.45, npoints=5, gradients=False, verbose=False, verb_func=print):
 
@@ -67,6 +69,10 @@ class Network(PRaster):
         # ._dd >> Giver (ix) - Receiver (ixc) distance
                       
         # If flow is empty, create an empty Network instance
+        """Construct a Network from a Flow, load a saved path, or create a placeholder.
+
+        See the class docstring for parameters. verbose and verb_func are
+        currently accepted but unused."""
         if flow is None:
             self._create_empty()
             return
@@ -167,7 +173,7 @@ class Network(PRaster):
         thetaref >>  m/n coeficient to calculate chi values in each channel cell
         threshold >> Number the cells to initiate a channel
         slp_np, ksn_np >> Number of points to calculate ksn and slope by regression. Window of {npoints * 2 + 1}
-        
+
         Parameters:
         ===========
         path : *str*
@@ -196,7 +202,7 @@ class Network(PRaster):
     def _load(self, path):
         """
         Loads a Network instance saved in the disk.
-        
+
         Parameter:
         ==========
            Path to the saved network object
@@ -241,13 +247,20 @@ class Network(PRaster):
     def calculateChi(self, thetaref=0.45, a0=1.0):
         """
         Function that calculates chi_values for channel cells
-        
+
         Parameters:
         -----------
         thetaref : *float*
           m/n coeficient to calculate chi
         a0 : *float*
-          Reference area to avoid dimensionality (usually don't need to be changed)
+          Multiplicative normalization in each increment:
+          a0 * distance / contributing_cells**thetaref.
+          Uses area in cells; a0 is not raised to thetaref.
+
+        Notes
+        -----
+        Updates _chi and _thetaref in place; returns None. Previously
+        calculated ksn values are not recalculated automatically.
         """
         nodes, givers, receivers = compact_nodes(self._ix, self._ixc)
         increments = a0 * self._dd / self._ax**thetaref
@@ -255,7 +268,12 @@ class Network(PRaster):
         self._thetaref = thetaref
    
     def polynomial_fit(self, x, y):
-        '''Calculate gradient and R2 for two variables''' 
+        """Return (gradient, R2) for a degree-one fit of y against x.
+
+        The returned gradient is floored at 0.001; R2 uses the unfloored fit.
+        Well-conditioned float64 x and float32/float64 y use the compiled fit.
+        Other windows fall back to numpy.polyfit. Short or rank-deficient
+        fallbacks may raise when no residual sum is available."""
         if (isinstance(x, np.ndarray) and isinstance(y, np.ndarray)
                 and x.ndim == 1 and y.ndim == 1
                 and x.dtype == np.float64 and y.dtype in (np.float32, np.float64)):
@@ -283,16 +301,16 @@ class Network(PRaster):
     
     def calculateGradients(self, npoints, kind='slp'):
         """
-        This function calculates gradients (slope or ksn) for all channel cells. 
+        This function calculates gradients (slope or ksn) for all channel cells.
         Gradients of each cell are calculated by linear regression using a number
         of points (npoints) up and downstream.
-        
+
         Parameters:
         ===========
         npoints : *int*
           Window to analyze slopes. Slopes are calculated by linear regression using a window
           of (npoints * 2 + 1) pixels (using the central pixel)
-          
+
         kind : *str* {'slp', 'ksn'}
           Kind of gradient to calculate Slope (slp) or Ksn (ksn)
         """
@@ -420,18 +438,18 @@ class Network(PRaster):
     def hierarchy_channels(self, heads="", asgrid=True):
         """
         This function classifies channels into major and minor. By default this
-        order is calculated according to the height of the heads. 
-        
+        order is calculated according to the height of the heads.
+
         Parameters
         ----------
         heads : *list*
-            List with indices of the heads of the channels arranged according 
+            List with indices of the heads of the channels arranged according
             to the hierarchy of the channels.
-            
+
         asgrid : *bool*
-          Indicates if the function is returned as landspy.Grid (True) or as a 
+          Indicates if the function is returned as landspy.Grid (True) or as a
           numpy.array (False)
-          
+
         """
         
         tier=0
@@ -475,29 +493,29 @@ class Network(PRaster):
             """
             This function finds points of interest of the drainage network. These points of interest
             can be 'heads', 'confluences' or 'outlets'.
-            
+
             Parameters:
             -----------
             kind : *str* {'heads', 'confluences', 'outlets'}
               Kind of point of interest to return.
             coords : *str* {'CELL', 'XY', 'IND'}
-              Output coordinates for the stream point of interest. 
-              
+              Output coordinates for the stream point of interest.
+
             Returns:
             -----------
             numpy.ndarray
-              Numpy ndarray with one (id) or two columns ([row, col] or [xi, yi] - depending on coords) 
-              with the location of the points of interest 
-              
+              One-dimensional index array for IND, or shape (N, 2) for CELL
+              [row, col] and XY [x, y]. Results are ordered by raster index.
+
             References:
             -----------
-            The algoritms to extract the point of interest have been adapted to Python 
-            from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17. 
-            August, 2017). These smart algoritms use sparse arrays with giver-receiver indexes, to 
-            derive point of interest in a really efficient way. Cite:
-                    
-            Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-            MATLAB-based software for topographic analysis and modeling in Earth 
+            The algoritms to extract the point of interest have been adapted to Python
+            from Topotoolbox matlab codes developed by Wolfgang Schwanghart (version of 17.
+            August, 2017). The current implementation uses compact sorted cell IDs and receiver
+            counts, without a raster-sized sparse matrix. Cite:
+
+            Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+            MATLAB-based software for topographic analysis and modeling in Earth
             surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
             """
 
@@ -523,21 +541,25 @@ class Network(PRaster):
     def snapPoints(self, input_points, kind="channel", remove_duplicates=False):
         """
         Snap input points to channel cells or to stream POI
-        
+
         Parameters:
         ===========
         input_points : *numpy.ndarray*
           Numpy 2-D ndarray, which first two columns are x and y coordinates [x, y, ...]
-        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}  
+        kind : *str* {'channel', 'heads', 'confluences', 'outlets'}
           Kind of point to snap input points
         remove_duplicates : *bool*
-          Remove duplicate points. When snapping points, two points can be snapped to the same poi. If True, 
-          these duplicate points will be removed. 
-        
+          Remove duplicate points. When snapping points, two points can be snapped to the same poi. If True,
+          these duplicate points will be removed.
+
         Returns:
         ===========
         numpy.ndarray
-          Numpy ndarray with two columns [xi, yi] with the snap points
+          With XY-only input and remove_duplicates=False, returns snapped XY.
+          Extra input columns are preserved and a target index is appended;
+          that index is omitted when remove_duplicates=True. Current
+          limitation: XY-only deduplication compares Y and removes that
+          coordinate column. An empty target set raises in argmin.
         """
         
         # Extract a numpy array with the coordinate to snap the points
@@ -575,9 +597,9 @@ class Network(PRaster):
     def exportPoints(self, path):
         """
         Export channel points to a semicolon-delimited text file
-        This file will contain  data of 
+        This file will contain  data of
         id ; x ; y ; z ; distance ; area ; chi ; slope ; ksn ; r2_slope ; r2_ksn
-        
+
         path : str
           Path for the output text file
         """
@@ -610,15 +632,18 @@ class Network(PRaster):
             return w
     
     def getStreamSegments(self, asgrid=True):
-        """
-        This function extract a drainage network by using a determined area threshold
-        and output the numerated stream segments.
+        """Label the existing network segments between heads, confluences and outlets.
 
-        Parameters:
-        ===========
-        asgrid : *bool*
-          Indicates if the network is returned as landspy.Grid (True) or as a numpy.array
-        """
+        Parameters
+        ----------
+        asgrid : bool, default True
+            Return a landspy.Grid if True, otherwise a two-dimensional int32 array.
+
+        Returns
+        -------
+        landspy.Grid or numpy.ndarray
+            Segment IDs starting at 1; non-channel cells have value 0.
+            This method does not apply a new area threshold."""
         # Get heads and confluences and merge them
         head_ind = self.streamPoi("heads", "IND")
         conf_ind = self.streamPoi("confluences", "IND")
@@ -646,14 +671,16 @@ class Network(PRaster):
         
     def getStreamOrders(self, kind="strahler", asgrid=True):
         """
-        This function extract streams orderded by strahler or shreeve. Cell values
+        This function extract streams ordered by strahler or shreeve. Cell values
         will have a value acording with the order of the segment they belong
-    
+
         Parameters:
         ===========
-        kind : *str* {'strahler', 'shreeve'}
+        kind : str {'strahler', 'shreeve'}
+          Ordering convention. The API spelling 'shreeve' selects Shreve
+          magnitude; unknown strings fall back to Strahler.
         asgrid : *bool*
-          Indicates if the selfwork is returned as landspy.Grid (True) or as a numpy.array
+          Indicates if the result is returned as landspy.Grid (True) or as a numpy.array
         """
         if kind not in ['strahler', 'shreeve']:
             kind = 'strahler'
@@ -688,11 +715,11 @@ class Network(PRaster):
     def exportShp(self, path, con=False):
         """
         Export Network channels to shapefile format.
-        
+
         path : str
           Path to save the shapefile
         con : bool
-          If False, channels will split in each confluence (segmented channels). If True, 
+          If False, channels will split in each confluence (segmented channels). If True,
           they will split only when order changes (continuous channels).
         """
         if con:
@@ -703,9 +730,9 @@ class Network(PRaster):
     def _get_segmented_shp(self, path=""):
         """
         Export Network channels to shapefile format. Channels will split in each confluence.
-        
+
         path : str
-          Path to save the shapefile 
+          Path to save the shapefile
         """
         # Create shapefile
         driver = ogr.GetDriverByName("ESRI Shapefile")
@@ -778,9 +805,9 @@ class Network(PRaster):
     def _get_continuous_shp(self, path=""):
         """
         Export Network channels to shapefile format. Channels will split only when order changes.
-        
+
         path : str
-          Path to save the shapefile 
+          Path to save the shapefile
         """
         # Create shapefile
         driver = ogr.GetDriverByName("ESRI Shapefile")
@@ -856,19 +883,19 @@ class Network(PRaster):
     def _create_output_grid(self, array, nodata_value=None):
         """
         Convenience function that creates a Grid object from an input array. The array
-        must have the same shape that self._dims and will maintain the Flow object 
+        must have the same shape that self.getDims() and will maintain the Network object
         properties as dimensions, geotransform, reference system, etc.
-        
+
         Parameters:
         ===========
         array : *numpy.ndarray*
           Array to convert to a Grid object
-        nodata_value _ *int* / *float*
+        nodata_value : *int* / *float*
           Value for NoData values
-          
+
         Returns:
         ========
-        Grid object with the same properties that Flow
+        Grid object with the same properties as this Network
         """
         grid = Grid()
         grid.copyLayout(self)
@@ -879,8 +906,8 @@ class Network(PRaster):
 
     def getChannel(self, head, mouth=None, name="", oid=-1):
         """
-        Get a channel from the head to the mouth. 
-        
+        Get a channel from the head to the mouth.
+
         Parameters
         ----------
         head : tuple
@@ -889,13 +916,15 @@ class Network(PRaster):
             (x, y) tuple with the coordinates of the channel mouth (will be snapped to a channel cell).
             If None or a cell out of the current channel, the channel will continue until the nearest outlet.
         name : str, optional
-            Name ("label") for the channel    
+            Name ("label") for the channel
         oid : int, optional
             Id of the channel
-            
+
         Returns
         -------
-        Channel instance
+        landspy.Channel or None
+            Returns None if the head is outside the raster. The stored
+            channel stops at its last giver cell, excluding the terminal outlet.
 
         """
         if mouth is None:
@@ -946,26 +975,27 @@ class Network(PRaster):
         
     def chiShapefile(self, out_shp, distance):
         """
-        This method export network data to a shapelife. It calculates segments of a given
-        distance and calculate chi, ksn, slope, etc. for the segment. The shapefile will 
+        This method export network data to a shapefile. It calculates segments of a given
+        distance and calculate chi, ksn, slope, etc. for the segment. The shapefile will
         have the following fields:
-            id_profile : Profile identifier. Profiles are calculated from heads until outlets or  
-            L : Lenght from the middle point of the segment to the profile head
-            area_e6 : Drainage area in the segment mouth (divided by E6, to avoide large numbers) 
+            id_profile : Profile identifier, traced from heads until an outlet or previously visited cell
+            L : Length from the middle point of the segment to the profile head
+            area_e6 : Drainage area in the segment mouth (contributing cells divided by 1e6, not map-area units)
             z : Elevation of the middle point of the segment
-            chi : Mean chi of the segment 
+            chi : Chi at the middle stored cell of the segment
             ksn : Ksn of the segment (calculated by linear regression)
             slope : slope of the segment (calculated by linear regression)
             rksn : R2 of the ksn linear regression
             rslope : R2 of the slope linear regression
-            
+
         Parameters:
         ===========
-        out_shp : srt
+        out_shp : str
           Output shapefile
         distance : float
-          Segment distance. 
-            
+          Target segment distance in map-coordinate units. Segments require
+          at least three cells; a shorter trailing segment is omitted.
+
         """
         # Create shapefile
         driver = ogr.GetDriverByName("ESRI Shapefile")
@@ -1085,27 +1115,32 @@ class Network(PRaster):
 
 class BNetwork(Network):
     """
-    Class to manipulate cells from a drainage network from a single basin network. 
-    This class inhereits all methods and properties of the Network class plus some 
+    Class to manipulate cells from a drainage network from a single basin network.
+    This class inhereits all methods and properties of the Network class plus some
     new methods to manipulate channels
-    
+
     Parameters:
     -----------
     net : *landspy.Network* | *str*
       Network instance or path to a previously saved BNetwork file
     basingrid : *landspy.Basin* | *landspy.Grid*
-      Numpy array or landspy Grid representing the drainage basin. If array or Grid have more than
-      one basin, set the basinid properly. 
-    heads : *list* or *numpy.ndarray*
-      List with [x, y] coordinates for basin the main head or 2 column numpy.ndarray with head(s) 
-      coordinate(s). If more than one, the first one is considered the main head (trunk channel). 
-      Head(s) will be snapped to Network heads.
+      Basin or Grid representing the drainage mask; raw NumPy arrays are
+      not accepted. A Grid must align with net; a cropped Basin is placed
+      using its geotransform. Set bid for a labelled Grid.
+    heads : numpy.ndarray or None
+      Two-dimensional array of [x, y] coordinates. An optional third
+      column sorts heads by ascending ID before snapping. If more than one, the first one is considered the main head (trunk channel).
+      Heads are snapped to Network heads. None selects the highest head.
     bid : *int*
-      Id value that identifies the basin cells in case that basin will have more than one basin.        
-     """    
+      Id value that identifies the basin cells in case that basin will have more than one basin.
+     """
     def __init__(self, net, basingrid=None, heads=None, bid=1):
 
         # If flow is a str, load it
+        """Extract a basin Network or load it from a saved .dat file.
+
+        See the class docstring for basin masks and selected heads. When loading
+        a path, basingrid, heads and bid are ignored."""
         if isinstance(net, str):
             self._load(net)
         
@@ -1216,10 +1251,10 @@ class BNetwork(Network):
     def _load(self, path):
         """
         Loads a BNetwork instance saved in the disk.
-        
+
         Parameter:
         ==========
-           Path to the saved BNetwork object (*.net file)
+           Path to the saved BNetwork object (*.dat file)
         """
         # Call to the parent Network._load() function
         super()._load(path)
@@ -1240,12 +1275,12 @@ class BNetwork(Network):
 
     def save(self, path):
         """
-        Saves the Network instance to disk. It will be saved as a numpy array in text format with a header.
-        The first three lines will have the information of the raster:
-            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Tyy
+        Saves the BNetwork instance to disk. It will be saved as a numpy array in text format with a header.
+        The four header lines will have the information of the raster:
+            Line1::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
             Line2::   thetaref; threshold; slp_np; ksn_np
             Line3::   String with the projection (WKT format)
-            Line4::   head_1, head_2, ..., head_n
+            Line4::   head_1; head_2; ...; head_n
         xsize, ysize >> Dimensions of the raster
         cx, cy >> Cellsizes in X and Y
         Tx, Ty >> Rotation factors (for geotransformation matrix)
@@ -1253,7 +1288,7 @@ class BNetwork(Network):
         thetaref >>  m/n coeficient to calculate chi values in each channel cell
         threshold >> Number the cells to initiate a channel
         slp_np, ksn_np >> Number of points to calculate ksn and slope by regression. Window of {npoints * 2 + 1}
-        
+
         Parameters:
         ===========
         path : *str*
@@ -1282,19 +1317,23 @@ class BNetwork(Network):
         np.savetxt(path, data_arr, delimiter=";", header=header, encoding="utf8", comments="#")
     
     def _create_empty(self):
+        """Initialize the Network placeholder and a single placeholder head."""
         super()._create_empty()
         self._heads = np.array([0])
     
     def chiPlot(self, ax=None, relative=False):
         """
-        This function plot the Chi-elevation graphic for all the channels of the basin. 
-        
+        This function plot the Chi-elevation graphic for all the channels of the basin.
+
         Parameters:
         ===========
-        ax : matplotlib.Axe
+        ax : matplotlib.axes.Axes
           If is not defined, the function will create a new Figure and Axe
         relative : bool
-           Defines if the initial elevation and Chi for the basin are 0 (True).
+           If True, subtract the main channel's minimum elevation from plotted
+           elevations. Chi is not explicitly offset. The method calls
+           calculateChi() with its default theta after extracting channels,
+           which also changes the basin's stored chi and theta.
         """
         
         if not PLT:
@@ -1334,6 +1373,29 @@ class BNetwork(Network):
    
     def chiSensitivityAnalysis(self, star = 0.25, stop = 0.65, step = 0.01, draw=False):
 
+        """Compare whole-basin chi/elevation fits over a range of m/n values.
+
+        Parameters
+        ----------
+        star : float, default 0.25
+            First m/n value (parameter name is intentionally star, not start).
+        stop : float, default 0.65
+            Exclusive upper bound passed to numpy.arange.
+        step : float, default 0.01
+            Increment between tested values.
+        draw : bool, default False
+            Also create and return a matplotlib Figure.
+
+        Returns
+        -------
+        tuple
+            (best_theta, max_r2), or (best_theta, max_r2, figure) when draw=True.
+
+        Notes
+        -----
+        Mutates this basin’s chi values and reference theta at every iteration;
+        leaves them at the last tested theta, not necessarily the best theta.
+        Requires a nonempty range and a fit with a residual sum."""
         values = []
 
         for thetaref in np.arange(star, stop, step):
@@ -1369,7 +1431,7 @@ class BNetwork(Network):
     def getChannel(self, id): 
         """
         Get the channel at specific index
-        
+
         Parameters
         ----------
         id : int
@@ -1387,13 +1449,13 @@ class BNetwork(Network):
         
     def getChannels(self, nchannels=None, min_length=0):
         """
-        Get all channels in the basin. 
+        Get all channels in the basin.
 
         Parameters
         ----------
         nchannels : int // None // "ALL", optional
-            Number of channel that will be returned. If None (default) only channels corresponding to 
-            Channel heads will be returned, otherwise, an specific number of channels will return. If nchannels 
+            Number of channel that will be returned. If None (default) only channels corresponding to
+            Channel heads will be returned, otherwise, an specific number of channels will return. If nchannels
             is greater than the Channel main heads, other channel will be returned for Network heads (sorted
             by elevation). To get all channels in the basin pass "ALL"
         min_length : float
@@ -1483,16 +1545,21 @@ class BNetwork(Network):
 
 class Channel(PRaster):
 
+    """Ordered channel cells and profile attributes inherited from a raster layout.
+
+    Construct from a PRaster and a ten-column data array, load a saved path,
+    or create a one-cell placeholder. See __init__ for the column layout."""
     def __init__(self, praster=None, chandata=None, thetaref=0.45, chi0=0, slp_np=5, ksn_np=5, name="", oid=-1, flowto=-1):
         """
         Class that defines a channel (cells from head to mouth)
-        
+
         Parameters
         ----------
-        praster : PRaster instance
-            PRaster object to copy internal properties.
+        praster : landspy.PRaster, str or None
+            Layout to copy, a saved Channel path, or None for a placeholder.
+            With a path or None, remaining constructor arguments are ignored.
         chandata : numpy Array
-            Array of 10 columns wiht channel data. These columns are:
+            Array of 10 columns with channel data. These columns are:
                 0 (ix)    >> Channel cells (ordered from head to mouth, in IND coordinates)
                 1 (ax)    >> Upstream draining area (in pixel units)
                 2 (dx)    >> Distance to mouth (distance from pixel to nearest outlet, NOT the channel mouth)
@@ -1505,23 +1572,24 @@ class Channel(PRaster):
                 9 (dd)    >> Distance between channel cell and flowing cell (giver-receirver distance)
         thetaref : double, optional
             The m/n reference coeficient. The default is 0.45.
-        chi0 : TYPE, optional
-            Chi value of the mouth cell. The default is 0.
+        chi0 : float, optional
+            Stored chi offset metadata. The default is 0; getChi(relative=True)
+            subtracts the last stored chi rather than this metadata.
         slp_np : int, optional
-            Number of points for slope calculation. Slope will be calculated within a moving window 
+            Number of points for slope calculation. Slope will be calculated within a moving window
             of 2 * npoints + 1 . The default is 5.
         ksn_np : int, optional
-            Number of points for ksn calculation. Ksn will be calculated within a moving window 
+            Number of points for ksn calculation. Ksn will be calculated within a moving window
             of 2 * npoints + 1 . The default is 5.
-            
+
         name : str, optional
             Name ("label") for the channel
-            
+
         oid : int, optional
             Id of the channel
-            
+
         flowto : int, optional
-            Id of the channel where this channel flows. 
+            Id of the channel where this channel flows.
 
         Returns
         -------
@@ -1630,9 +1698,9 @@ class Channel(PRaster):
         """
         Add regression in chi-elevation space.
         A regression is defined by a tuple of 5 elements: [id, pos1, pos2, poly, r2ksn]
-          id: index of the regression. Is the middle possition (pos2-pos1)/2
+          id: index of the regression. Is int(pos1 + (pos2-pos1)/2)
           pos1, pos2: positions of the first and last points of the regression
-          poly: 1nd order polynomial with the regression >> [a, b] (y = ax + b)
+          poly: first order polynomial with the regression >> [a, b] (y = ax + b)
           r2ksn: R2 of the regression
 
         Parameters
@@ -1640,11 +1708,13 @@ class Channel(PRaster):
         p1 : int
             Position of the start of the regression (index within the channel)
         p2 : int
-            Position of the end of the regression (index within the channel)
+            Exclusive end position of the fit slice (must still be < channel size).
 
         Returns
         -------
-        None.
+        int or None
+            Midpoint ID on success, None for invalid/equal bounds. The
+            stored tuple is (id, p1, p2, polynomial, R2).
 
         """
         # If p2 is greater than p1, change values
@@ -1678,7 +1748,7 @@ class Channel(PRaster):
     def getRegression(self, ind):
         """
         Get regression from Channel based on a position. In case of multiple regressions passing through the position,
-        returns the closest to the mid-point of the regression. 
+        returns the closest to the mid-point of the regression.
         """
         if len(self._regressions) == 0:
             return
@@ -1707,7 +1777,8 @@ class Channel(PRaster):
 
         Returns
         -------
-        None.
+        bool
+            True if a matching regression was removed, otherwise False.
 
         """
         # Get the regression to remove (equal index of idx)
@@ -1725,23 +1796,25 @@ class Channel(PRaster):
     def save(self, path):
         """
         Saves the Channel instance to disk. It will be saved as a numpy array in text format with a header.
-        The first three lines will have the information of the raster:
+        The six header lines will have the information of the raster:
             Line1::   name; oid; flowto
             Line2::   xsize; ysize; cx; cy; ULx; ULy; Tx; Ty
-            Line3::   thetaref; threshold; slp_np; ksn_np
+            Line3::   thetaref; chi0; slp_np; ksn_np
             Line4::   String with the projection (WKT format)
+            Line5::   Knickpoint position/type pairs
+            Line6::   Regression ID/start pairs (legacy format; end bounds are not saved)
         xsize, ysize >> Dimensions of the raster
         cx, cy >> Cellsizes in X and Y
         Tx, Ty >> Rotation factors (for geotransformation matrix)
         ULx, ULy >> X and Y coordinates of the corner of the upper left pixel of the raster
         thetaref >>  m/n coeficient to calculate chi values in each channel cell
-        threshold >> Number the cells to initiate a channel
+        chi0 >> Stored chi offset metadata
         slp_np, ksn_np >> Number of points to calculate ksn and slope by regression. Window of {npoints * 2 + 1}
-        
+
         Parameters:
         ===========
         path : *str*
-          Path to save the network object with *.dat extension (it is not necessary to  give the extension)
+          Path to save the channel object with *.dat extension (it is not necessary to  give the extension)
         """
     
         # In case the extension is wrong or path has not extension
@@ -1783,8 +1856,11 @@ class Channel(PRaster):
         
     def load(self, path):
         """
-        Loads a Network instance saved in the disk.
-        
+        Load a Channel instance written by Channel.save().
+
+        Legacy limitation: saved regression pairs contain ID/start, but
+        loading interprets them as start/end; regression fits do not round-trip.
+
         Parameter:
         ==========
            Path to the Channel object
@@ -1877,27 +1953,28 @@ class Channel(PRaster):
     
     def getOid(self):
         """
-        Gets the id of the channel. Necessary to compute flow. 
+        Gets the id of the channel. Necessary to compute flow.
         """
         return self._oid
         
     def getFlow(self):
         """
-        Gets the id of the channels where this channel flows. Necessary to compute flow. 
+        Gets the id of the channels where this channel flows. Necessary to compute flow.
         """
         return self._flowto
 
 
     def getLength(self):
-        """
-        Returns channel lenght
-        """
+        """Return the distance between the first and last stored channel cells.
+
+        Uses the difference of their downstream distances, in map-coordinate units."""
         return self._dx[0] - self._dx[-1]
     
     def getXY(self, head=True):
-        """
-        Returns channel coordiates (numpy.array with two columns, x and y)
-        """
+        """Return cell-centre XY coordinates as an (N, 2) array.
+
+        The head argument is currently unused: output always follows the stored
+        head-to-mouth cell order."""
         row, col = self.indToCell(self._ix)
         x, y = self.cellToXY(row, col)
         return np.array((x, y)).T
@@ -1905,13 +1982,13 @@ class Channel(PRaster):
     def getZ(self, head=True, relative=False):
         """
         Returns channel elevations
-        
+
         Parameters
         ----------
         head : boolean, optional
             Returns elevations from head to mouth (True) or mouth to head (False). The default is True.
         relative : boolean, optional
-            Returns relative elevations (True) or real elevations (True). The default is False.
+            Returns relative elevations (True) or stored absolute elevations (False). The default is False.
 
         Returns
         -------
@@ -1929,13 +2006,13 @@ class Channel(PRaster):
     def getChi(self, head=True, relative=False):
         """
         Returns channel chi values
-        
+
         Parameters
         ----------
         head : boolean, optional
             Returns values from head to mouth (True) or mouth to head (False). The default is True.
         relative : boolean, optional
-            Returns relative chi value (True) or real chi values (True). The default is False.
+            Returns relative chi value (True) or stored chi values (False). The default is False.
 
         Returns
         -------
@@ -1953,13 +2030,13 @@ class Channel(PRaster):
     def getA(self, head=True, cells=True):
         """
         Returns channel area values (in cell units)
-        
+
         Parameters
         ----------
         head : boolean, optional
             Returns values from head to mouth (True) or mouth to head (False). The default is True.
         cells : boolean, optional
-            Returns area values in cells (True), or in length units (False)
+            Returns area values in cells (True), or in squared map-coordinate units (False)
 
         Returns
         -------
@@ -1976,18 +2053,19 @@ class Channel(PRaster):
     
     def calculateGradients(self, npoints, kind='slp'):
         """
-        This function calculates gradients (slope or ksn) for all the cells. 
+        This function calculates gradients (slope or ksn) for all the cells.
         Gradients of each cell are calculated by linear regression using a number
         of points (npoints) up and downstream.
-        
+
         Parameters:
         ===========
         npoints : *int*
           Window to analyze slopes. Slopes are calculated by linear regression using a window
-          of npoints * 2 + 1 pixel (using the central pixel)
-          
-        kind : *str* {'slp', 'ksn'} 
-          Calculates the gradients for slope (distance-elevation) or kwn (chi-elevation)
+          of up to npoints * 2 + 1 cells, clipped at profile ends.
+          npoints < 2 returns without modifying gradients.
+
+        kind : *str* {'slp', 'ksn'}
+          Calculates the gradients for slope (distance-elevation) or ksn (chi-elevation)
         """
         if npoints < 2:
             return
@@ -2034,12 +2112,12 @@ class Channel(PRaster):
     def getSlope(self, head=True):
         """
         Returns channel slope values
-        
+
         Parameters
         ----------
         head : boolean, optional
             Returns values from head to mouth (True) or mouth to head (False). The default is True.
-        
+
         Returns
         -------
         1D numpy array
@@ -2052,7 +2130,7 @@ class Channel(PRaster):
     def getD(self, tohead=True, head=True):
         """
         Returns channel distante values
-        
+
         Parameters
         ----------
         tohead : boolean, optional
@@ -2077,12 +2155,12 @@ class Channel(PRaster):
     def getKsn(self, head=True):
         """
         Returns ksn values
-        
+
         Parameters
         ----------
         head : boolean, optional
             Returns values from head to mouth (True) or mouth to head (False). The default is True.
-        
+
         Returns
         -------
         1D numpy array
@@ -2094,14 +2172,16 @@ class Channel(PRaster):
     
     def smoothChannel(self, winsize=0, recalculate_gradients=True):
         """
-        This function smooth channel elevations win a moving window
+        This function smooths channel elevations with a moving window
         Parameters:
         ===========
         winsize : *double*
-          Size of the moving windows (meters or profile units). The window size will be transformed to number of pixels. 
-          
+          Size of the moving windows (meters or profile units). The window size will be transformed to number of pixels.
+
         recalculate_gradients : *boolean*
-          Flag to indicate if recalulate gradients (slope and ksn) with the new elevation values
+          Recalculate slope and ksn only when winsize > 0. With winsize=0,
+          descending elevations are still enforced with 0.001 decrements,
+          but gradients are not recalculated.
         """
         # Remove peaks and flat segments
         for n in range(self._zx.size - 1):
@@ -2126,4 +2206,5 @@ class Channel(PRaster):
                 self.calculateGradients(self._slp_np, kind='slp')
 
 class NetworkError(Exception):
+    """Error raised for invalid basin-network files or channel indices."""
     pass
