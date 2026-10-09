@@ -4,6 +4,13 @@ Estas instrucciones se aplican a todo el repositorio. Las instrucciones
 explícitas del usuario tienen prioridad. Comunica los resultados en español
 cuando el usuario trabaje en español.
 
+## Ejemplos y tutoriales
+
+- No modifiques ejemplos ni tutoriales salvo que el usuario lo pida
+  expresamente. Esta regla incluye notebooks, scripts y datos asociados,
+  así como los ejemplos incluidos en README.md y otra documentación.
+  No los actualices automáticamente como parte de cambios en el código.
+
 ## Estructura y entorno
 
 - El paquete está en `src/landspy`; los tests en `tests`; los scripts de
