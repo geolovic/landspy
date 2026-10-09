@@ -1,0 +1,78 @@
+{
+  "runs": [
+    {
+      "revision": "6958244",
+      "seconds": 2.154253370999868,
+      "peak_rss_mib": 242.3046875,
+      "dem_cells": 436205,
+      "network_cells": 5947,
+      "threshold": 0,
+      "gradients": true,
+      "sha256": "5789adb8fbfae23a7e77aea56c3a15b41a771349847fee57c066dce2a8b74a26"
+    },
+    {
+      "revision": "working-tree",
+      "seconds": 0.8258579590001318,
+      "peak_rss_mib": 240.93359375,
+      "dem_cells": 436205,
+      "network_cells": 5947,
+      "threshold": 0,
+      "gradients": true,
+      "sha256": "cf6ce5b8b1d8b89ae76327808309759317a8510467dd7b7458969a8a7a6823dc"
+    },
+    {
+      "revision": "6958244",
+      "seconds": 3.525196648000019,
+      "peak_rss_mib": 242.43359375,
+      "dem_cells": 436205,
+      "network_cells": 5947,
+      "threshold": 0,
+      "gradients": true,
+      "sha256": "5789adb8fbfae23a7e77aea56c3a15b41a771349847fee57c066dce2a8b74a26"
+    },
+    {
+      "revision": "working-tree",
+      "seconds": 0.9700181660000453,
+      "peak_rss_mib": 242.50390625,
+      "dem_cells": 436205,
+      "network_cells": 5947,
+      "threshold": 0,
+      "gradients": true,
+      "sha256": "cf6ce5b8b1d8b89ae76327808309759317a8510467dd7b7458969a8a7a6823dc"
+    },
+    {
+      "revision": "6958244",
+      "seconds": 2.514941637999982,
+      "peak_rss_mib": 241.97265625,
+      "dem_cells": 436205,
+      "network_cells": 5947,
+      "threshold": 0,
+      "gradients": true,
+      "sha256": "5789adb8fbfae23a7e77aea56c3a15b41a771349847fee57c066dce2a8b74a26"
+    },
+    {
+      "revision": "working-tree",
+      "seconds": 0.5377292960001796,
+      "peak_rss_mib": 241.3671875,
+      "dem_cells": 436205,
+      "network_cells": 5947,
+      "threshold": 0,
+      "gradients": true,
+      "sha256": "cf6ce5b8b1d8b89ae76327808309759317a8510467dd7b7458969a8a7a6823dc"
+    }
+  ],
+  "max_absolute_gradient_differences": {
+    "_slp": 2.248201624865942e-14,
+    "_ksn": 2.877698079828406e-13,
+    "_r2slp": 2.4225066397320916e-13,
+    "_r2ksn": 3.007594173709549e-13
+  },
+  "baseline": "6958244af1b90ee78b328ba6245b8d305c6bf3e8",
+  "case": "saved Flow from tests/data/in/jebja30.tif, gradients=True",
+  "versions": {
+    "python": "3.12.15",
+    "numpy": "2.5.3",
+    "numba": "0.68.0",
+    "GDAL": "3.13.3"
+  }
+}

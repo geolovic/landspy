@@ -15,7 +15,7 @@
 import numpy as np
 import os
 from osgeo import ogr, osr
-from scipy.sparse import csc_matrix
+from ._network import compact_nodes, accumulate_downstream, linear_fit
 
 from . import Grid, PRaster, Basin
 
@@ -87,29 +87,33 @@ class Network(PRaster):
         
         # Get sort Nodes for channel cells and elevations
         fac = flow.flowAccumulation(nodata=False, asgrid=False)
-        w = fac >= threshold
-        w = w.ravel()
-        I   = w[flow._ix]
+        I = np.empty(flow._ix.size, dtype=bool)
+        for start in range(0, flow._ix.size, 65536):
+            end = min(start + 65536, flow._ix.size)
+            I[start:end] = fac.ravel()[flow._ix[start:end]] >= threshold
         self._ix  = flow._ix[I]
         self._ixc = flow._ixc[I]
         
         # Get Area and Elevations for channel cells
         self._ax = fac.ravel()[self._ix] # Area in CELLS units!!
         self._zx = flow._zx[I]
+        del fac, I
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
-        di = np.zeros(self.getNCells())
-        self._dd = np.zeros(self._ix.shape) # Giver-Receiver distance
-        for n in np.arange(self._ix.size)[::-1]:
-            grow, gcol = self.indToCell(self._ix[n])
-            rrow, rcol = self.indToCell(self._ixc[n])
+        nodes, givers, receivers = compact_nodes(self._ix, self._ixc)
+        self._dd = np.empty(self._ix.size, dtype=np.float64)
+        # Bounded coordinate temporaries preserve cellToXY arithmetic, including
+        # rounding at large map origins and unequal X/Y cell sizes.
+        for start in range(0, self._ix.size, 65536):
+            end = min(start + 65536, self._ix.size)
+            grow, gcol = self.indToCell(self._ix[start:end])
+            rrow, rcol = self.indToCell(self._ixc[start:end])
             gx, gy = self.cellToXY(grow, gcol)
             rx, ry = self.cellToXY(rrow, rcol)
-            d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2)
-            self._dd[n] = d_gr
-            di[self._ix[n]] = di[self._ixc[n]] + d_gr
-        self._dx = di[self._ix]
-        
+            self._dd[start:end] = np.sqrt((gx - rx)**2 + (gy - ry)**2)
+        self._dx = accumulate_downstream(givers, receivers, self._dd, nodes.size)
+        del nodes, givers, receivers
+
         # Get chi values using the input thetaref
         self._thetaref = thetaref
         self.calculateChi(thetaref)
@@ -245,14 +249,22 @@ class Network(PRaster):
         a0 : *float*
           Reference area to avoid dimensionality (usually don't need to be changed)
         """
-        chi = np.zeros(self.getNCells())
-        for n in np.arange(self._ix.size)[::-1]:
-            chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)            
-        self._chi = chi[self._ix]
+        nodes, givers, receivers = compact_nodes(self._ix, self._ixc)
+        increments = a0 * self._dd / self._ax**thetaref
+        self._chi = accumulate_downstream(givers, receivers, increments, nodes.size)
         self._thetaref = thetaref
    
     def polynomial_fit(self, x, y):
         '''Calculate gradient and R2 for two variables''' 
+        if (isinstance(x, np.ndarray) and isinstance(y, np.ndarray)
+                and x.ndim == 1 and y.ndim == 1
+                and x.dtype == np.float64 and y.dtype in (np.float32, np.float64)):
+            # Loaded Flow elevations can be float32. Preserve NumPy's float32
+            # variance and multiplication for the original R2 denominator.
+            normalization = float(y.size * y.var()) if y.dtype == np.float32 else -1.
+            gradient, r2, valid = linear_fit(x, y, normalization)
+            if valid:
+                return gradient, r2
        
         # Calculate slope of central cell by regression 
         poli, SCR = np.polyfit(x, y, deg = 1, full = True)[:2]
@@ -294,29 +306,23 @@ class Network(PRaster):
         else:
             x_arr = self._dx
             
-        # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int64)
-        ixcix[self._ix] = np.arange(self._ix.size)
-        
-        # Get heads array and confluences dictionary
-        heads = self.streamPoi("heads", "IND")
-        #confs = {conf:[] for conf in self.get_stream_poi("confluences", "IND")}
-        
-        # Sort heads by elevation
+        # Work in compact node coordinates; keep the historical zero sentinel
+        # and window selection so this memory change preserves gradient values.
+        nodes, ix, ixc = compact_nodes(self._ix, self._ixc)
+        ixcix = np.zeros(nodes.size, np.int64)
+        ixcix[ix] = np.arange(ix.size)
+        heads = np.searchsorted(nodes, self.streamPoi("heads", "IND"))
         elev = self._zx[ixcix[heads]]
-        spos = np.argsort(-elev)
-        heads = heads[spos]
-        
-        # Prepare auxiliary arrays
-        gi = np.zeros(self.getNCells())
-        r2 = np.zeros(self.getNCells())
-        
+        heads = heads[np.argsort(-elev)]
+        gi = np.zeros(nodes.size)
+        r2 = np.zeros(nodes.size)
+
         # Taking sequentally all the heads and compute downstream flow
         for head in heads:
             processing = True
             head_cell = head
-            mid_cell = self._ixc[ixcix[head_cell]]
-            mouth_cell = self._ixc[ixcix[mid_cell]]
+            mid_cell = ixc[ixcix[head_cell]]
+            mouth_cell = ixc[ixcix[mid_cell]]
             win = [mouth_cell, mid_cell, head_cell]
             
             if ixcix[mid_cell] == 0 or gi[mid_cell] != 0:
@@ -343,7 +349,7 @@ class Network(PRaster):
                 # Verificamos si estamos al final (en un outlet)  
                 if not in_outlet:
                     # Si mouth_cell no es un outlet, cogemos siguiente celda
-                    next_cell = self._ixc[ixcix[mouth_cell]]
+                    next_cell = ixc[ixcix[mouth_cell]]
                     # Si la siguiente celda es el final, 
                     # añadimos una celda y eliminamos la cabecera
                     if ixcix[next_cell]==0:
@@ -352,7 +358,7 @@ class Network(PRaster):
                     # Si longitud de ventana < winlen, se añaden dos celdas 
                     elif len(win) < winlen:
                         win.insert(0, next_cell)
-                        aux_cell = self._ixc[ixcix[next_cell]]
+                        aux_cell = ixc[ixcix[next_cell]]
                         win.insert(0, aux_cell)
                     else:
                         win.insert(0, next_cell)
@@ -364,7 +370,7 @@ class Network(PRaster):
                     win.pop()
                 
                 head_cell = win[-1]
-                mid_cell = self._ixc[ixcix[mid_cell]]
+                mid_cell = ixc[ixcix[mid_cell]]
                 mouth_cell = win[0]
             
                 # Verificamos si mouth_cell es un outlet
@@ -403,12 +409,12 @@ class Network(PRaster):
                 
         # Llenamos array del objeto Network
         if kind == 'ksn':
-            self._ksn = gi[self._ix]
-            self._r2ksn = r2[self._ix]
+            self._ksn = gi[ix]
+            self._r2ksn = r2[ix]
             self._ksn_np = npoints
         else:
-            self._slp = gi[self._ix]
-            self._r2slp = r2[self._ix]
+            self._slp = gi[ix]
+            self._r2slp = r2[ix]
             self._slp_np = npoints
 
     def hierarchy_channels(self, heads="", asgrid=True):
@@ -495,32 +501,17 @@ class Network(PRaster):
             surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
             """
 
-            # Get grid channel cells
-            w = np.zeros(self.getNCells(), dtype="bool")
-            w[self._ix] = True
-            w[self._ixc] = True
-            
-            # Build a sparse array with giver-receivers cells
-            aux_vals = np.ones(self._ix.shape, dtype=np.int8)
-            sp_arr = csc_matrix((aux_vals, (self._ix, self._ixc)), shape=(self.getNCells(), self.getNCells()))
-            
-            # Get stream POI according the selected type
+            # Sorted IDs preserve raster-order output without CSC column
+            # pointers or masks sized to every cell in the DEM.
+            receivers, counts = np.unique(self._ixc, return_counts=True)
             if kind == 'confluences':
-                # Confluences will be channel cells with two or givers
-                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-                out_pos = sum_arr > 1
+                out_ids = receivers[counts > 1]
             elif kind == 'outlets':
-                # Outlets will be channel cells marked only as receivers (ixc) but not as givers (ix) 
-                sum_arr = np.asarray(np.sum(sp_arr, 1)).ravel()
-                out_pos = np.logical_and((sum_arr == 0), w)  
+                out_ids = np.setdiff1d(receivers, self._ix)
             else:
-                # Heads will be channel cells marked only as givers (ix) but not as receivers (ixc) 
-                sum_arr = np.asarray(np.sum(sp_arr, 0)).ravel()
-                out_pos = (sum_arr == 0) & w
-                
-            out_pos = out_pos.reshape(self.getDims())
-            row, col = np.where(out_pos)
-            
+                out_ids = np.setdiff1d(self._ix, receivers)
+            row, col = self.indToCell(out_ids)
+
             if coords=="XY":
                 xi, yi = self.cellToXY(row, col)
                 return np.array((xi, yi)).T

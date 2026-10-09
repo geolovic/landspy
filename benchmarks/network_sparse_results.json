@@ -1,0 +1,73 @@
+{
+  "runs": [
+    {
+      "revision": "6c351a43f46ac8c73ec98b0b1eab500c6c53318d",
+      "seconds": 4.8561250809998455,
+      "peak_rss_mib": 556.83203125,
+      "dem_cells": 16777216,
+      "network_cells": 4095,
+      "threshold": 1,
+      "gradients": true,
+      "sha256": "f5091085f03b22edf4bacd78771f64888faf83babef1de85ff432c9996c54134"
+    },
+    {
+      "revision": "working-tree",
+      "seconds": 2.257344656999976,
+      "peak_rss_mib": 280.7265625,
+      "dem_cells": 16777216,
+      "network_cells": 4095,
+      "threshold": 1,
+      "gradients": true,
+      "sha256": "f5091085f03b22edf4bacd78771f64888faf83babef1de85ff432c9996c54134"
+    },
+    {
+      "revision": "6c351a43f46ac8c73ec98b0b1eab500c6c53318d",
+      "seconds": 4.917766330999939,
+      "peak_rss_mib": 557.1328125,
+      "dem_cells": 16777216,
+      "network_cells": 4095,
+      "threshold": 1,
+      "gradients": true,
+      "sha256": "f5091085f03b22edf4bacd78771f64888faf83babef1de85ff432c9996c54134"
+    },
+    {
+      "revision": "working-tree",
+      "seconds": 5.211612488000128,
+      "peak_rss_mib": 280.75390625,
+      "dem_cells": 16777216,
+      "network_cells": 4095,
+      "threshold": 1,
+      "gradients": true,
+      "sha256": "f5091085f03b22edf4bacd78771f64888faf83babef1de85ff432c9996c54134"
+    },
+    {
+      "revision": "6c351a43f46ac8c73ec98b0b1eab500c6c53318d",
+      "seconds": 5.7764430809997975,
+      "peak_rss_mib": 557.36328125,
+      "dem_cells": 16777216,
+      "network_cells": 4095,
+      "threshold": 1,
+      "gradients": true,
+      "sha256": "f5091085f03b22edf4bacd78771f64888faf83babef1de85ff432c9996c54134"
+    },
+    {
+      "revision": "working-tree",
+      "seconds": 2.262383034999857,
+      "peak_rss_mib": 281.5390625,
+      "dem_cells": 16777216,
+      "network_cells": 4095,
+      "threshold": 1,
+      "gradients": true,
+      "sha256": "f5091085f03b22edf4bacd78771f64888faf83babef1de85ff432c9996c54134"
+    }
+  ],
+  "environment": {
+    "python": "3.12.15",
+    "numpy": "2.5.3",
+    "numba": "0.68.0",
+    "scipy": "1.18.1",
+    "GDAL": "3.13.3"
+  },
+  "case": "sparse synthetic chain, 4096 x 4096 layout",
+  "measurement": "Sequential fresh processes; construction time excludes imports, Flow loading and JIT warmup; RSS is whole-process peak."
+}
