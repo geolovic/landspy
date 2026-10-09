@@ -8,6 +8,10 @@ from numba import njit
 
 @njit(cache=True)
 def _flood(filled, visited, pit):
+    """Fill the supplied C-contiguous array in place using boundary outlets.
+
+    visited and pit are caller-owned visitation and FIFO work buffers.
+    Returns None; NoData sentinels receive no special handling."""
     rows, cols = filled.shape
     values = filled.reshape(-1)
     # Establish the heap's native tuple type without Python objects per cell.

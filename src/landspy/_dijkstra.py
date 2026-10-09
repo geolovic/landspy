@@ -6,11 +6,13 @@ from numba import njit
 
 @njit(cache=True)
 def _less(a, b, distance):
+    """Compare heap nodes by distance, using the lower cell index to break ties."""
     return distance[a] < distance[b] or (distance[a] == distance[b] and a < b)
 
 
 @njit(cache=True)
 def _sift_up(heap, positions, distance, slot):
+    """Move one heap entry upward in place and update its position map."""
     node = heap[slot]
     while slot:
         parent = (slot - 1) // 2
@@ -25,6 +27,11 @@ def _sift_up(heap, positions, distance, slot):
 
 @njit(cache=True)
 def _distance_kernel(costs, starts, positions, heap, distance, uniform):
+    """Run eight-neighbour Dijkstra using caller-provided heap and distance buffers.
+
+    Mutates positions, heap and distance. uniform selects a boolean mask with
+    float32 steps; otherwise costs supplies endpoint friction. Returns the
+    distance buffer reshaped to the raster dimensions."""
     rows, cols = costs.shape
     count = 0
     for k in range(starts.shape[0]):
@@ -104,6 +111,7 @@ def _distance_kernel(costs, starts, positions, heap, distance, uniform):
 
 @njit(cache=True)
 def _distances(costs, starts, positions, heap):
+    """Allocate float64 distances and run the variable-friction kernel."""
     distance = np.full(costs.size, np.inf, dtype=np.float64)
     return _distance_kernel(costs, starts, positions, heap, distance, False)
 
@@ -112,7 +120,8 @@ def cost_distances(costs, starts):
     """Minimum geometric costs from zero-cost seeds on a 2D friction surface.
 
     Eight neighbours use mean endpoint friction times length (1 or sqrt(2)).
-    Infinite and negative costs block entry. Distances are float64; native
+    Non-finite and negative costs block entry. Seed cells are initialized
+    to zero even on barriers; supply seeds on valid nonnegative cells. Distances are float64; native
     heap and position indices use int32 when the raster fits, else int64.
     The heap has one entry per frontier cell and grows only as needed.
     """
@@ -130,7 +139,14 @@ def cost_distances(costs, starts):
 
 
 def flat_distances(flats, starts):
-    """Float32 unit-friction distances using only a traversability mask."""
+    """Return float32 eight-neighbour distances on a 2-D boolean mask.
+
+    starts contains (row, col) pairs, each initialized to zero. Cardinal
+    and diagonal steps are 1 and sqrt(2), rounded before accumulation.
+    False cells block propagation; unreachable cells remain infinite.
+    Neither the input mask nor starts is modified. Invalid dimensions or
+    out-of-bounds seeds raise ValueError.
+    """
     flats = np.asarray(flats, dtype=np.bool_)
     if flats.ndim != 2 or flats.size == 0:
         raise ValueError('Dijkstra requires a nonempty two-dimensional mask')

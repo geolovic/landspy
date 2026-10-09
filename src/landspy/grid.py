@@ -32,11 +32,15 @@ NTYPES = {'int8': 3, 'int16': 3, 'int32': 5, 'int64': 5, 'uint8': 1, 'uint16': 2
 
 class PRaster():
     
+    """Raster layout and coordinate conversions for an axis-aligned raster.
+
+    Stores GDAL size, geotransform and WKT projection. Coordinate conversions
+    and extent calculations ignore rotation terms; use an unrotated raster."""
     def __init__(self, path=""):
         """
-        Defines a Raster object. It defines raster properties and methods. 
-        This class is used by other class to retreive raster properties
-        
+        Defines a Raster object. It defines raster properties and methods.
+        This class is used by other class to retrieve raster properties
+
         path : str
           Path to the raster, if left blank creates an empty PRaster
         """
@@ -83,16 +87,16 @@ class PRaster():
     
     def getCellSize(self):
         """
-        Return a tuple with (XCellsize, YCellsize). 
+        Return a tuple with (XCellsize, YCellsize).
         The YCellsize is a negative value
         """
         return self._geot[1], self._geot[5]
     
     def getGeot(self):
         """
-        Return the GeoTranstorm matrix of the grid. This matrix has the form:
+        Return the six-element GDAL geotransform tuple of the grid. This matrix has the form:
         *(ULx, Cx, Tx, ULy, Ty, Cy)*
-        
+
         * ULx = Upper-Left X coordinate (upper-left corner of the pixel)
         * ULy = Upper-Left Y coordinate (upper-left corner of the pixel)
         * Cx = X Cellsize
@@ -105,11 +109,11 @@ class PRaster():
     def isInside(self, x, y):
         """
         Checks if points are inside the rectangular extent of the raster
-        
+
         Parameters:
         ===========
         x, y : coordinates (number, list, or numpy.ndarray)
-        
+
         Returns:
         ========
         bool / bool array, indicating True (inside) or False (outside)
@@ -135,10 +139,10 @@ class PRaster():
     def copyLayout(self, grid):
         """
         Copy all the parameters from another PRaster instance except grid data (and nodata)
-        
+
         Parameters:
         ================
-        pRaster : landspy.PRaster instance 
+        grid : landspy.PRaster instance
           PRaster instance from which parameters will be copied
         """
         self._size = grid.getSize()
@@ -147,13 +151,16 @@ class PRaster():
 
     def xyToCell(self, x, y):
         """
-        Get row col indexes from XY coordinates
-        
+        Get row and column indices from XY coordinates.
+
+        Rotation terms are ignored. Fractional indices are truncated toward
+        zero (not floored) before conversion to int32.
+
         Parameters:
         ===========
         x : X coordinates (number, list, or numpy.ndarray)
         y : Y coordinates (number, list, or numpy.ndarray)
-            
+
         Return:
         =======
         **tuple** : Tuple with (row, col) indices as np.ndarrays
@@ -166,13 +173,15 @@ class PRaster():
 
     def cellToXY(self, row, col):
         """
-        Get XY coordinates from (row, col) cell indexes
-        
+        Get cell-centre XY coordinates from (row, col) indices.
+
+        Rotation terms are ignored.
+
         Parameters:
         ===========
         row : row indexes (number, list, or numpy.ndarray)
         col : column indexes (number, list, or numpy.ndarray)
-            
+
         Return:
         =======
         **tuple** : Tuple with (x, y) coordinates as np.ndarrays
@@ -188,11 +197,11 @@ class PRaster():
     def indToCell(self, ind):
         """
         Get row col indexes from cells linear indexes (row-major, C-style)
-        
+
         Parameters:
         ===========
         ind : linear indexes (number, list, or numpy.ndarray)
-        
+
         Return:
         =======
         **tuple** : Tuple with (row, col) indices as numpy.ndarrays
@@ -202,12 +211,12 @@ class PRaster():
     def cellToInd(self, row, col):
         """
         Get cell linear indexes from row and column indexes
-        
+
         Parameters:
         ===========
         row : row indexes (number, list, or numpy.ndarray)
         col : column indexes (number, list, or numpy.ndarray)
-            
+
         Return:
         =======
         **numpy.array** : Array with linear indexes (row-major, C-style)
@@ -216,16 +225,17 @@ class PRaster():
     
 class Grid(PRaster):
         
+    """Raster layout with an in-memory two-dimensional data array and NoData value."""
     def __init__(self, path="", band=1):
         """
         Class to manipulate rasters
-        
+
         Parameters:
         ================
-        path : str 
-          Path to the raster
+        path : str
+          Path to the raster; an empty string creates a 1-by-1 grid
         band : int
-          Raster band to be open (usually don't need to be modified)
+          Legacy argument, currently ignored: the reader always loads band 1
         """
     
         # Elements inherited from PRaster.__init__
@@ -244,14 +254,15 @@ class Grid(PRaster):
            
     def setArray(self, array):
         """
-        Set the data array for the current Grid object. 
-        If the current Grid is an empty Grid [get_size( ) = (1, 1)], any input array is valid
+        Set the data array for the current Grid object.
+        If the current Grid is an empty Grid [getSize() = (1, 1)], a two-dimensional input array sets the grid dimensions
         If The current Grid is not an empty Grid, the input array should match Grid dimensions
-        
+
         Parameters:
         ================
         array : numpy.ndarray
-          Numpy array with the data
+          Two-dimensional data array; copied on success. A shape mismatch on
+          a nonempty Grid leaves it unchanged and returns 0; success returns None.
         """
         # If the Grid is an empty Grid, any array is valid
         if self._size == (1, 1):       
@@ -266,47 +277,47 @@ class Grid(PRaster):
             return 0
        
     def readArray(self, ascopy=False):
-        """
-        Reads the internal array of the Grid instace
-        
-        Parameters:
-        ==========
-        ascopy : bool
-          If True, the returned array is a memory view of the Grid original array.
-        
-        Return:
-        =======
-        **numpy.ndarray** : Internal array of the current Grid object
-        """
+        """Return the internal array, or an independent copy.
+
+        Parameters
+        ----------
+        ascopy : bool, default False
+            If False, return the actual internal array; edits affect this Grid.
+            If True, return an independent NumPy copy.
+
+        Returns
+        -------
+        numpy.ndarray
+            Two-dimensional grid data."""
         if ascopy:
             return np.copy(self._array)
         else:
             return self._array
     
     def find(self):
-        """
-        Find the non-zero elements in the array. Return a tuple of arrays with
-        row and col positions.
-        """
+        """Return row and column arrays for strictly positive cells.
+
+        Uses array > 0, not array != 0; negative and zero values are excluded.
+        NoData is not filtered separately."""
         return np.where(self._array > 0)
     
     def max(self):
         """
-        Return the maximun value of the Grid
+        Return the maximum value excluding cells equal to the NoData sentinel
         """
         datapos = np.where(self._array != self._nodata)
         return np.max(self._array[datapos])
     
     def min(self):
         """
-        Return the minimun value of the Grid
+        Return the minimum value excluding cells equal to the NoData sentinel
         """
         datapos = np.where(self._array != self._nodata)
         return np.min(self._array[datapos])
     
     def mean(self):
         """
-        Return the mean value of the Grid
+        Return the mean value excluding cells equal to the NoData sentinel
         """
         datapos = np.where(self._array != self._nodata)
         return np.mean(self._array[datapos])
@@ -314,10 +325,10 @@ class Grid(PRaster):
     def setValue(self, row, col, value):
         """
         Sets the value for a cell of the grid at (row, col)
-        
+
         Parameters:
         ================
-        row, col : int 
+        row, col : int
           Row and column indexes
         value : number
           Value for the cell (row, col)
@@ -327,7 +338,7 @@ class Grid(PRaster):
     def getValue(self, row, col):
         """
         Gets the value for a cell/s of the grid at (row, col)
-        
+
         Parameters:
         ================
         row, col : ints or numpy.ndarrays
@@ -343,9 +354,10 @@ class Grid(PRaster):
         return self._nodata
     
     def setNodata(self, value):
-        """
-        Sets the nodata value for the Grid
-        """
+        """Set or remove the NoData sentinel.
+
+        When replacing an existing sentinel with a non-None value, replace its
+        cells too. Setting None removes the metadata without changing cells."""
         # If nodata wasn't stabished, we set up the new value
         if self._nodata is None:
             self._nodata = value
@@ -369,7 +381,7 @@ class Grid(PRaster):
         
     def nanToNodata(self):
         """
-        Changes nan values to NoData (if Grid nodata is defined). 
+        Changes nan values to NoData (if Grid nodata is defined).
         """
         if self._nodata is None:
             return
@@ -378,8 +390,8 @@ class Grid(PRaster):
     
     def valuesToNodata(self, value):
         """
-        Change specific values to NoData (if Grid nodata is defined). 
-        
+        Change specific values to NoData (if Grid nodata is defined).
+
         Parameters:
         ===========
         value : int, float, sequence. Value or sequence of values that will be changed to NoData
@@ -398,10 +410,10 @@ class Grid(PRaster):
     def plot(self, ax=None):
         """
         Plots the grid in a new Axes or in a existing one
-        
+
         Parameters:
         ===========
-        ax : matplotlib.Axe
+        ax : matplotlib.axes.Axes
           If is not defined, the function will use plt.imshow()
         """
         if not PLT:
@@ -419,13 +431,14 @@ class Grid(PRaster):
     
     def isInside(self, x, y, NoData=True):
         """
-        Checks if points are inside the rasterr
-        
+        Checks if points are inside the raster
+
         Parameters:
         ===========
-        x, y : coordinates (number, list, or numpy.ndarray)
+        x, y : coordinates (Python int/float or numpy.ndarray). For vector inputs
+        with NoData=True, pass NumPy arrays rather than lists.
         NoData : Flag consider or not NoData values (If NoData == True > Points in NoData are outside)
-        
+
         Returns:
         ========
         bool / bool array, indicating True (inside) or False (outside)
@@ -471,11 +484,15 @@ class Grid(PRaster):
     
     def save(self, path):
         """
-        Saves the grid in the disk
-        
+        Save a single-band GeoTIFF with layout and NoData metadata.
+
+        The output uses the GDAL type in NTYPES. int8 maps to Int16,
+        int64 to Int32, uint64 to UInt32, and float16 to Float32; saving
+        can therefore change precision or range. Unsupported dtypes return 0.
+
         Parameters:
         ================
-        path : str 
+        path : str
           Path where new raster will be saved
         """
         # Check if the type of the internal array is compatible with gdal
@@ -498,9 +515,17 @@ class Grid(PRaster):
 
 class DEM(Grid):
     
+    """Elevation grid whose constructor normalizes the NoData sentinel to -9999.
+
+    Provides flat/sill detection and depression filling. See fill() for its
+    explicit treatment of NoData values as elevations."""
     def __init__(self, path="", band=1):
         
         # Call to Grid.__init__ method
+        """Initialize an elevation grid from a raster path, or a 1-by-1 grid if empty.
+
+        Existing NoData cells are changed to -9999. The band argument is passed
+        to Grid; the current reader always reads band 1."""
         super().__init__(path, band)
         # Change NoData values to -9999.
         self.setNodata(-9999.)
@@ -518,33 +543,35 @@ class DEM(Grid):
         
     def identifyFlats(self, nodata=True, as_array=False):
         """
-        This functions returns two landspy.Grids (or numpy.ndarrays) with flats and sills. 
-        Flats are defined  as cells without downward neighboring cells. Sills are cells where 
-        flat regions spill over into lower terrain. It the DEM has nodata, they will be maintained
-        in output grids.
-        
+        This functions returns two landspy.Grids (or numpy.ndarrays) with flats and sills.
+        Flats are defined  as cells without downward neighboring cells. Sills are cells where
+        flat regions spill over into lower terrain. NoData positions are excluded from the masks.
+
         Parameters:
         ------------
         nodata : boolean
-          Boolean that indicates if notada are kept (True) or replaced by zeros (False)
+          Only for Grid outputs: mark NoData positions as -1 (True), or 0
+          with no NoData sentinel (False). Ignored when as_array=True.
         as_array : boolean
           Boolean that indicates if outputs are boolean numpy.ndarrays (True) or a Grid objects (False)
-        
+
         Returns:
         ------------
-        **tuple** : Tuple (flats, sills) with two landspy.Grid (as_array=False) or numpy.ndarray (as_array=True)
-        
+        list or tuple
+          A list [flats, sills] of int8 Grids when as_array=False; a tuple
+          of boolean arrays when as_array=True. Both follow the DEM layout.
+
         References:
         -----------
-        This algoritm is adapted from identifyflats.m by Wolfgang Schwanghart 
+        This algoritm is adapted from identifyflats.m by Wolfgang Schwanghart
         (version of 17. August, 2017) included in TopoToolbox matlab codes.
-        
-        Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions 
-        for topographic analysis. Environ. Model. Softw. 25, 770–781. 
+
+        Schwanghart, W., Kuhn, N.J., 2010. TopoToolbox: A set of Matlab functions
+        for topographic analysis. Environ. Model. Softw. 25, 770–781.
         https://doi.org/10.1016/j.envsoft.2009.12.002
-        
-        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 - 
-        MATLAB-based software for topographic analysis and modeling in Earth 
+
+        Schwanghart, W., Scherler, D., 2014. Short Communication: TopoToolbox 2 -
+        MATLAB-based software for topographic analysis and modeling in Earth
         surface sciences. Earth Surf. Dyn. 2, 1–7. https://doi.org/10.5194/esurf-2-1-2014
 
         """
@@ -618,6 +645,8 @@ class DEM(Grid):
         landspy.DEM or numpy.ndarray
           Filled DEM or array, with the input dtype preserved. All cells are
           processed as elevations, without special treatment of NoData.
+          The input must be a nonempty two-dimensional real numeric array
+          without NaN values; invalid inputs raise ValueError or TypeError.
         """
         filled = priority_flood(self._array)
 
@@ -639,32 +668,31 @@ class DEM(Grid):
         return filled_dem
     
     def fill2(self, four_way=False):
-        """
-        Fill sinks method adapted from  fill depressions/sinks in floating point array
-        
-        Parameters:
+        """Return a new DEM filled using iterative morphological erosion.
+
+        Parameters
         ----------
-        input_array : [ndarray] Input array to be filled
-        four_way : [bool] Searchs the 4 (True) or 8 (False) adjacent cells
-        
-        Returns:
-        ----------
-        [ndarray] Filled array
-    
-        This algorithm has been adapted (with minor modifications) from the 
-        Charles Morton slow fill algorithm (with ndimage and python 3 was not slow
-        at all). 
-        
+        four_way : bool, default False
+            Use four-connected neighbours if True, otherwise eight-connected.
+
+        Returns
+        -------
+        landspy.DEM
+            Filled copy; the input is unchanged. This is the legacy alternative
+            to fill(), not an array-returning method.
+
+        Notes
+        -----
+        NoData cells are temporarily set to -9999. Restoration currently occurs
+        only for a truthy NoData sentinel.
+
         References
         ----------
-        Soile, P., Vogt, J., and Colombo, R., 2003. Carving and Adaptive
-        Drainage Enforcement of Grid Digital Elevation Models.
-        Water Resources Research, 39(12), 1366
-        
-        Soille, P., 1999. Morphological Image Analysis: Principles and
-        Applications, Springer-Verlag, pp. 173-174
-    
-        """
+        Soille, P., Vogt, J., and Colombo, R., 2003. Carving and Adaptive
+        Drainage Enforcement of Grid Digital Elevation Models. Water Resources
+        Research, 39(12), 1366.
+        Soille, P., 1999. Morphological Image Analysis: Principles and Applications,
+        Springer-Verlag, pp. 173-174."""
         # Change nan values to a very low value
         copyarr = np.copy(self._array)
         nodata_pos = self.getNodataPos()
@@ -711,17 +739,19 @@ class DEM(Grid):
 
 class Basin(DEM):
 
+    """Elevation grid cropped to a selected basin, with NoData outside its mask."""
     def __init__(self, dem, basin=None, idx=1):
         """
         Class to manipulate drainage basins. The object is basically a DEM with NoData
-        values in cells outside the drainage basin. 
-        
-        dem : str, DEM
-          Digital Elevation Model (DEM instance). If dem is a string and basin=None, 
-          the Basin will load from this string path.
+        values in cells outside the drainage basin.
+
+        dem : str or landspy.DEM
+          With a basin mask, pass a DEM instance. When basin=None, pass
+          a raster path that is already masked to the basin.
         basin : None, str, Grid
-          Drainage basin. If None, DEM is loaded as a basin. Needs to have the same
-          dimensions and cellsize than the input DEM. 
+          Basin mask as a Grid or raster path. If None, load dem as a path.
+          With a mask, dimensions must match dem; matching cell size, origin
+          and CRS are also required, but only dimensions are checked.
         idx : int
           Value of the basin cells
         """
@@ -770,7 +800,10 @@ class Basin(DEM):
         
     def copy(self):    
         """
-        Returns a copy of the Basin
+        Intended to return an independent Basin copy.
+
+        Current limitation: calls Basin() without the required dem argument
+        and raises TypeError. The copying implementation needs correction.
         """
         newgrid = Basin()
         newgrid.copyLayout(self)
@@ -780,4 +813,5 @@ class Basin(DEM):
         return newgrid
 
 class GridError(Exception):
+    """Error raised for incompatible raster layouts or grid operations."""
     pass
