@@ -18,6 +18,7 @@ gdal.UseExceptions()
 from scipy import ndimage
 from ._dijkstra import cost_distances, flat_distances
 from ._receivers import receiver_indices
+from ._accumulation import accumulate_flow
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster, DEM
 
@@ -197,6 +198,12 @@ class Flow(PRaster):
         asgrid : *bool*
           Indicates if accumulation is returned as landspy.Grid (True) or as a numpy.array
 
+        Notes
+        -----
+        Accumulation uses a sequential Numba-compiled loop without changing
+        the topological addition order. The first call for an input dtype
+        may compile the kernel; subsequent calls reuse cached code.
+
         Usage:
         ======
         fac = fd.flowAccumulation() # Create a flow accumulation Grid object
@@ -233,18 +240,14 @@ class Flow(PRaster):
         else:
             facc = np.ones(ncells, np.uint32)
         
-        nix = len(self._ix)
-        for n in range(nix):
-            facc[self._ixc[n]] += facc[self._ix[n]]
-        
-        facc = facc.reshape(dims)
+        accumulate_flow(self._ix, self._ixc, facc)
         if nodata:
             nodata_val = np.iinfo(np.uint32).max
         else:
             nodata_val = 0
         
-        row, col = np.unravel_index(self._nodata_pos, dims)
-        facc[row, col] = nodata_val
+        facc[self._nodata_pos] = nodata_val
+        facc = facc.reshape(dims)
         
         # Get the output in form of a Grid object
         if not nodata:

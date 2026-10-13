@@ -1,3 +1,49 @@
+# Compiled flow accumulation on the full DEM
+
+`Flow.flowAccumulation()` now executes its forward topological loop with
+Numba. It keeps the original addition order, uint32 overflow behavior and
+float64 weighted arithmetic, without fastmath or parallel writes. NoData
+positions are assigned directly to the flat accumulation buffer, avoiding
+the two int64 coordinate arrays previously created by `np.unravel_index`.
+
+The full `DEM_30m.tif` has 16,627 x 14,448 cells, 186,573,695 Flow edges and
+53,630,198 NoData positions. Measurements compare the uncommitted implementation
+with `22346cd1a366e3b833eb0f1eb41737013652f6b5` on exactly the same lossless
+Flow arrays. Each worker runs in a fresh process, with input loading and JIT
+warmup outside the timer. Network uses the default threshold (0.25% of raster
+cells), theta=0.45, npoints=5 and gradients=True: 169,439 giver cells.
+
+| Measurement | Previous accumulation | Compiled accumulation |
+| --- | --- | --- |
+| Accumulation time, one run per version, nodata=True | 73.284 s | 1.043 s |
+| Accumulation worker peak RSS | 5.09 GiB | 4.29 GiB |
+| Complete Network time, median of three runs | 68.044 s | 4.074 s |
+| Network worker peak RSS, median of three runs | 5.09 GiB | 4.47 GiB |
+
+Network construction was about 16.7 times faster and its peak RSS fell by
+12.3%. RSS includes the input Flow, imports and warmup; it is not Network's
+own array size. Removing the coordinate arrays saves about 818 MiB of logical
+temporary storage, but subsequent Network selection now sets a higher peak
+than accumulation alone. These observations do not establish statistical
+significance or weighted-accumulation performance on the full DEM.
+
+The complete accumulation raster matched exactly, including its dtype and
+SHA-256. All eleven Network arrays matched exactly in each comparison and
+across repetitions, including slope, ksn and both R2 arrays. The full suite
+passes 137 tests. Separate fixture validation compared all four Flow arrays
+in 24 combinations of filled/raw_z/auxtopo and 54 accumulation arrays, including
+weighted and both NoData modes, with exact equality. New tests also cover
+shared receivers, multiple outlets, disconnected cells, signed weights,
+cancellation, non-finite weights and uint32 overflow.
+
+Raw measurements, input hash, tool versions and implementation hashes are in
+`real_dem_accumulation_results.json`. User raster data and full arrays remain
+outside the repository. `benchmark_accumulation.py` accepts `--dem` for raster
+metadata, `--flow-arrays` for the lossless NPY directory produced by
+`profile_flow_memory.py --save-arrays`, and `--baseline` for the full reference
+SHA above. Use `--nodata --runs 1` for the accumulation comparison, or
+`--network --gradients --runs 3` for Network, with `--output` to save results.
+
 # Network gradient regression comparison
 
 The second optimization uses a centered linear regression compiled with Numba
