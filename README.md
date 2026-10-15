@@ -36,10 +36,7 @@ After the recipe has been accepted and built, installation will be:
 ### QGIS installation
 When installing **landspy** to use inside QGIS, we will use the pip installation. As most of the requirements will be already available in the Python QGIS environment, follow these steps:
 1. Open OSGeo4W shell (packed with QGIS in the start menu)
-2. If running a QGIS version lower than 3.18 (not needed for later versions). Type:
-
-    `py3_env`  
-3. Install via pip by typing:
+2. Install library via pip by typing:
 
     `pip install landspy`
 
@@ -61,44 +58,7 @@ We are preparing a
 > Lansdpy, a open-source library for landscape analysis in Python and QGIS.
 > [In preparation]
 
-## 5. Tutorials and Examples
-
-### Filling a DEM with less memory
-
-When the original elevations are no longer needed, replace the DEM's array with
-the filled result:
-
-```python
-from landspy import DEM
-
-dem = DEM("data/elevation.tif")
-dem.fill(inplace=True)
-dem.save("data/elevation_filled.tif")
-```
-
-`dem.fill()` still returns a separate DEM and preserves the original.
-`dem.fill(as_array=True, inplace=True)` returns the array now held by `dem`.
-The input data type and georeferencing are preserved. References
-previously obtained through `dem.readArray()` still point to the old array;
-release those references if the original data is no longer needed.
-
-Filling uses eight-neighbour Priority-Flood, compiled with Numba, and a FIFO
-queue for cells within depressions. The first call for a data type may take
-longer while Numba compiles the loop; subsequent calls reuse compiled code.
-Auxiliary visitation and FIFO arrays require approximately five bytes per
-cell for rasters with fewer than 2**31 cells, plus a terrain-dependent heap.
-There is also a filled output array. All cells are processed as elevations,
-without a NoData mask or restoration step. Negative sentinel values inside
-depressions can therefore be raised by filling.
-
-`inplace=True` releases the DEM's reference to the original array after filling;
-it does not eliminate working memory or make filling an out-of-core operation.
-Input elevations must not contain NaN values.
-
-`Flow(dem)` fills the DEM once and reuses the filled elevations. To use a DEM
-that has already been filled, call `Flow(dem, filled=True)`; neither elevation
-mode fills it again. `raw_z=True` keeps the input elevations for profiles and
-gradients while drainage is calculated using the filled surface.
+## 5. Tutorials
 
 To get an overview of how **landspy** works, we offer some tutorials to perform some of the most common tasks that can be done with it.
 

@@ -111,15 +111,15 @@ class Flow(PRaster):
         """
 
         driver = gdal.GetDriverByName("GTiff")
-        raster = driver.Create(path, self._size[0], self._size[1], 3, gdal.GDT_UInt32)
+        raster = driver.Create(path, self._size[0], self._size[1], 3, gdal.GDT_Int32)
         raster.SetGeoTransform(self._geot)
         raster.SetProjection(self._proj)
 
         no_cells = self.getNCells() - len(self._ix)
-        miss_cells = np.zeros(no_cells, np.uint32)
-        ix = np.append(self._ix, miss_cells).astype(np.uint32)
-        ixc = np.append(self._ixc, miss_cells).astype(np.uint32)
-        zx = np.append(self._zx * 1000, miss_cells).astype(np.uint32)
+        miss_cells = np.zeros(no_cells, np.int32)
+        ix = np.append(self._ix, miss_cells).astype(np.int32)
+        ixc = np.append(self._ixc, miss_cells).astype(np.int32)
+        zx = np.append(self._zx * 1000, miss_cells).astype(np.int32)
         ix = ix.reshape(self.getDims())
         ixc = ixc.reshape(self.getDims())
         zx = zx.reshape(self.getDims())
@@ -148,10 +148,10 @@ class Flow(PRaster):
         raster = self._raster
         banda = self._banda
         no_cells = banda.GetNoDataValue()
-        arr = banda.ReadAsArray().astype(np.uint32)
+        arr = banda.ReadAsArray().astype(np.int32)
         self._ix = arr.ravel()[0:int(ncells - no_cells)]
         banda = raster.GetRasterBand(2)
-        arr = banda.ReadAsArray().astype(np.uint32)
+        arr = banda.ReadAsArray().astype(np.int32)
         self._ixc = arr.ravel()[0:int(ncells - no_cells)]
         banda = raster.GetRasterBand(3)
         arr = banda.ReadAsArray().astype(np.float32)
@@ -159,7 +159,7 @@ class Flow(PRaster):
         self._zx = self._zx / 1000
         
         # Get NoData positions
-        aux_arr = np.zeros(ncells, np.uint32)
+        aux_arr = np.zeros(ncells, np.int32)
         aux_arr[self._ix] = 1
         aux_arr[self._ixc] = 1
         self._nodata_pos = np.where(aux_arr==0)[0]
