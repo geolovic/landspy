@@ -18,6 +18,7 @@ from osgeo import ogr, osr
 from scipy.sparse import csc_matrix
 
 from . import Grid, PRaster, Basin
+from ._network_kernels import channel_mask, receiver_positions, edge_lengths, downstream_sums
 
 # This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
 # If matplotlib is not imported, BNetwork.chi_plot() will not work.
@@ -87,28 +88,20 @@ class Network(PRaster):
         
         # Get sort Nodes for channel cells and elevations
         fac = flow.flowAccumulation(nodata=False, asgrid=False)
-        w = fac >= threshold
-        w = w.ravel()
-        I   = w[flow._ix]
+        I = channel_mask(flow._ix, fac.ravel(), threshold)
         self._ix  = flow._ix[I]
         self._ixc = flow._ixc[I]
         
         # Get Area and Elevations for channel cells
         self._ax = fac.ravel()[self._ix] # Area in CELLS units!!
         self._zx = flow._zx[I]
+        del fac, I
         
         # Get distances to mouth (self._dx) and giver-receiver distances (self._dd)
-        di = np.zeros(self.getNCells())
-        self._dd = np.zeros(self._ix.shape) # Giver-Receiver distance
-        for n in np.arange(self._ix.size)[::-1]:
-            grow, gcol = self.indToCell(self._ix[n])
-            rrow, rcol = self.indToCell(self._ixc[n])
-            gx, gy = self.cellToXY(grow, gcol)
-            rx, ry = self.cellToXY(rrow, rcol)
-            d_gr = np.sqrt((gx - rx)**2 + (gy - ry)**2)
-            self._dd[n] = d_gr
-            di[self._ix[n]] = di[self._ixc[n]] + d_gr
-        self._dx = di[self._ix]
+        self._dd = edge_lengths(self._ix, self._ixc, self._size[0], self._geot)
+        receivers = receiver_positions(self._ix, self._ixc)
+        self._dx = downstream_sums(receivers, self._dd)
+        del receivers
         
         # Get chi values using the input thetaref
         self._thetaref = thetaref
@@ -245,10 +238,9 @@ class Network(PRaster):
         a0 : *float*
           Reference area to avoid dimensionality (usually don't need to be changed)
         """
-        chi = np.zeros(self.getNCells())
-        for n in np.arange(self._ix.size)[::-1]:
-            chi[self._ix[n]] = chi[self._ixc[n]] + (a0 * self._dd[n]/self._ax[n]**thetaref)            
-        self._chi = chi[self._ix]
+        receivers = receiver_positions(self._ix, self._ixc)
+        increments = a0 * self._dd / self._ax**thetaref
+        self._chi = downstream_sums(receivers, increments)
         self._thetaref = thetaref
    
     def polynomial_fit(self, x, y):

@@ -1,0 +1,170 @@
+{
+  "dem": {
+    "shape": [
+      14448,
+      16627
+    ],
+    "cells": 240226896,
+    "dtype": "int16",
+    "sha256": "53c8d23885e8fff575a6eed5511a535f02b3221be80da7aa617bf84aa04241b9"
+  },
+  "baseline": {
+    "exit_code": 0,
+    "peak_rss_bytes": 8932835328,
+    "phases": {
+      "load": {
+        "seconds": 0.47167813700002625,
+        "peak_rss_bytes": 3612520448,
+        "start_rss_bytes": 220332032,
+        "edges": 186573485
+      },
+      "accumulation": {
+        "seconds": 85.76159894500006,
+        "peak_rss_bytes": 5454020608,
+        "start_rss_bytes": 3612520448
+      },
+      "chi": {
+        "seconds": 7.801761598999747,
+        "peak_rss_bytes": 8932835328,
+        "start_rss_bytes": 7021350912
+      },
+      "Network": {
+        "seconds": 129.42258006600014,
+        "peak_rss_bytes": 8932835328,
+        "start_rss_bytes": 3612520448,
+        "nodes": 3405387,
+        "threshold": 1500
+      }
+    }
+  },
+  "optimized_runs": [
+    {
+      "exit_code": 0,
+      "reference_ref": null,
+      "warmup": true,
+      "gradients": false,
+      "phases": {
+        "load": {
+          "seconds": 0.385051871000087,
+          "peak_rss_bytes": 3676020736,
+          "start_rss_bytes": 261656576,
+          "edges": 186573485
+        },
+        "accumulation": {
+          "seconds": 1.0143328660001316,
+          "peak_rss_bytes": 4636930048,
+          "start_rss_bytes": 3676020736
+        },
+        "chi": {
+          "seconds": 1.3814983669999492,
+          "peak_rss_bytes": 3907874816,
+          "start_rss_bytes": 3798626304
+        },
+        "Network": {
+          "seconds": 4.895943227000316,
+          "peak_rss_bytes": 4891553792,
+          "start_rss_bytes": 3676020736,
+          "nodes": 3405387,
+          "threshold": 1500
+        }
+      }
+    },
+    {
+      "exit_code": 0,
+      "reference_ref": null,
+      "warmup": true,
+      "gradients": false,
+      "phases": {
+        "load": {
+          "seconds": 0.4856268739999905,
+          "peak_rss_bytes": 3670290432,
+          "start_rss_bytes": 255725568,
+          "edges": 186573485
+        },
+        "accumulation": {
+          "seconds": 1.0471549920002872,
+          "peak_rss_bytes": 4631199744,
+          "start_rss_bytes": 3670290432
+        },
+        "chi": {
+          "seconds": 1.231688392000251,
+          "peak_rss_bytes": 3902144512,
+          "start_rss_bytes": 3792891904
+        },
+        "Network": {
+          "seconds": 4.759878162999939,
+          "peak_rss_bytes": 4885512192,
+          "start_rss_bytes": 3670290432,
+          "nodes": 3405387,
+          "threshold": 1500
+        }
+      }
+    },
+    {
+      "exit_code": 0,
+      "reference_ref": null,
+      "warmup": true,
+      "gradients": false,
+      "phases": {
+        "load": {
+          "seconds": 0.44508643100016343,
+          "peak_rss_bytes": 3670900736,
+          "start_rss_bytes": 256335872,
+          "edges": 186573485
+        },
+        "accumulation": {
+          "seconds": 1.1263126550002198,
+          "peak_rss_bytes": 4631810048,
+          "start_rss_bytes": 3670900736
+        },
+        "chi": {
+          "seconds": 1.225053101999947,
+          "peak_rss_bytes": 3902754816,
+          "start_rss_bytes": 3793502208
+        },
+        "Network": {
+          "seconds": 4.844562749000033,
+          "peak_rss_bytes": 4885770240,
+          "start_rss_bytes": 3670900736,
+          "nodes": 3405387,
+          "threshold": 1500
+        }
+      }
+    }
+  ],
+  "cold": {
+    "exit_code": 0,
+    "reference_ref": null,
+    "warmup": false,
+    "gradients": false,
+    "phases": {
+      "load": {
+        "seconds": 0.4395774370000254,
+        "peak_rss_bytes": 3631616000,
+        "start_rss_bytes": 217047040,
+        "edges": 186573485
+      },
+      "accumulation": {
+        "seconds": 1.4659107530001165,
+        "peak_rss_bytes": 4638773248,
+        "start_rss_bytes": 3631616000
+      },
+      "chi": {
+        "seconds": 1.2222598919997836,
+        "peak_rss_bytes": 3911282688,
+        "start_rss_bytes": 3829256192
+      },
+      "Network": {
+        "seconds": 7.664017682000122,
+        "peak_rss_bytes": 4896555008,
+        "start_rss_bytes": 3631616000,
+        "nodes": 3405387,
+        "threshold": 1500
+      }
+    }
+  },
+  "median_seconds": 4.844562749000033,
+  "speedup": 26.71501779860613,
+  "memory_reduction_percent": 45.24074817916536,
+  "arrays_exact": true
+}

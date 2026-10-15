@@ -17,6 +17,7 @@ from osgeo import gdal
 gdal.UseExceptions()
 from scipy import ndimage
 from ._dijkstra import cost_distances, flat_distances
+from ._network_kernels import accumulate
 from ._receivers import receiver_indices
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster, DEM
@@ -217,9 +218,7 @@ class Flow(PRaster):
         else:
             facc = np.ones(ncells, np.uint32)
         
-        nix = len(self._ix)
-        for n in range(nix):
-            facc[self._ixc[n]] += facc[self._ix[n]]
+        accumulate(self._ix, self._ixc, facc)
         
         facc = facc.reshape(dims)
         if nodata:
@@ -227,8 +226,9 @@ class Flow(PRaster):
         else:
             nodata_val = 0
         
-        row, col = np.unravel_index(self._nodata_pos, dims)
-        facc[row, col] = nodata_val
+        # NoData positions are already flat indices; avoid two full-sized
+        # row/column arrays on DEMs with a large masked border.
+        facc.ravel()[self._nodata_pos] = nodata_val
         
         # Get the output in form of a Grid object
         if not nodata:
