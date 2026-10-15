@@ -221,14 +221,33 @@ class DEMPriorityFloodTest(unittest.TestCase):
         dem.setArray(np.array([[1, 9, 9], [9, 1, 9], [9, 9, 9]], dtype='float32'))
         np.testing.assert_array_equal(dem.fill(as_array=True), dem.readArray())
 
-    def test_negative_sentinel_is_processed_as_elevation(self):
+    def test_interior_nodata_is_restored_after_filling(self):
         dem = DEM()
         arr = np.full((5, 5), 9, dtype='float32')
         arr[1:4, 1:4] = 1
         arr[2, 2] = dem.getNodata()
         dem.setArray(arr)
         expected = np.full((5, 5), 9, dtype='float32')
-        np.testing.assert_array_equal(dem.fill(as_array=True), expected)
+        expected[2, 2] = dem.getNodata()
+        for inplace in (False, True):
+            for as_array in (False, True):
+                with self.subTest(inplace=inplace, as_array=as_array):
+                    dem.setArray(arr)
+                    result = dem.fill(as_array=as_array, inplace=inplace)
+                    actual = result if as_array else result.readArray()
+                    np.testing.assert_array_equal(actual, expected)
+                    np.testing.assert_array_equal(dem.readArray(), expected if inplace else arr)
+
+    def test_extended_precision_fill(self):
+        level = np.longdouble(1) + np.finfo(np.longdouble).eps
+        arr = np.full((3, 3), level, dtype=np.longdouble)
+        arr[1, 1] = 0
+        dem = DEM()
+        dem.setArray(arr)
+        actual = dem.fill(as_array=True)
+        self.assertEqual(actual.dtype, arr.dtype)
+        np.testing.assert_array_equal(actual, np.full_like(arr, level))
+        np.testing.assert_array_equal(dem.readArray(), arr)
 
     def test_large_integer_elevations_remain_exact(self):
         dem = DEM()

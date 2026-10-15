@@ -784,7 +784,11 @@ def sort_dem(dem_arr, weights, order="C"):
     rweights = weights.ravel(order=order)
     # The last key is primary. Lexsort is stable, so exact ties retain the
     # original raster index without allocating an explicit arange key.
-    ix = np.lexsort((-rweights, -rdem))
+    # Integer complement reverses order exactly, including unsigned zero and
+    # the signed minimum; negation would overflow at those values.
+    elevation_key = ~rdem if rdem.dtype.kind in 'iu' else -rdem
+    weight_key = ~rweights if rweights.dtype.kind in 'iu' else -rweights
+    ix = np.lexsort((weight_key, elevation_key))
     return ix.astype(np.uint32)
 
 

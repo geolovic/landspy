@@ -616,10 +616,13 @@ class DEM(Grid):
         Returns:
         ----------
         landspy.DEM or numpy.ndarray
-          Filled DEM or array, with the input dtype preserved. All cells are
-          processed as elevations, without special treatment of NoData.
+          Filled DEM or array, with the input dtype preserved. NoData cells
+          participate in filling as elevations, then regain their original value.
         """
         filled = priority_flood(self._array)
+        if self._nodata is not None:
+            nodata_pos = self.getNodataPos()
+            filled[nodata_pos] = self._array[nodata_pos]
 
         if inplace:
             self._array = filled

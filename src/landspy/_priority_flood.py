@@ -82,5 +82,9 @@ def priority_flood(array):
     visited = np.zeros(array.size, dtype=np.bool_)
     index_dtype = np.int32 if array.size <= np.iinfo(np.int32).max else np.int64
     pit = np.empty(array.size, dtype=index_dtype)
-    _flood(filled, visited, pit)
+    if filled.dtype.kind == 'f' and filled.dtype.itemsize not in (4, 8):
+        # Keep extended precision: Numba cannot compile longdouble arrays.
+        _flood.py_func(filled, visited, pit)
+    else:
+        _flood(filled, visited, pit)
     return filled.astype(array.dtype, copy=False)

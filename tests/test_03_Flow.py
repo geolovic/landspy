@@ -80,9 +80,40 @@ class FlowFillReuseTest(unittest.TestCase):
             for order in ('C', 'F'):
                 with self.subTest(dtype=dtype, order=order):
                     first = np.argsort(-weights.ravel(order=order), kind='mergesort')
-                    second = np.argsort(-elevations.ravel(order=order)[first], kind='mergesort')
+                    # Python integers provide an overflow-free reference.
+                    values = elevations.ravel(order=order)[first]
+                    if values.dtype.kind in 'iu':
+                        values = values.astype(object)
+                    second = np.argsort(-values, kind='mergesort')
                     expected = first[second].astype('uint32')
                     np.testing.assert_array_equal(sort_dem(elevations, weights, order), expected)
+
+    def test_integer_sort_preserves_precision_and_ties(self):
+        for dtype in ('uint8', 'uint16', 'uint32', 'uint64',
+                      'int8', 'int16', 'int32', 'int64'):
+            limits = np.iinfo(dtype)
+            elevations = np.array([[0, limits.max, limits.min],
+                                   [limits.max - 1, 1, limits.max]], dtype=dtype)
+            weights = np.array([[0, 0, 1], [1, 0, 1]], dtype=dtype)
+            for order in ('C', 'F'):
+                with self.subTest(dtype=dtype, order=order):
+                    z = elevations.ravel(order=order).tolist()
+                    w = weights.ravel(order=order).tolist()
+                    expected = sorted(range(len(z)), key=lambda i: (-z[i], -w[i], i))
+                    np.testing.assert_array_equal(sort_dem(elevations, weights, order), expected)
+
+    def test_interior_nodata_is_excluded_from_flow(self):
+        dem = DEM()
+        arr = np.full((5, 5), 9.0)
+        arr[1:4, 1:4] = 1
+        arr[2, 2] = dem.getNodata()
+        dem.setArray(arr)
+        for raw_z in (False, True):
+            with self.subTest(raw_z=raw_z):
+                flow = Flow(dem, raw_z=raw_z)
+                self.assertNotIn(12, flow._ix)
+                self.assertNotIn(12, flow._ixc)
+                self.assertIn(12, flow._nodata_pos)
 
     def test_unconnected_cells(self):
         flow = Flow()
