@@ -1,5 +1,7 @@
 """Compiled topological traversals with channel-sized distance/chi storage."""
 
+# Last modified: 2026-10-16 11:19:50 CEST (Europe/Madrid).
+
 import numpy as np
 from numba import njit
 

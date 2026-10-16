@@ -1,5 +1,7 @@
 """Numerical regressions for the compiled Network construction traversals."""
 
+# Last modified: 2026-10-16 11:19:50 CEST (Europe/Madrid).
+
 import unittest
 
 import numpy as np

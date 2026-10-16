@@ -1,5 +1,7 @@
 # Network construction benchmark
 
+Last modified: 2026-10-16 11:19:50 CEST (Europe/Madrid).
+
 The supplied `DEM_30m.tif` has 16,627 columns and 14,448 rows
 (240,226,896 cells, Int16, NoData -9999). Its SHA-256 is
 `53c8d23885e8fff575a6eed5511a535f02b3221be80da7aa617bf84aa04241b9`.
@@ -21,6 +23,11 @@ This is a 26.7x speedup for Network construction and a 45.2% reduction in its
 peak process RSS. The baseline was measured once; these are observations from
 this DEM and machine, not portable performance guarantees. Raw results are in
 [`network_results.json`](network_results.json).
+
+Modification record for the JSON results (documented here because JSON does
+not support comments): `network_results.json` last modified
+2026-10-15 12:52:54 CEST (Europe/Madrid). These measurements have not been rerun
+as part of the documentation timestamp update.
 
 ## Scope and measurement
 

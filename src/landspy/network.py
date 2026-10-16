@@ -10,7 +10,7 @@
 # Version: 1.1
 # October 1th, 2018
 #
-# Last modified 15 october, 2025
+# Last modified: 2026-10-16 11:19:50 CEST (Europe/Madrid).
 
 import numpy as np
 import os

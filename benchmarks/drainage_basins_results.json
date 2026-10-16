@@ -1,0 +1,441 @@
+{
+  "last_modified": "2026-10-16 11:40:19 CEST (Europe/Madrid)",
+  "baseline_ref": "9f1f422",
+  "dem": {
+    "shape": [
+      14448,
+      16627
+    ],
+    "cells": 240226896,
+    "dtype": "int16",
+    "sha256": "53c8d23885e8fff575a6eed5511a535f02b3221be80da7aa617bf84aa04241b9"
+  },
+  "flow_edges": 186573485,
+  "modes": {
+    "all": {
+      "baseline": {
+        "exit_code": 0,
+        "peak_rss_bytes": 5517819904,
+        "phases": {
+          "load": {
+            "seconds": 2.9948491339891916,
+            "peak_rss_bytes": 3632656384,
+            "start_rss_bytes": 219160576
+          },
+          "drainageBasins": {
+            "seconds": 91.95361580900499,
+            "peak_rss_bytes": 5517799424,
+            "start_rss_bytes": 3632656384,
+            "mode": "all"
+          }
+        }
+      },
+      "baseline_result": {
+        "sha256": "d0dc1fa365e005136bc01cb28f58e4774812e345e2dfdb0b51060611f2879f69",
+        "dtype": "int64",
+        "shape": [
+          14448,
+          16627
+        ],
+        "max_id": 23045
+      },
+      "optimized_runs": [
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "all",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.4186604229907971,
+              "peak_rss_bytes": 3670786048,
+              "start_rss_bytes": 256552960
+            },
+            "drainageBasins": {
+              "seconds": 1.1495362870045938,
+              "peak_rss_bytes": 5554462720,
+              "start_rss_bytes": 3670786048
+            }
+          },
+          "result": {
+            "sha256": "d0dc1fa365e005136bc01cb28f58e4774812e345e2dfdb0b51060611f2879f69",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 23045,
+            "compared": true
+          }
+        },
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "all",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.4852374899928691,
+              "peak_rss_bytes": 3671273472,
+              "start_rss_bytes": 257036288
+            },
+            "drainageBasins": {
+              "seconds": 1.0397519569960423,
+              "peak_rss_bytes": 5556695040,
+              "start_rss_bytes": 3671273472
+            }
+          },
+          "result": {
+            "sha256": "d0dc1fa365e005136bc01cb28f58e4774812e345e2dfdb0b51060611f2879f69",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 23045,
+            "compared": true
+          }
+        },
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "all",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.42055397399235517,
+              "peak_rss_bytes": 3669614592,
+              "start_rss_bytes": 255377408
+            },
+            "drainageBasins": {
+              "seconds": 0.8697655619907891,
+              "peak_rss_bytes": 5553655808,
+              "start_rss_bytes": 3669614592
+            }
+          },
+          "result": {
+            "sha256": "d0dc1fa365e005136bc01cb28f58e4774812e345e2dfdb0b51060611f2879f69",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 23045,
+            "compared": true
+          }
+        }
+      ],
+      "median_seconds": 1.0397519569960423,
+      "speedup": 88.43803100373006,
+      "max_peak_rss_bytes": 5556695040,
+      "peak_rss_reduction_percent": -0.7049117412789796,
+      "labels_exact": true
+    },
+    "default": {
+      "baseline": {
+        "exit_code": 0,
+        "peak_rss_bytes": 11350392832,
+        "phases": {
+          "load": {
+            "seconds": 0.37385740800527856,
+            "peak_rss_bytes": 3629969408,
+            "start_rss_bytes": 213766144
+          },
+          "accumulation": {
+            "seconds": 1.3258273440005723,
+            "peak_rss_bytes": 4630888448,
+            "start_rss_bytes": 3629969408
+          },
+          "drainageBasins": {
+            "seconds": 111.99510044300405,
+            "peak_rss_bytes": 11350392832,
+            "start_rss_bytes": 3629969408,
+            "mode": "default"
+          }
+        }
+      },
+      "baseline_result": {
+        "sha256": "aa2b46280f5a9aa1338a045c02ee2e2fc6928c8f7302bab6e74e5fcc78caea5c",
+        "dtype": "int64",
+        "shape": [
+          14448,
+          16627
+        ],
+        "max_id": 13
+      },
+      "optimized_runs": [
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "default",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.515591214003507,
+              "peak_rss_bytes": 3673346048,
+              "start_rss_bytes": 259108864
+            },
+            "accumulation": {
+              "seconds": 1.4043197850114666,
+              "peak_rss_bytes": 4634255360,
+              "start_rss_bytes": 3673346048
+            },
+            "drainageBasins": {
+              "seconds": 3.6621056639996823,
+              "peak_rss_bytes": 5462601728,
+              "start_rss_bytes": 3673346048
+            }
+          },
+          "result": {
+            "sha256": "aa2b46280f5a9aa1338a045c02ee2e2fc6928c8f7302bab6e74e5fcc78caea5c",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 13,
+            "compared": true
+          }
+        },
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "default",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.44171781100158114,
+              "peak_rss_bytes": 3674308608,
+              "start_rss_bytes": 260071424
+            },
+            "accumulation": {
+              "seconds": 1.0630267280066619,
+              "peak_rss_bytes": 4635217920,
+              "start_rss_bytes": 3674308608
+            },
+            "drainageBasins": {
+              "seconds": 3.932507136996719,
+              "peak_rss_bytes": 5463564288,
+              "start_rss_bytes": 3674308608
+            }
+          },
+          "result": {
+            "sha256": "aa2b46280f5a9aa1338a045c02ee2e2fc6928c8f7302bab6e74e5fcc78caea5c",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 13,
+            "compared": true
+          }
+        },
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "default",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.45779237199167255,
+              "peak_rss_bytes": 3669684224,
+              "start_rss_bytes": 255447040
+            },
+            "accumulation": {
+              "seconds": 1.1340090080047958,
+              "peak_rss_bytes": 4630593536,
+              "start_rss_bytes": 3669684224
+            },
+            "drainageBasins": {
+              "seconds": 3.0051712179993046,
+              "peak_rss_bytes": 5458833408,
+              "start_rss_bytes": 3669684224
+            }
+          },
+          "result": {
+            "sha256": "aa2b46280f5a9aa1338a045c02ee2e2fc6928c8f7302bab6e74e5fcc78caea5c",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 13,
+            "compared": true
+          }
+        }
+      ],
+      "median_seconds": 3.6621056639996823,
+      "speedup": 30.58215975141611,
+      "max_peak_rss_bytes": 5463564288,
+      "peak_rss_reduction_percent": 51.86453571371863,
+      "labels_exact": true
+    },
+    "seeded": {
+      "baseline": {
+        "exit_code": 0,
+        "peak_rss_bytes": 3804561408,
+        "phases": {
+          "load": {
+            "seconds": 0.4369440730079077,
+            "peak_rss_bytes": 3576385536,
+            "start_rss_bytes": 215302144
+          },
+          "drainageBasins": {
+            "seconds": 49.688831339008175,
+            "peak_rss_bytes": 3804487680,
+            "start_rss_bytes": 3576385536,
+            "mode": "seeded"
+          }
+        }
+      },
+      "baseline_result": {
+        "sha256": "29fb7803a55864be0bbce48109b559d840973bad4c42d589d13eaab96b9a155e",
+        "dtype": "int64",
+        "shape": [
+          14448,
+          16627
+        ],
+        "max_id": 20
+      },
+      "optimized_runs": [
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "seeded",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.4422822409978835,
+              "peak_rss_bytes": 3674173440,
+              "start_rss_bytes": 259932160
+            },
+            "drainageBasins": {
+              "seconds": 0.25763536599697545,
+              "peak_rss_bytes": 3846209536,
+              "start_rss_bytes": 3674238976
+            }
+          },
+          "result": {
+            "sha256": "29fb7803a55864be0bbce48109b559d840973bad4c42d589d13eaab96b9a155e",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 20,
+            "compared": true
+          }
+        },
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "seeded",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.4121864080079831,
+              "peak_rss_bytes": 3672457216,
+              "start_rss_bytes": 258215936
+            },
+            "drainageBasins": {
+              "seconds": 0.267658910001046,
+              "peak_rss_bytes": 3848687616,
+              "start_rss_bytes": 3672522752
+            }
+          },
+          "result": {
+            "sha256": "29fb7803a55864be0bbce48109b559d840973bad4c42d589d13eaab96b9a155e",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 20,
+            "compared": true
+          }
+        },
+        {
+          "exit_code": 0,
+          "reference_ref": null,
+          "mode": "seeded",
+          "min_area": 0.005,
+          "warmup": true,
+          "phases": {
+            "load": {
+              "seconds": 0.4475588610075647,
+              "peak_rss_bytes": 3673571328,
+              "start_rss_bytes": 259334144
+            },
+            "drainageBasins": {
+              "seconds": 0.2739403099985793,
+              "peak_rss_bytes": 3845607424,
+              "start_rss_bytes": 3673636864
+            }
+          },
+          "result": {
+            "sha256": "29fb7803a55864be0bbce48109b559d840973bad4c42d589d13eaab96b9a155e",
+            "dtype": "int64",
+            "shape": [
+              14448,
+              16627
+            ],
+            "max_id": 20,
+            "compared": true
+          }
+        }
+      ],
+      "median_seconds": 0.267658910001046,
+      "speedup": 185.64235854810136,
+      "max_peak_rss_bytes": 3848687616,
+      "peak_rss_reduction_percent": -1.161784180097536,
+      "labels_exact": true
+    }
+  },
+  "cold_default": {
+    "exit_code": 0,
+    "reference_ref": null,
+    "mode": "default",
+    "min_area": 0.005,
+    "warmup": false,
+    "phases": {
+      "load": {
+        "seconds": 0.3919420860038372,
+        "peak_rss_bytes": 3631153152,
+        "start_rss_bytes": 216621056
+      },
+      "accumulation": {
+        "seconds": 1.423846007004613,
+        "peak_rss_bytes": 4634394624,
+        "start_rss_bytes": 3631153152
+      },
+      "drainageBasins": {
+        "seconds": 3.8469539639918366,
+        "peak_rss_bytes": 5468909568,
+        "start_rss_bytes": 3631153152
+      }
+    },
+    "result": {
+      "sha256": "aa2b46280f5a9aa1338a045c02ee2e2fc6928c8f7302bab6e74e5fcc78caea5c",
+      "dtype": "int64",
+      "shape": [
+        14448,
+        16627
+      ],
+      "max_id": 13,
+      "compared": true
+    }
+  },
+  "validation": {
+    "tests_passed": 134,
+    "subtests_passed": 465,
+    "warnings": 31
+  }
+}

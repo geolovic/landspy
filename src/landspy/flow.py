@@ -10,7 +10,7 @@
 # Version: 1.0
 # December 26, 2017
 #
-# Last modified September 25, 2018
+# Last modified: 2026-10-16 11:38:32 CEST (Europe/Madrid).
 
 import numpy as np
 from osgeo import gdal
@@ -18,6 +18,7 @@ gdal.UseExceptions()
 from scipy import ndimage
 from ._dijkstra import cost_distances, flat_distances
 from ._network_kernels import accumulate
+from ._basins import label_basins, outlet_mask
 from ._receivers import receiver_indices
 from scipy.sparse import csc_matrix
 from . import Grid, PRaster, DEM
@@ -356,7 +357,9 @@ class Flow(PRaster):
         # Si no especificamos outlets pero si area minima, extraemos outlets con ese area minima
         if outlets is None and min_area > 0:
             threshold = int(self.getNCells() * min_area)
-            inds = self.streamPoi(threshold, kind="outlets", coords="IND")
+            fac = self.flowAccumulation(nodata=False, asgrid=False)
+            inds = np.flatnonzero(outlet_mask(self._ix, self._ixc, fac.ravel(), threshold))
+            del fac
             basin_ids = np.arange(inds.size) + 1
         
         elif isinstance(outlets, np.ndarray):
@@ -378,30 +381,8 @@ class Flow(PRaster):
         else:
             inds = np.array([])
             
-        # If outlets are not specified, all the basins will be extracted
-        if inds.size == 0:
-            temp_ix = self._ix
-            temp_ixc = self._ixc
-            nbasins = 0
-            basin_arr = np.zeros(self.getNCells(), np.int64)
-            nix = len(temp_ix)
-            for n in range(nix-1,-1,-1):
-                # If receiver is zero, add a new basin
-                if basin_arr[temp_ixc[n]] == 0:
-                    nbasins += 1
-                    basin_arr[temp_ixc[n]] = nbasins
-                # Mark basin giver with the id of the basin receiver
-                basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
-            
-        # Outlets coordinates are provided (inds array)
-        else:
-            # Check if all outlets are inside the grid
-            row, col = self.indToCell(inds)
-            xi, yi = self.cellToXY(row, col)
-            temp_ix = self._ix
-            temp_ixc = self._ixc
-            basin_arr = np.zeros(self.getNCells(), np.int64)
-
+        basin_arr = np.zeros(self.getNCells(), np.int64)
+        if inds.size:
             # Change basin array outlets by the basin id (starting to 1)
             if inds.size == 1:
                 basin_arr[inds] = 1
@@ -409,13 +390,8 @@ class Flow(PRaster):
                 for n in range(inds.size):
                     basin_arr[inds[n]] = basin_ids[n]
                 
-            nix = len(temp_ix)
-            # Loop by all the sorted cells
-            for n in range(nix-1,-1,-1):
-                # If the basin receiver is not Zero and basin giver is zero
-                if (basin_arr[temp_ixc[n]] != 0) & (basin_arr[temp_ix[n]] == 0):
-                    # Mark giver with the basin id of the receiver
-                    basin_arr[temp_ix[n]] = basin_arr[temp_ixc[n]]
+        # No seeds retains the existing fallback to labeling every basin.
+        label_basins(self._ix, self._ixc, basin_arr, inds.size == 0)
         
         # Reshape and return
         basin_arr = basin_arr.reshape(self.getDims())  
