@@ -10,7 +10,7 @@
 # Version: 1.1
 # October 1th, 2018
 #
-# Last modified: 2026-10-16 11:19:50 CEST (Europe/Madrid).
+# Last modified: 2026-10-19 10:46:34 CEST (Europe/Madrid).
 
 import numpy as np
 import os
@@ -19,6 +19,7 @@ from scipy.sparse import csc_matrix
 
 from . import Grid, PRaster, Basin
 from ._network_kernels import channel_mask, receiver_positions, edge_lengths, downstream_sums
+from ._gradients import compact_topology, fit_window, gradient_traversal, reference_fit
 
 # This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
 # If matplotlib is not imported, BNetwork.chi_plot() will not work.
@@ -109,8 +110,12 @@ class Network(PRaster):
         
         # Calculate slopes and ksn
         if gradients:
-            self.calculateGradients(npoints, 'slp')
-            self.calculateGradients(npoints, 'ksn')
+            if (getattr(self.calculateGradients, '__func__', None) is _DEFAULT_CALCULATE_GRADIENTS
+                    and getattr(self.polynomial_fit, '__func__', None) is _DEFAULT_POLYNOMIAL_FIT):
+                self._calculate_gradients(npoints, 'slp', both=True)
+            else:
+                self.calculateGradients(npoints, 'slp')
+                self.calculateGradients(npoints, 'ksn')
         else:
             self._slp = np.zeros(self._ix.size)
             self._r2slp = np.zeros(self._ix.size)
@@ -244,164 +249,54 @@ class Network(PRaster):
         self._thetaref = thetaref
    
     def polynomial_fit(self, x, y):
-        '''Calculate gradient and R2 for two variables''' 
-       
-        # Calculate slope of central cell by regression 
-        poli, SCR = np.polyfit(x, y, deg = 1, full = True)[:2]
-        # Calculate gradient
-        g = poli[0]
-        if g < 0.001: 
-            g = 0.001
-    
-        # Calculate R2 
-        if y.size * y.var() == 0:
-            R2 = 1 # Puntos colineares
-        else:
-            R2 = float(1 - SCR[0]/(y.size * y.var()))
-    
-        return (g, R2)  
-    
-    def calculateGradients(self, npoints, kind='slp'):
-        """
-        This function calculates gradients (slope or ksn) for all channel cells. 
-        Gradients of each cell are calculated by linear regression using a number
-        of points (npoints) up and downstream.
-        
-        Parameters:
-        ===========
-        npoints : *int*
-          Window to analyze slopes. Slopes are calculated by linear regression using a window
-          of (npoints * 2 + 1) pixels (using the central pixel)
-          
-        kind : *str* {'slp', 'ksn'}
-          Kind of gradient to calculate Slope (slp) or Ksn (ksn)
-        """
+        """Return the linear gradient and R2 using a centered float64 fit.
 
-        winlen = npoints * 2 + 1
-        
-        # Get arrays depending on type
-        y_arr = self._zx
-        if kind == 'ksn':
-            x_arr = self._chi
+        Ill-conditioned, nonfinite and undersized windows retain the original
+        numpy.polyfit behavior. Gradients below 0.001 are set to 0.001.
+        """
+        x = np.asarray(x, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+        if x.ndim != 1 or y.ndim != 1 or x.size != y.size:
+            return reference_fit(x, y)
+        return fit_window(x, y)
+
+    def calculateGradients(self, npoints, kind='slp'):
+        """Calculate slope or ksn and R2 on the existing channel windows.
+
+        Parameters
+        ----------
+        npoints : int
+            Points upstream/downstream; the target window has 2*npoints+1 cells.
+            Windows grow and shrink near heads and outlets as in the original
+            traversal. Higher heads take precedence at confluences.
+        kind : str
+            'ksn' regresses elevation on chi; other values use outlet distance.
+
+        Temporary storage scales with channel cells, including terminal outlets,
+        rather than the number of cells in the DEM. Overridden polynomial_fit
+        methods are honored through the same compact traversal in Python.
+        """
+        self._calculate_gradients(npoints, kind)
+
+    def _calculate_gradients(self, npoints, kind, both=False):
+        receivers, heads = compact_topology(self._ix, self._ixc, self._zx)
+        x = self._chi if kind == 'ksn' else self._dx
+        regular_fit = getattr(self.polynomial_fit, '__func__', None) is _DEFAULT_POLYNOMIAL_FIT
+        traversal = gradient_traversal if regular_fit else gradient_traversal.py_func
+        if regular_fit:
+            fit = fit_window
         else:
-            x_arr = self._dx
-            
-        # Get ixcix auxiliar array
-        ixcix = np.zeros(self.getNCells(), np.int64)
-        ixcix[self._ix] = np.arange(self._ix.size)
-        
-        # Get heads array and confluences dictionary
-        heads = self.streamPoi("heads", "IND")
-        #confs = {conf:[] for conf in self.get_stream_poi("confluences", "IND")}
-        
-        # Sort heads by elevation
-        elev = self._zx[ixcix[heads]]
-        spos = np.argsort(-elev)
-        heads = heads[spos]
-        
-        # Prepare auxiliary arrays
-        gi = np.zeros(self.getNCells())
-        r2 = np.zeros(self.getNCells())
-        
-        # Taking sequentally all the heads and compute downstream flow
-        for head in heads:
-            processing = True
-            head_cell = head
-            mid_cell = self._ixc[ixcix[head_cell]]
-            mouth_cell = self._ixc[ixcix[mid_cell]]
-            win = [mouth_cell, mid_cell, head_cell]
-            
-            if ixcix[mid_cell] == 0 or gi[mid_cell] != 0:
-                # Channel type 2 (mid_cell is an outlet) or mid_cell is already calculated
-                continue
-            
-            elif ixcix[mouth_cell]== 0:
-                # Channel type 3 (mouth_cell is an outlet)
-                processing = False
-                win = [mid_cell, mid_cell, head_cell]
-                
-            # Obtenemos datos de elevacion y distancias
-            xi = x_arr[ixcix[win]]
-            yi = y_arr[ixcix[win]]
-           
-            g, R2 = self.polynomial_fit(xi, yi)
-        
-            gi[mid_cell] = g
-            r2[mid_cell] = R2
-            
-            in_outlet = False
-                
-            while processing:
-                # Verificamos si estamos al final (en un outlet)  
-                if not in_outlet:
-                    # Si mouth_cell no es un outlet, cogemos siguiente celda
-                    next_cell = self._ixc[ixcix[mouth_cell]]
-                    # Si la siguiente celda es el final, 
-                    # añadimos una celda y eliminamos la cabecera
-                    if ixcix[next_cell]==0:
-                        win.insert(0, next_cell)
-                        win.pop()
-                    # Si longitud de ventana < winlen, se añaden dos celdas 
-                    elif len(win) < winlen:
-                        win.insert(0, next_cell)
-                        aux_cell = self._ixc[ixcix[next_cell]]
-                        win.insert(0, aux_cell)
-                    else:
-                        win.insert(0, next_cell)
-                        win.pop() 
-                else:
-                    # Si mouth_cell es un outlet, no se coge siguiente celda
-                    next_cell = mouth_cell
-                    win.pop()
-                    win.pop()
-                
-                head_cell = win[-1]
-                mid_cell = self._ixc[ixcix[mid_cell]]
-                mouth_cell = win[0]
-            
-                # Verificamos si mouth_cell es un outlet
-                if ixcix[mouth_cell] == 0:
-                    in_outlet = True
-                    # Si mouth_cell es un outlet, hay que eliminarla de la ventana
-                    # puesto que ixcix[mouth_cell] será la posición 0 del array ._ix
-                    win[0] = win[1]    
-            
-                if len(win) <= 3:
-                    processing = False
-                    
-                # Obtenemos datos de elevacion y distancias para calcular pendientes
-                xi = x_arr[ixcix[win]]
-                yi = y_arr[ixcix[win]]
-                
-                g, R2 = self.polynomial_fit(xi, yi)
-                            
-                # Comprobamos si celda central ha sido procesada
-                if gi[mid_cell] == 0:
-                    gi[mid_cell] = g
-                    r2[mid_cell] = R2
-                else:
-                    # Si ha sido procesada, es una confluencia 
-                    processing = False
-        #             if len(confs[mid_cell]) == 0:
-        #                 confs[mid_cell].append(gi[mid_cell])
-        #                 confs[mid_cell].append(g)
-        #             else:
-        #                 confs[mid_cell].append(g)
-                        
-        # # Calculamos valores medios en confluencias                
-        # for cell in confs.keys():
-        #     if len(confs[cell]) > 0:
-        #         gi[cell] = np.mean(np.array(confs[cell]))
-                
-        # Llenamos array del objeto Network
+            # Preserve the independent window arrays supplied to custom fits.
+            fit = lambda x, y: self.polynomial_fit(x.copy(), y.copy())
+        second_x = self._chi if both else np.empty(0, dtype=np.float64)
+        gradients, r2, second, second_r2 = traversal(
+            receivers, heads, x, self._zx, npoints, fit, second_x, both, regular_fit)
         if kind == 'ksn':
-            self._ksn = gi[self._ix]
-            self._r2ksn = r2[self._ix]
-            self._ksn_np = npoints
+            self._ksn, self._r2ksn, self._ksn_np = gradients, r2, npoints
         else:
-            self._slp = gi[self._ix]
-            self._r2slp = r2[self._ix]
-            self._slp_np = npoints
+            self._slp, self._r2slp, self._slp_np = gradients, r2, npoints
+        if both:
+            self._ksn, self._r2ksn, self._ksn_np = second, second_r2, npoints
 
     def hierarchy_channels(self, heads="", asgrid=True):
         """
@@ -1082,6 +977,11 @@ class Network(PRaster):
         
         layer = None
         dataset = None
+
+
+# Keep public overrides and monkey-patches observable through the compact path.
+_DEFAULT_POLYNOMIAL_FIT = Network.polynomial_fit
+_DEFAULT_CALCULATE_GRADIENTS = Network.calculateGradients
 
 
 class BNetwork(Network):

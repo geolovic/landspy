@@ -1,7 +1,5 @@
 # Instrucciones para agentes
 
-Última modificación: 2026-10-16 11:17:37 CEST (Europe/Madrid).
-
 Estas instrucciones se aplican a todo el repositorio, incluidos sus subdirectorios.
 
 ## Commits
@@ -16,7 +14,7 @@ Estas instrucciones se aplican a todo el repositorio, incluidos sus subdirectori
 
 ## Fecha y hora de modificación
 
-- Cada vez que modifiques un archivo, registra en su documentación la fecha y hora de modificación.
+- Solo cuando modifiques archivos de código (incluidos scripts y pruebas), registra en su documentación la fecha y hora de modificación.
+- No añadas ni actualices registros de fecha y hora en ningún otro tipo de archivo, como documentación, instrucciones, configuración, datos o resultados. Tampoco crees registros en documentación asociada para esos archivos.
 - Utiliza el formato `AAAA-MM-DD HH:MM:SS` e indica la zona horaria `Europe/Madrid` y su abreviatura correspondiente (CET o CEST).
-- Actualiza la anotación existente de última modificación; si no existe, añádela en la cabecera de documentación o en un comentario adecuado al formato del archivo.
-- Si el formato no admite comentarios ni documentación interna, registra la modificación en la documentación asociada e identifica el archivo.
+- En los archivos de código, actualiza la anotación existente de última modificación; si no existe, añádela en la cabecera de documentación o en un comentario adecuado al lenguaje.
