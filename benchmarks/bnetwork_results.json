@@ -1,0 +1,213 @@
+{
+  "baseline_commit": "7dd9a20",
+  "input": {
+    "dem_cells": 240226896,
+    "threshold": 1500,
+    "bid": 4,
+    "network_nodes": 3405387,
+    "basin_network_nodes": 83286,
+    "basin_raster_cells": 7437000,
+    "channels": 779,
+    "basins": "/workspace/output/cuencas_puntos_1500/cuencas.tif"
+  },
+  "runs": {
+    "baseline": [
+      {
+        "exit_code": 0,
+        "bid": 4,
+        "reference_ref": "7dd9a20",
+        "peak_rss_bytes": 8787009536,
+        "phases": {
+          "constructor": {
+            "seconds": 3.8972336300066672,
+            "start_rss_bytes": 929411072,
+            "peak_rss_bytes": 8787009536,
+            "nodes": 83286,
+            "raster_cells": 7437000
+          },
+          "all_channels": {
+            "seconds": 1.855441530002281,
+            "start_rss_bytes": 951865344,
+            "peak_rss_bytes": 1261674496,
+            "channels": 779
+          },
+          "single_channel": {
+            "seconds": 1.8828207260085037,
+            "start_rss_bytes": 986587136,
+            "peak_rss_bytes": 1245421568
+          }
+        },
+        "digest": "9b9b8e3b660f01d044b49b440e46c943099f8e8d9697adec116157de3e98be1f"
+      },
+      {
+        "exit_code": 0,
+        "bid": 4,
+        "reference_ref": "7dd9a20",
+        "peak_rss_bytes": 8790691840,
+        "phases": {
+          "constructor": {
+            "seconds": 3.792933661999996,
+            "start_rss_bytes": 929378304,
+            "peak_rss_bytes": 8790691840,
+            "nodes": 83286,
+            "raster_cells": 7437000
+          },
+          "all_channels": {
+            "seconds": 1.7430549609998707,
+            "start_rss_bytes": 951963648,
+            "peak_rss_bytes": 1257459712,
+            "channels": 779
+          },
+          "single_channel": {
+            "seconds": 1.8445180779963266,
+            "start_rss_bytes": 986611712,
+            "peak_rss_bytes": 1280360448
+          }
+        },
+        "digest": "9b9b8e3b660f01d044b49b440e46c943099f8e8d9697adec116157de3e98be1f"
+      },
+      {
+        "exit_code": 0,
+        "bid": 4,
+        "reference_ref": "7dd9a20",
+        "peak_rss_bytes": 8790863872,
+        "phases": {
+          "constructor": {
+            "seconds": 3.7210749509977177,
+            "start_rss_bytes": 929415168,
+            "peak_rss_bytes": 8790863872,
+            "nodes": 83286,
+            "raster_cells": 7437000
+          },
+          "all_channels": {
+            "seconds": 1.656831599000725,
+            "start_rss_bytes": 951934976,
+            "peak_rss_bytes": 1218207744,
+            "channels": 779
+          },
+          "single_channel": {
+            "seconds": 1.603135759010911,
+            "start_rss_bytes": 986648576,
+            "peak_rss_bytes": 1250607104
+          }
+        },
+        "digest": "9b9b8e3b660f01d044b49b440e46c943099f8e8d9697adec116157de3e98be1f"
+      }
+    ],
+    "optimized": [
+      {
+        "exit_code": 0,
+        "bid": 4,
+        "reference_ref": null,
+        "peak_rss_bytes": 1120071680,
+        "phases": {
+          "constructor": {
+            "seconds": 0.21099332701123785,
+            "start_rss_bytes": 976130048,
+            "peak_rss_bytes": 1120071680,
+            "nodes": 83286,
+            "raster_cells": 7437000
+          },
+          "all_channels": {
+            "seconds": 0.044824062002589926,
+            "start_rss_bytes": 993746944,
+            "peak_rss_bytes": 997691392,
+            "channels": 779
+          },
+          "single_channel": {
+            "seconds": 0.02674258300976362,
+            "start_rss_bytes": 997748736,
+            "peak_rss_bytes": 1000361984
+          }
+        },
+        "digest": "9b9b8e3b660f01d044b49b440e46c943099f8e8d9697adec116157de3e98be1f"
+      },
+      {
+        "exit_code": 0,
+        "bid": 4,
+        "reference_ref": null,
+        "peak_rss_bytes": 1119854592,
+        "phases": {
+          "constructor": {
+            "seconds": 0.20915098799741827,
+            "start_rss_bytes": 975912960,
+            "peak_rss_bytes": 1119854592,
+            "nodes": 83286,
+            "raster_cells": 7437000
+          },
+          "all_channels": {
+            "seconds": 0.05637594900326803,
+            "start_rss_bytes": 993595392,
+            "peak_rss_bytes": 997675008,
+            "channels": 779
+          },
+          "single_channel": {
+            "seconds": 0.0243341169989435,
+            "start_rss_bytes": 997732352,
+            "peak_rss_bytes": 1000341504
+          }
+        },
+        "digest": "9b9b8e3b660f01d044b49b440e46c943099f8e8d9697adec116157de3e98be1f"
+      },
+      {
+        "exit_code": 0,
+        "bid": 4,
+        "reference_ref": null,
+        "peak_rss_bytes": 1119924224,
+        "phases": {
+          "constructor": {
+            "seconds": 0.20936488499864936,
+            "start_rss_bytes": 975982592,
+            "peak_rss_bytes": 1119924224,
+            "nodes": 83286,
+            "raster_cells": 7437000
+          },
+          "all_channels": {
+            "seconds": 0.04415208600403275,
+            "start_rss_bytes": 993730560,
+            "peak_rss_bytes": 997683200,
+            "channels": 779
+          },
+          "single_channel": {
+            "seconds": 0.026462698995601386,
+            "start_rss_bytes": 997736448,
+            "peak_rss_bytes": 1000345600
+          }
+        },
+        "digest": "9b9b8e3b660f01d044b49b440e46c943099f8e8d9697adec116157de3e98be1f"
+      }
+    ]
+  },
+  "summary": {
+    "constructor": {
+      "baseline": {
+        "median_seconds": 3.792933661999996,
+        "max_peak_rss_bytes": 8790863872
+      },
+      "optimized": {
+        "median_seconds": 0.20936488499864936,
+        "max_peak_rss_bytes": 1120071680
+      }
+    },
+    "all_channels": {
+      "baseline": {
+        "median_seconds": 1.7430549609998707,
+        "max_peak_rss_bytes": 1261674496
+      },
+      "optimized": {
+        "median_seconds": 0.044824062002589926,
+        "max_peak_rss_bytes": 997691392
+      }
+    },
+    "single_channel": {
+      "baseline": {
+        "median_seconds": 1.8445180779963266,
+        "max_peak_rss_bytes": 1280360448
+      },
+      "optimized": {
+        "median_seconds": 0.026462698995601386,
+        "max_peak_rss_bytes": 1000361984
+      }
+    }
+  }
+}

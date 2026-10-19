@@ -10,15 +10,16 @@
 # Version: 1.1
 # October 1th, 2018
 #
-# Last modified: 2026-10-19 10:46:34 CEST (Europe/Madrid).
+# Last modified: 2026-10-19 11:56:48 CEST (Europe/Madrid).
 
 import numpy as np
 import os
+import operator
 from osgeo import ogr, osr
 from scipy.sparse import csc_matrix
 
 from . import Grid, PRaster, Basin
-from ._network_kernels import channel_mask, receiver_positions, edge_lengths, downstream_sums
+from ._network_kernels import channel_mask, receiver_positions, edge_lengths, downstream_sums, basin_channel_path
 from ._gradients import compact_topology, fit_window, gradient_traversal, reference_fit
 
 # This import statement avoid issues with matplotlib in Mac when using Python not as a Framework
@@ -1011,41 +1012,50 @@ class BNetwork(Network):
             self._load(net)
         
         else: 
-            # Get a basin grid with net dimensions (basin cells will set to 1)
+            # Keep the basin in its own grid; never expand a cropped Basin to
+            # the parent DEM or copy a full-sized labelled Grid.
             if isinstance(basingrid, Basin):
-                basin = np.zeros(net.getDims(), dtype=np.int8)
-                x = basingrid.getGeot()[0] + (basingrid.getGeot()[1]/2)
-                y = basingrid.getGeot()[3] + (basingrid.getGeot()[5]/2)
-                row, col = net.xyToCell(x, y)
-                arr = np.where(basingrid.readArray()==basingrid.getNodata(), 0, 1)
-                basin[row:row+basingrid.getDims()[0], col:col+basingrid.getDims()[1]] = arr        
-            
+                values = basingrid.readArray()
+                row0, col0 = net.xyToCell(
+                    basingrid._geot[0] + basingrid._geot[1] / 2,
+                    basingrid._geot[3] + basingrid._geot[5] / 2)
+                matches = lambda block: block != basingrid.getNodata()
             elif isinstance(basingrid, Grid):
-                basin = np.where(basingrid.readArray()==bid, 1, 0)
-                basingrid = basingrid.copy()
-                basingrid.setArray(basin)
-                basingrid.setNodata(0)
-            
-            # Get limits for the input basin
-            c1 = basin.max(axis=0).argmax()
-            r1 = basin.max(axis=1).argmax()
-            c2 = basin.shape[1] - np.fliplr(basin).max(axis=0).argmax()
-            r2 = basin.shape[0] - np.flipud(basin).max(axis=1).argmax()
-            
-            # Cut basin by those limits
-            basin_cl = basin[r1:r2, c1:c2]
-            
+                values = basingrid.readArray()
+                row0, col0 = 0, 0
+                matches = lambda block: block == bid
+            else:
+                raise NetworkError("A Basin or Grid is required")
+
+            # Find the bounding box with bounded boolean scratch space.
+            r1, c1 = values.shape
+            r2 = c2 = 0
+            block_rows = max(1, 1048576 // values.shape[1])
+            for offset in range(0, values.shape[0], block_rows):
+                mask = matches(values[offset:offset + block_rows])
+                rows = np.flatnonzero(mask.any(axis=1))
+                if rows.size:
+                    cols = np.flatnonzero(mask.any(axis=0))
+                    r1 = min(r1, offset + rows[0])
+                    r2 = offset + rows[-1] + 1
+                    c1 = min(c1, cols[0])
+                    c2 = max(c2, cols[-1] + 1)
+            if r2 == 0:
+                self._create_empty()
+                return
+            crop_dims = (int(r2 - r1), int(c2 - c1))
+            r1, c1 = r1 + row0, c1 + col0
+
             # Create Grid
-            self._size = (basin_cl.shape[1], basin_cl.shape[0])
-            self._dims = (basin_cl.shape[0], basin_cl.shape[1])
+            self._size = (crop_dims[1], crop_dims[0])
+            self._dims = (crop_dims[0], crop_dims[1])
             geot = net._geot
             ULx = geot[0] + geot[1] * c1
             ULy = geot[3] + geot[5] * r1
             self._geot = (ULx, geot[1], 0.0, ULy, 0.0, geot[5])
             self._cellsize = (geot[1], geot[5])
             self._proj = basingrid._proj
-            self._ncells = basin_cl.size
-            self._ncells = basin_cl.size
+            self._ncells = crop_dims[0] * crop_dims[1]
             self._threshold = net._threshold
             self._thetaref = net._thetaref
             self._slp_np = net._slp_np
@@ -1054,36 +1064,27 @@ class BNetwork(Network):
             # Get only points inside the basin
             # The last receiver (ixc) will be outside of the basin
             # This can give index problems. We will throw away the last point in arrays
-            basin_bool = basin.astype("bool").ravel()
-            I = basin_bool[net._ix]
-            self._ax = net._ax[I][:-1]
-            self._zx = net._zx[I][:-1]
-            self._dd = net._dd[I][:-1]
-            self._dx = net._dx[I][:-1]
-            self._chi = net._chi[I][:-1]
-            self._slp = net._slp[I][:-1]
-            self._ksn = net._ksn[I][:-1]
-            self._r2slp = net._r2slp[I][:-1]
-            self._r2ksn = net._r2ksn[I][:-1]
-            
+            rows, cols = net.indToCell(net._ix)
+            rows, cols = rows - row0, cols - col0
+            inside = ((rows >= 0) & (rows < values.shape[0]) &
+                      (cols >= 0) & (cols < values.shape[1]))
+            selected = np.flatnonzero(inside)
+            selected = selected[matches(values[rows[selected], cols[selected]])][:-1]
+            for name in ("_ax", "_zx", "_dd", "_dx", "_chi", "_slp",
+                         "_ksn", "_r2slp", "_r2ksn"):
+                setattr(self, name, getattr(net, name)[selected])
+
             # If Network object has less than 3 pixels, return an empty BNetwork
             if self._ax.size < 3:
                 self._create_empty()
                 return
             
             # Get new indices for the new grid
-            ix = net._ix[I][:-1]
-            ixc = net._ixc[I][:-1]
-            # Givers (ix)
-            row, col = net.indToCell(ix)
-            x, y = net.cellToXY(row, col)
-            newrow, newcol = self.xyToCell(x, y)
-            self._ix = self.cellToInd(newrow, newcol)
-            # Receivers (ixc)
-            row, col = net.indToCell(ixc)
-            x, y = net.cellToXY(row, col)
-            newrow, newcol = self.xyToCell(x, y)
-            self._ixc = self.cellToInd(newrow, newcol)
+            # The cropped grid shares the parent cell lattice: integer offsets
+            # avoid coordinate arrays and floating-point round trips.
+            for name in ("_ix", "_ixc"):
+                rows, cols = net.indToCell(getattr(net, name)[selected])
+                setattr(self, name, self.cellToInd(rows - r1, cols - c1))
             self._heads = np.array([])
            
             if heads is not None:
@@ -1093,7 +1094,9 @@ class BNetwork(Network):
                     heads = heads[pos]
                 
                 # Get heads inside the basin (taking into account nodata)
-                heads = heads[basingrid.isInside(heads[:,0], heads[:,1], True)]
+                heads = heads[basingrid.isInside(heads[:,0], heads[:,1], False)]
+                hrows, hcols = basingrid.xyToCell(heads[:, 0], heads[:, 1])
+                heads = heads[matches(values[hrows, hcols])]
                 
                 # Snap heads to network heads
                 heads = self.snapPoints(heads, "heads")                   
@@ -1108,12 +1111,16 @@ class BNetwork(Network):
                 self._heads = idx[pos]
                 
             if self._heads.size == 0:
-                heads = self.streamPoi("heads", "IND")
-                ixcix = np.zeros(self._ncells, np.int64)
-                ixcix[self._ix] = np.arange(self._ix.size)
-                pos = np.argsort(-self._zx[ixcix[heads]])
-                self._heads = heads[pos][0:1] #Take only the first (highest) head as a list
-            
+                heads, positions = self._basin_heads()
+                pos = np.argsort(-self._zx[positions])
+                self._heads = heads[pos][0:1]
+
+    def _basin_heads(self):
+        """Return heads in raster order and their compact giver positions."""
+        heads = np.setdiff1d(self._ix, self._ixc)
+        order = np.argsort(self._ix)
+        return heads, order[np.searchsorted(self._ix[order], heads)]
+
     def _load(self, path):
         """
         Loads a BNetwork instance saved in the disk.
@@ -1281,11 +1288,17 @@ class BNetwork(Network):
         Channel instance
 
         """
-        channels = self.getChannels(nchannels="ALL")
-        if id >= len(channels):
-            raise NetworkError("Index ERROR")
-        return channels[id]
-        
+        # Negative indices retain Python list semantics.
+        id = operator.index(id)
+        if id < 0:
+            count = self._basin_heads()[0].size
+            if id < -count:
+                raise IndexError("list index out of range")
+            id += count
+        for channel in self._iter_channels("ALL", target=id):
+            return channel
+        raise NetworkError("Index ERROR")
+
     def getChannels(self, nchannels=None, min_length=0):
         """
         Get all channels in the basin. 
@@ -1305,82 +1318,60 @@ class BNetwork(Network):
             List of landspy.Channel objects
 
         """
-        # Create auxiliary array to walk through the network cells
-        aux_arr = np.zeros(self.getNCells(), "int")
-        aux_arr.fill(-1)
-        ixcix = np.zeros(self.getNCells(), "int")
-        ixcix[self._ix] = np.arange(self._ix.size)
-        # Empty list for returned Channel objects
-        canales = []
+        return list(self._iter_channels(nchannels, min_length))
+
+    def _iter_channels(self, nchannels, min_length=0, target=None):
+        """Walk compact cell IDs, materializing only requested channels.
+
+        Owner assignments and the position-zero termination convention match
+        the original traversal, including channels rejected by min_length.
+        """
+        nodes = np.union1d(self._ix, self._ixc)
+        giver_nodes = np.searchsorted(nodes, self._ix)
+        receiver_nodes = np.searchsorted(nodes, self._ixc)
+        giver_positions = np.full(nodes.size, -1, dtype=np.int64)
+        giver_positions[giver_nodes] = np.arange(self._ix.size)
+        owners = np.full(nodes.size, -1, dtype=np.int64)
         getflow = False
-        
-        # If nchannels is None, only Channel main heads will be returned
-        if nchannels == None:
+        if nchannels is None:
             heads = self._heads
-       
-        # Else, generate all heads for the basin (keeping main heads firts)
         else:
-            # Get a list with all the heads and their elevations
-            heads = self.streamPoi("heads", "IND")
-            heads_z = self._zx[ixcix[heads]]
-            
-            # Sort heads by elevation (from highest to lowest)
-            sorted_heads = heads[np.argsort(-heads_z)]
-            
-            # Merge sorted heads and main Channel heads
+            # Reuse the compact lookup rather than sorting the givers again.
+            head_mask = giver_positions >= 0
+            head_mask[receiver_nodes] = False
+            head_nodes = np.flatnonzero(head_mask)
+            heads = nodes[head_nodes]
+            positions = giver_positions[head_nodes]
+            sorted_heads = heads[np.argsort(-self._zx[positions])]
             all_heads = np.append(self._heads, sorted_heads)
-            
-            # Remove duplicates
-            unique_val, unique_pos = np.unique(all_heads, return_index=True)
-            
-            # Sorted indexes (otherwise will be ordered according unique values)
-            pos = np.sort(unique_pos)
-            heads = all_heads[pos]
-            
-            # If nchannels == "ALL", return all the channels (also flow will be computed)
+            _, positions = np.unique(all_heads, return_index=True)
+            heads = all_heads[np.sort(positions)]
             if nchannels == "ALL":
                 nchannels = heads.size
                 getflow = True
-        
-        # Iterate heads and get Channels
         for idx, head in enumerate(heads[:nchannels]):
-            flowto = -1
-            chcells = [head]
-            aux_arr[head] = True
-            nextcell = self._ixc[ixcix[head]]
-            aux_arr[nextcell] = True
-            while ixcix[nextcell] != 0:
-                chcells.append(nextcell)
-                nextcell = self._ixc[ixcix[nextcell]]
-                if aux_arr[nextcell]==-1:
-                    aux_arr[nextcell] = idx
-                else:
-                    if getflow:
-                        flowto = aux_arr[nextcell]
-                    chcells.append(nextcell)
-                    break
-            
-            row, col = self.indToCell(chcells)
-            xi, yi = self.cellToXY(row, col)
-            auxarr = np.zeros(self.getNCells()).astype("bool")
-            auxarr[chcells] = True
-            I = auxarr[self._ix]
-            ai = self._ax[I]
-            zi = self._zx[I]
-            di = self._dx[I]
-            chi = self._chi[I]
-            dd = self._dd[I]
-            slp = self._slp[I]
-            ksn = self._ksn[I]
-            r2slp = self._r2slp[I]
-            r2ksn = self._r2ksn[I]
-            chandata = np.array([chcells, ai, di, zi,  chi, slp, ksn, r2slp, r2ksn, dd]).T
-            canal = Channel(self, chandata, self._thetaref, self._chi[-1], self._slp_np, self._ksn_np, str(idx), idx, flowto)
-            if canal.getLength() >= min_length:
-                canales.append(canal)
-            
-        return canales
-     
+            path, flowto = basin_channel_path(
+                np.searchsorted(nodes, head), receiver_nodes,
+                giver_positions, owners, idx)
+            if target is not None and idx != target:
+                continue
+            # Legacy attribute masks select in the original topological order.
+            positions = np.sort(giver_positions[path])
+            positions = positions[positions >= 0]
+            if not (self._dx[positions[0]] - self._dx[positions[-1]] >= min_length):
+                continue
+            chandata = np.empty((path.size, 10), dtype=np.float64)
+            chandata[:, 0] = nodes[path]
+            for column, name in enumerate(("_ax", "_dx", "_zx", "_chi",
+                                           "_slp", "_ksn", "_r2slp",
+                                           "_r2ksn", "_dd"), 1):
+                chandata[:, column] = getattr(self, name)[positions]
+            yield Channel(self, chandata, self._thetaref, self._chi[-1],
+                          self._slp_np, self._ksn_np, str(idx), idx,
+                          flowto if getflow else -1)
+            if target is not None:
+                return
+
 
 class Channel(PRaster):
 

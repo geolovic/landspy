@@ -1,6 +1,6 @@
 """Compiled topological traversals with channel-sized distance/chi storage."""
 
-# Last modified: 2026-10-16 11:19:50 CEST (Europe/Madrid).
+# Last modified: 2026-10-19 11:56:48 CEST (Europe/Madrid).
 
 import numpy as np
 from numba import njit
@@ -69,3 +69,23 @@ def downstream_sums(receivers, increments):
         downstream = values[receiver] if receiver >= 0 else 0.0
         values[n] = downstream + increments[n]
     return values
+
+
+@njit(cache=True)
+def basin_channel_path(head, receivers, giver_positions, owners, channel_id):
+    """Trace one legacy basin channel using only network-sized arrays."""
+    path = [head]
+    owners[head] = 1
+    next_node = receivers[giver_positions[head]]
+    owners[next_node] = 1
+    flowto = -1
+    while giver_positions[next_node] > 0:
+        path.append(next_node)
+        next_node = receivers[giver_positions[next_node]]
+        if owners[next_node] == -1:
+            owners[next_node] = channel_id
+        else:
+            flowto = owners[next_node]
+            path.append(next_node)
+            break
+    return np.asarray(path, dtype=np.int64), flowto
