@@ -1,4 +1,5 @@
 #   Licensed under the MIT License
+# Last modified: 2026-10-19 13:44:18 CEST (Europe/Madrid).
 
 import setuptools
 
@@ -7,7 +8,7 @@ with open("README.md", "r", encoding = "utf-8") as fh:
 
 setuptools.setup(
     name = "landspy",
-    version = "1.4.1",
+    version = "1.5",
     author = "J. Vicente Perez Pena",
     author_email = "geolovic@gmail.com",
     description = "Python library for landscape analysis with DEMs",

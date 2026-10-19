@@ -1,5 +1,6 @@
 include README.md LICENSE.txt pyproject.toml setup.py requirements.txt CHANGELOG.md
 recursive-include src/landspy *.py
+prune benchmarks
 prune tests
 prune docs
 prune .github
